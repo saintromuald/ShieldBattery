@@ -212,7 +212,7 @@ export function ReportGameDialog({
             {t(
               'gameReport.description',
               'Report a player for breaking the rules in this game. Reports are reviewed by ' +
-                'ShieldBattery staff.',
+                'HyperShield administrators.',
             )}
           </BodyLarge>
 

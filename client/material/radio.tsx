@@ -123,7 +123,7 @@ const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean; $de
 
   color: ${props => {
     if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
-    else if (props.$selected) return 'var(--theme-amber)'
+    else if (props.$selected) return 'var(--theme-primary)'
     else return 'var(--theme-on-surface-variant)'
   }};
 `

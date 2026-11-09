@@ -1,0 +1,10 @@
+**/.env
+**/.terraform/
+**/*.tfbackend
+**/*.tfstate
+**/*.tfstate.*
+**/google-credentials.json
+**/bw_sprite_data/
+**/data/
+**/backups/
+**/*.local.*

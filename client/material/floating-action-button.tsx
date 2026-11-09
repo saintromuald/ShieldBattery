@@ -17,9 +17,9 @@ const Root = styled.button`
   align-items: center;
   justify-content: center;
 
-  background-color: var(--theme-amber);
+  background-color: var(--theme-primary);
   border-radius: 50%;
-  color: var(--theme-on-amber-container);
+  color: var(--theme-on-primary);
   contain: content;
   --sb-ripple-color: #000000;
 

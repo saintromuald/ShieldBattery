@@ -32,7 +32,7 @@ const GlobalStyle = createGlobalStyle`
     ${inter};
     ${bodyMedium};
 
-    accent-color: var(--theme-amber);
+    accent-color: var(--theme-primary);
     font-optical-sizing: auto;
     font-weight: normal;
     color: var(--theme-on-surface);
@@ -72,12 +72,12 @@ const GlobalStyle = createGlobalStyle`
   }
 
   a:link, a:visited {
-    color: var(--color-amber70);
+    color: var(--theme-primary);
     text-decoration: none;
   }
 
   a:hover, a:active {
-    color: var(--color-amber80);
+    color: var(--color-green70);
     text-decoration: underline;
   }
 
@@ -86,7 +86,7 @@ const GlobalStyle = createGlobalStyle`
   }
 
   *:focus-visible {
-    outline-color: var(--theme-grey-blue);
+    outline-color: var(--theme-focus);
     outline-offset: 2px;
     outline-width: 3px;
   }
@@ -94,7 +94,7 @@ const GlobalStyle = createGlobalStyle`
   input:-webkit-autofill {
     box-shadow: 0 0 0px 1000px var(--theme-container-highest) inset !important;
     -webkit-text-fill-color: var(--theme-on-surface) !important;
-    caret-color: var(--theme-amber) !important;
+    caret-color: var(--theme-primary) !important;
   }
 
   /** Style default scrollbar (at least in Webkit-based browsers) */
@@ -105,9 +105,9 @@ const GlobalStyle = createGlobalStyle`
 
   *::-webkit-scrollbar-track {
     box-sizing: border-box;
-    background-color: rgb(from var(--color-grey-blue10) r g b / 80%);
+    background-color: rgb(from var(--theme-surface) r g b / 80%);
     border-radius: 4px;
-    border: 1px solid rgb(from var(--color-grey-blue30) r g b / 80%);
+    border: 1px solid rgb(from var(--color-amber40) r g b / 80%);
   }
 
   *::-webkit-scrollbar-thumb {
@@ -116,7 +116,7 @@ const GlobalStyle = createGlobalStyle`
     border: 2px solid transparent;
     margin-left: auto;
     margin-right: auto;
-    background-color: var(--color-grey-blue40);
+    background-color: var(--color-green40);
     background-clip: padding-box;
     /**
      * NOTE(tec27): This is more than the "usual" because it is inside of something that already
@@ -125,7 +125,7 @@ const GlobalStyle = createGlobalStyle`
     border-radius: 6px;
 
     &:hover, &:active {
-      background-color: var(--color-grey-blue50);
+      background-color: var(--color-green50);
     }
   }
 

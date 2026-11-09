@@ -236,7 +236,7 @@ export function AppReplaySettings() {
           onChange={onQuickOpenChange}
           label={t(
             'settings.app.replays.quickOpen',
-            'Launch replays opened with ShieldBattery immediately without previewing',
+            'Launch replays opened with HyperShield immediately without previewing',
           )}
           inputProps={{ tabIndex: 0 }}
         />

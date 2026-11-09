@@ -37,8 +37,8 @@ const FilterChipRoot = styled.button<{
   border: 1px solid
     ${props =>
       props.$highlighted ? 'rgb(from var(--theme-primary) r g b / 0.5)' : 'var(--theme-outline)'};
-  color: ${props => (props.$highlighted ? 'var(--color-blue80)' : 'var(--theme-on-surface)')};
-  outline-color: var(--theme-grey-blue);
+  color: ${props => (props.$highlighted ? 'var(--theme-primary)' : 'var(--theme-on-surface)')};
+  outline-color: var(--theme-focus);
 
   --sb-ripple-color: ${props =>
     props.$highlighted ? 'var(--theme-primary)' : 'var(--theme-on-surface)'};
@@ -59,7 +59,7 @@ const FilterChipRoot = styled.button<{
   }
 
   &:focus-visible {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `

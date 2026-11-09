@@ -5,6 +5,7 @@ import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesResponse,
+  isSoloType,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -40,11 +41,7 @@ export class MatchmakingPreferencesApi {
       throw new httpErrors.BadRequest('invalid matchmaking type')
     }
 
-    if (
-      (body.matchmakingType === MatchmakingType.Match1v1 ||
-        body.matchmakingType === MatchmakingType.Match1v1Fastest) &&
-      body.data
-    ) {
+    if (isSoloType(body.matchmakingType) && body.data) {
       const {
         race,
         data: { useAlternateRace },

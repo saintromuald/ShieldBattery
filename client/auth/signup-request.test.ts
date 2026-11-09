@@ -88,6 +88,20 @@ test('ordinary local signup needs no private native implementation', async () =>
   })
 })
 
+test('web signup skips native challenges and sends empty client identifiers', async () => {
+  asMockedFunction(fetchJson).mockResolvedValueOnce(session)
+  const collectLegacyIds = vi.fn(async () => ({ clientIds: [] as [number, string][] }))
+
+  expect(await createSignupSession(fields, { collectLegacyIds })).toBe(session)
+
+  expect(fetchJson).toHaveBeenCalledTimes(1)
+  expect(collectLegacyIds).toHaveBeenCalledTimes(1)
+  expect(JSON.parse(asMockedFunction(fetchJson).mock.calls[0][1]!.body as string)).toEqual({
+    ...fields,
+    clientIds: [],
+  })
+})
+
 test('an older server without the challenge route uses legacy collection', async () => {
   asMockedFunction(fetchJson).mockRejectedValueOnce(httpError(404)).mockResolvedValueOnce(session)
   expect(await createSignupSession(fields, collection)).toBe(session)

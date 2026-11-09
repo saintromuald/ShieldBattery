@@ -129,6 +129,37 @@ test('deployed bootstrap signup remains closed without explicit opt-out', async 
   expect(ctx.beginSession).not.toHaveBeenCalled()
 })
 
+function prepareWebSignup(allowed: boolean) {
+  vi.stubEnv('SB_ALLOW_UNSIGNED_SIGNUP', allowed ? 'true' : undefined)
+  ctx.get = () => 'https://play.angelicgaming.gg'
+  delete ctx.request.body.attemptId
+  delete ctx.request.body.proof
+  ctx.request.body.clientIds = []
+}
+
+test('explicit opt-out permits web signup with a web session and no machine identifiers', async () => {
+  prepareWebSignup(true)
+  ctx.request.body.clientIds = unsignedIds
+
+  await api.createUser(ctx)
+
+  expect(service.verify).not.toHaveBeenCalled()
+  expect(manager.isSignupAllowed).not.toHaveBeenCalled()
+  expect(manager.findUsersWithIdentifiers).not.toHaveBeenCalled()
+  expect(manager.upsertAndReconcileRestrictions).toHaveBeenCalledWith(userId, [])
+  expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ request: undefined }))
+  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false, 'web')
+})
+
+test('web signup remains closed without explicit opt-out', async () => {
+  prepareWebSignup(false)
+
+  await expect(api.createUser(ctx)).rejects.toMatchObject({ status: 400 })
+  expect(service.verify).not.toHaveBeenCalled()
+  expect(createUser).not.toHaveBeenCalled()
+  expect(ctx.beginSession).not.toHaveBeenCalled()
+})
+
 test('machine checks and persistence use signed identifiers, ignoring supplied identifiers', async () => {
   await api.createUser(ctx)
   expect(manager.isSignupAllowed).toHaveBeenCalledWith(signedIds)

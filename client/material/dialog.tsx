@@ -265,7 +265,11 @@ export function Dialog({
   ) : null
 
   return (
-    <Container role='dialog' data-testid={testName}>
+    <Container
+      role='dialog'
+      aria-modal={true}
+      aria-label={typeof title === 'string' ? title : undefined}
+      data-testid={testName}>
       {/*
         While the document is hidden (window minimized/fully occluded), animation frames never
         fire, so an entrance animation would never progress and the dialog would stay invisible.

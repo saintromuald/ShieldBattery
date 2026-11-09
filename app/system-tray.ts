@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
+import { BrowserWindow, Menu, shell, Tray } from 'electron'
 import path from 'path'
 import { APP_ROOT } from './app-paths'
+import { APP_DISPLAY_NAME } from './branding'
 import logger from './logger'
 import { showWindow } from './tray-window'
 import { getUserDataPath } from './user-data-path'
@@ -37,7 +38,7 @@ export default class SystemTray {
     readonly onQuitClick: () => void,
   ) {
     this.systemTray = new Tray(NORMAL_ICON)
-    this.systemTray.setToolTip(app.name)
+    this.systemTray.setToolTip(APP_DISPLAY_NAME)
     this.systemTray.setContextMenu(this.buildContextMenu())
     this.systemTray.on('click', this.onTrayClick)
   }
@@ -46,7 +47,7 @@ export default class SystemTray {
     return Menu.buildFromTemplate([
       { label: 'Restore', type: 'normal', click: this.onTrayClick },
       { label: 'Open Logs Folder', type: 'normal', click: this.onOpenLogs },
-      { label: `Quit ${app.name}`, type: 'normal', click: this.onQuitClick },
+      { label: `Quit ${APP_DISPLAY_NAME}`, type: 'normal', click: this.onQuitClick },
     ])
   }
 
@@ -68,11 +69,10 @@ export default class SystemTray {
   }
 
   displayHowToCloseHint = () => {
-    const message =
-      'ShieldBattery is running in the background. Right click the system tray icon to quit.'
+    const message = `${APP_DISPLAY_NAME} is running in the background. Right click the system tray icon to quit.`
     this.systemTray.displayBalloon({
       icon: BALLOON_ICON,
-      title: 'ShieldBattery',
+      title: APP_DISPLAY_NAME,
       content: message,
     })
   }

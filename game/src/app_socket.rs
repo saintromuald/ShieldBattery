@@ -154,7 +154,7 @@ enum MessageResult {
 /// For these, neither the raw message text nor serde's own error output (which can embed
 /// mistyped field *values*) may reach a log line or error string. Add any new secret-bearing
 /// command here and redaction applies everywhere in `handle_app_message` automatically.
-const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup"];
+const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup", "setupGame"];
 
 const REDACTED: &str = "<payload redacted>";
 
@@ -429,5 +429,31 @@ mod tests {
     fn unknown_command_still_errors() {
         let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
         assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));
+    }
+
+    #[test]
+    fn setup_game_errors_never_expose_result_codes() {
+        let secret = "result-code-that-must-not-appear";
+        let message = format!(
+            r#"{{"command":"setupGame","payload":{{"resultCode":"{secret}","gameType":"invalid"}}}}"#
+        );
+        let error = match handle_app_message(message) {
+            Err(error) => error.to_string(),
+            Ok(_) => panic!("expected setupGame to be rejected"),
+        };
+        assert!(!error.contains(secret));
+        assert!(error.contains(REDACTED));
+    }
+
+    #[test]
+    fn sensitive_envelope_errors_are_redacted() {
+        let secret = "private-key-that-must-not-appear";
+        let message = format!(r#"{{"command":"netcodeV2Setup","payload":"{secret}"#);
+        let error = match handle_app_message(message) {
+            Err(error) => error.to_string(),
+            Ok(_) => panic!("expected setupGame to be rejected"),
+        };
+        assert!(!error.contains(secret));
+        assert!(error.contains(REDACTED));
     }
 }

@@ -1,4 +1,3 @@
-import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app, screen } from 'electron'
 import isDev from 'electron-is-dev'
 import { EventEmitter } from 'node:events'
@@ -28,6 +27,7 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { getMatchmakingModeInfo } from '../../common/matchmaking'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -46,6 +46,9 @@ import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { isCrashExitCode } from './crash-exit-code'
 import { holdHighPerformanceGpu } from './gpu-preference'
+import { readEmbeddedHyperionInstall } from './hyperion/install'
+import { HyperionInstall, HyperionResultContext, launchHyperionProcess } from './hyperion/launch'
+import { hyperionRuleConfigurationForMatchmakingType } from './hyperion/rules'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
@@ -66,6 +69,11 @@ interface PendingDebugReply<T> {
   resolve: (payload: T) => void
   reject: (err: Error) => void
   timer: ReturnType<typeof setTimeout>
+}
+
+interface GameProcessLaunchResult {
+  proc: { waitForExit: () => Promise<number> }
+  releaseGpuPreference: () => void
 }
 
 interface ActiveGameInfo {
@@ -120,6 +128,9 @@ interface ActiveGameInfo {
    * game init.
    */
   networkStatus?: GameNetworkStatus
+  /** Process controls and result credentials retained by a direct Hyperion sidecar. */
+  hyperionQuit?: () => Promise<void>
+  hyperionResultContext?: HyperionResultContext
 }
 
 function isGameConfig(
@@ -150,6 +161,13 @@ export interface ReplayDiagnosticsRequest {
   replayPath: string
   /** The error code the server rejected the replay with. */
   code: string
+}
+
+export class ActiveGameManagerHyperionBackend {
+  /** A preloaded installation for tests. Production resolves the shipped engine on demand. */
+  install?: HyperionInstall
+  readInstall?: typeof readEmbeddedHyperionInstall
+  launch?: typeof launchHyperionProcess
 }
 
 export type ActiveGameManagerEvents = {
@@ -221,6 +239,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     private mapStore: MapStore,
     private localSettings: LocalSettingsManager,
     private scrSettings: ScrSettingsManager,
+    private hyperionBackend: ActiveGameManagerHyperionBackend = new ActiveGameManagerHyperionBackend(),
   ) {
     super()
 
@@ -272,6 +291,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   /** Quits a tracked game and stops tracking it, so its later exit is ignored. */
   private quitGame(game: ActiveGameInfo, reason: string) {
     this.emit('gameCommand', game.id, 'quit')
+    this.quitHyperion(game)
     this.setStatus(game, GameStatus.Unknown)
     this.untrackGame(game)
     this.rejectPendingDebugQueries(game.id, reason)
@@ -294,9 +314,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
-  private launchGameProcess(gameId: string): Promise<void> {
+  private launchGameProcess(
+    gameId: string,
+    backend: () => Promise<GameProcessLaunchResult> = () =>
+      doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings),
+  ): Promise<void> {
     this.emit('gameProcessLaunching', gameId)
-    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
+    return backend()
       .then(
         async ({ proc, releaseGpuPreference }) => {
           try {
@@ -311,6 +335,23 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         err => this.handleGameLaunchError(gameId, err),
       )
       .finally(() => this.emit('gameProcessEnded', gameId))
+  }
+
+  private isHyperionConfig(config: GameLaunchConfig): boolean {
+    const type = config.setup.matchmakingType
+    return (
+      type !== undefined &&
+      getMatchmakingModeInfo(type).variant === 'hyperion' &&
+      !isReplayLaunchConfig(config)
+    )
+  }
+
+  private quitHyperion(game: ActiveGameInfo) {
+    if (game.hyperionQuit) {
+      game.hyperionQuit().catch(err => {
+        log.warning(`Error stopping Hyperion process for ${game.id}: ${getErrorStack(err)}`)
+      })
+    }
   }
 
   /**
@@ -330,6 +371,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       // A previous participating game was left hanging somehow; quit it. The server only lets a
       // user hold one queue or lobby at a time, so it already considers that game over.
       this.emit('gameCommand', current.id, 'quit')
+      this.quitHyperion(current)
     }
     if (!isGameConfig(config)) {
       if (current) {
@@ -344,7 +386,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const gameId = config.setup.gameId
-    const activeGamePromise = this.launchGameProcess(gameId)
+    const hyperion = this.isHyperionConfig(config)
+    if (current?.id === gameId) {
+      this.quitHyperion(current)
+    }
+    const activeGamePromise = hyperion ? undefined : this.launchGameProcess(gameId)
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -358,6 +404,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       // A fresh launch's transport is unknown until the new game's init reports it; this also
       // applies when relaunching the same game id, so don't carry it over from `current` either.
       networkStatus: undefined,
+      hyperionQuit: undefined,
+      hyperionResultContext: undefined,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -365,6 +413,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
     log.verbose(`Creating new game ${gameId}`)
     this.setStatus(this.activeGame, GameStatus.Launching)
+    if (hyperion) {
+      if (!config.setup.useNetcodeV2) {
+        this.handleGameLaunchError(gameId, new Error('HyperShield requires a netcode v2 session'))
+      } else {
+        this.maybeLaunchHyperion(this.activeGame)
+      }
+    }
     return gameId
   }
 
@@ -444,7 +499,79 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     current.netcodeV2Keys = adoption.keys
     current.netcodeV2Setup = { ...setup, clientPrivateKey: adoption.keys.privateKey }
+    this.maybeLaunchHyperion(current)
     this.maybeSendGameSetup(current)
+  }
+
+  /** Launches a direct Hyperion sidecar once its private-key-complete handoff is available. */
+  private maybeLaunchHyperion(game: ActiveGameInfo) {
+    if (
+      game.promise ||
+      !game.config ||
+      !game.netcodeV2Setup ||
+      !this.isHyperionConfig(game.config)
+    ) {
+      return
+    }
+
+    const config = game.config
+    const setup = config.setup
+    const map = setup.map
+    const launch = this.hyperionBackend.launch ?? launchHyperionProcess
+    const backend = async () => {
+      const ruleConfiguration = hyperionRuleConfigurationForMatchmakingType(setup.matchmakingType)
+      if (!ruleConfiguration || isReplayMapInfo(map)) {
+        throw new Error('This HyperShield mode is not available.')
+      }
+      const install =
+        this.hyperionBackend.install ??
+        (await (async () => {
+          const { starcraftPath } = await this.localSettings.get()
+          return (this.hyperionBackend.readInstall ?? readEmbeddedHyperionInstall)({
+            gameDataPath: starcraftPath,
+          })
+        })())
+      const mapPath = this.mapStore.getPath(map.hash, map.mapData.format)
+      const result = await launch({
+        setup,
+        netcodeSetup: game.netcodeV2Setup!,
+        localUserId: config.localUser.id,
+        mapPath,
+        install,
+        ruleConfiguration,
+        resultContext: {
+          resultCode: setup.resultCode,
+          serverUrl: config.serverConfig.serverUrl,
+        },
+        prepareMap: async () => {
+          if (map.mapUrl) {
+            const downloaded = await this.mapStore.downloadMap(
+              map.hash,
+              map.mapData.format,
+              map.mapUrl,
+            )
+            if (!downloaded) {
+              throw new Error('The HyperShield map could not be downloaded')
+            }
+          } else {
+            await fsPromises.access(mapPath)
+          }
+        },
+        onStart: () => {
+          this.handleNetworkStatus(game.id, { transport: 'netcodeV2' })
+          this.handleGameStart(game.id)
+        },
+        onFinished: () => this.handleGameFinished(game.id),
+      })
+      if (this.gameFor(game.id) !== game) {
+        await result.quit()
+        throw new Error('HyperShield launch was superseded before its process started')
+      }
+      game.hyperionQuit = result.quit
+      game.hyperionResultContext = result.resultContext
+      return result
+    }
+    game.promise = this.launchGameProcess(game.id, backend)
   }
 
   /**
@@ -769,6 +896,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('gameCommand', gameId, 'quit')
+    const game = this.gameFor(gameId)
+    if (game) {
+      this.quitHyperion(game)
+    }
   }
 
   /**
@@ -923,6 +1054,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     this.setStatus(game, GameStatus.Finished)
     this.emit('gameCommand', gameId, 'cleanup_and_quit')
+    this.quitHyperion(game)
   }
 
   /**
@@ -1194,6 +1326,7 @@ async function doLaunch(
   // which then cause issues that they blame on us. So, we turn them off by overwriting the registry
   // key with a blank string, launch the game, and then restore whatever value they had set. This is
   // best effort, if it fails we just continue trying to launch
+  const { HKCU, REG_SZ, WindowsRegistry } = await import('@shieldbattery/windows-registry')
   const registry = new WindowsRegistry()
   const initialCompatLayer = process.env.__COMPAT_LAYER
   let compatValue: string | undefined

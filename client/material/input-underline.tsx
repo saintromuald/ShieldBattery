@@ -8,7 +8,7 @@ const UnderlineContainer = styled.div<{ $error?: boolean; $focused?: boolean }>`
   right: 0;
   height: 3px;
 
-  color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-amber)')};
+  color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-primary)')};
   pointer-events: none;
 
   --_inactive-underline-color: ${props =>

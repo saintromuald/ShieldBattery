@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const { client, transact, checkUnclearedMatchmakingBan, addMatchmakingBan, addNotification } =
   vi.hoisted(() => {
@@ -181,5 +181,30 @@ describe('matchmaking/matchmaking-ban-service dodge bans', () => {
 
     await expect(service.banUser(USER_ID, IDS)).rejects.toThrow('insert failed')
     expect(addNotification).not.toHaveBeenCalled()
+  })
+})
+
+describe('test-only matchmaking ban bypass', () => {
+  beforeEach(() => {
+    vi.stubEnv('SB_DISABLE_MATCHMAKING_BANS', '1')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('allows queueing and applies no bans while enabled', async () => {
+    const service = createService()
+
+    await expect(service.checkUser(USER_ID)).resolves.toBeUndefined()
+    await expect(service.checkUsers([USER_ID])).resolves.toEqual(new Set())
+    await service.banUser(USER_ID, IDS)
+    expect(addNotification).not.toHaveBeenCalled()
+
+    await expect(service.applyGamePenalty(USER_ID, IDS, GAME_ID)).resolves.toEqual({
+      penalty: 'lossAndWarning',
+      needsEnforcement: false,
+    })
+    expect(transact).not.toHaveBeenCalled()
   })
 })

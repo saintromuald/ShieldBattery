@@ -38,7 +38,8 @@ export function StarcraftHealthCheckupDialog({ onCancel, close }: CommonDialogPr
       <BodyLarge>
         {t(
           'starcraft.starcraftHealth.header',
-          'The following problems need to be corrected before you can play games on ShieldBattery:',
+          'The following problems need to be corrected before you can use SC:R-integrated ' +
+            'features on HyperShield:',
         )}
       </BodyLarge>
       {!pathValid ? (
@@ -61,7 +62,7 @@ export function StarcraftHealthCheckupDialog({ onCancel, close }: CommonDialogPr
                 Battle.net
               </a>
             </span>
-            . You may need to restart ShieldBattery after installation.
+            . You may need to restart HyperShield after installation.
           </Trans>
         </p>
       ) : null}
@@ -69,14 +70,14 @@ export function StarcraftHealthCheckupDialog({ onCancel, close }: CommonDialogPr
         <div>
           <p>
             <Trans t={t} i18nKey='starcraft.starcraftHealth.starcraftVersionContents'>
-              Your StarCraft installation is out of date. ShieldBattery supports installations of
-              the latest Remastered version from Battle.net. Please install the{' '}
+              Your StarCraft installation is out of date. HyperShield's SC:R-integrated features
+              support the latest Remastered version from Battle.net. Please install the{' '}
               <span>
                 <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='noreferrer noopener'>
                   latest version
                 </a>
               </span>{' '}
-              and restart ShieldBattery.
+              and restart HyperShield.
             </Trans>
           </p>
         </div>

@@ -343,7 +343,8 @@ export class UserApi {
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, throttleByIp))
   async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
-    if (!isElectronClient(ctx)) {
+    const electron = isElectronClient(ctx)
+    if (!electron && process.env.SB_ALLOW_UNSIGNED_SIGNUP !== 'true') {
       throw new httpErrors.BadRequest('This method is only allowed within the app')
     }
 
@@ -361,8 +362,10 @@ export class UserApi {
     })
 
     const { username, password, email, locale, signupCode } = body
-    const request = await this.signupProofService.verify(body, body.attemptId, body.proof)
-    const clientIds = request?.clientIds ?? body.clientIds
+    const request = electron
+      ? await this.signupProofService.verify(body, body.attemptId, body.proof)
+      : undefined
+    const clientIds = request?.clientIds ?? (electron ? body.clientIds : [])
     if (!clientIds) throw new httpErrors.BadRequest('Client identifiers are required')
 
     const prepareCreationFn = async () => {
@@ -379,7 +382,7 @@ export class UserApi {
         )
       }
 
-      if (!THROTTLING_DISABLED) {
+      if (!THROTTLING_DISABLED && clientIds.length) {
         const signupAllowed = await this.userIdManager.isSignupAllowed(clientIds)
         if (!signupAllowed) {
           throw new UserApiError(
@@ -393,7 +396,9 @@ export class UserApi {
       // NOTE(tec27): We don't check this in dev because it is very likely we have created a ton of
       // accounts with the same session ID. It is separate from the throttling disable, however,
       // because we do want to be able to integration test it
-      const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
+      const usersWithIds = clientIds.length
+        ? await this.userIdManager.findUsersWithIdentifiers(clientIds)
+        : []
       if (usersWithIds.length >= MAX_ACCOUNTS_PER_MACHINE) {
         if (!signupCode) {
           throw new UserApiError(
@@ -487,7 +492,7 @@ export class UserApi {
     ) {
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
     }
-    await ctx.beginSession(createdUser.user.id, false, 'app')
+    await ctx.beginSession(createdUser.user.id, false, electron ? 'app' : 'web')
 
     // No need to wait for this, if it fails they can just re-send the email later
     Promise.resolve()

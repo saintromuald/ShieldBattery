@@ -12,6 +12,7 @@ import {
   GetMatchmakingBanStatusResponse,
   getMatchmakingModeInfo,
   GetMatchmakingSeasonsResponse,
+  isMatchmakingQueueable,
   MatchmakingSeasonsServiceErrorCode,
   MatchmakingServiceErrorCode,
   SeasonId,
@@ -185,6 +186,15 @@ export class MatchmakingApi {
         MatchmakingServiceErrorCode.UserBanned,
         'This account is currently banned from matchmaking',
       )
+    }
+
+    for (const pref of preferences) {
+      if (!isMatchmakingQueueable(pref.matchmakingType)) {
+        throw new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.MatchmakingDisabled,
+          'HyperShield Rule 3 is disabled',
+        )
+      }
     }
 
     // Validate and normalize each type's preferences against its current map pool. We do this on a

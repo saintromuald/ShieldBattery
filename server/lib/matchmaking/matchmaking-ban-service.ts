@@ -25,6 +25,11 @@ const MINUTES = 60 * 1000
 const HOURS = 60 * MINUTES
 const DAYS = 24 * HOURS
 
+/** Allows the local test service to iterate without anti-dodging restrictions. */
+function matchmakingBansDisabled(): boolean {
+  return Boolean(process.env.SB_DISABLE_MATCHMAKING_BANS ?? false)
+}
+
 const GAME_PENALTY_LOCK_TIMEOUT =
   "SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s'"
 
@@ -92,6 +97,9 @@ export class MatchmakingBanService {
 
   /** Check if a user has a current active ban, returning the relevant ban information if so. */
   async checkUser(userId: SbUserId): Promise<MatchmakingBanRow | undefined> {
+    if (matchmakingBansDisabled()) {
+      return undefined
+    }
     return await checkActiveMatchmakingBan({
       userId,
       now: new Date(this.clock.now()),
@@ -101,6 +109,9 @@ export class MatchmakingBanService {
 
   /** Checks proposed match participants without acquiring one pool connection per player. */
   async checkUsers(userIds: ReadonlyArray<SbUserId>): Promise<Set<SbUserId>> {
+    if (matchmakingBansDisabled()) {
+      return new Set()
+    }
     return await checkActiveMatchmakingBans(
       userIds,
       new Date(this.clock.now()),
@@ -117,6 +128,9 @@ export class MatchmakingBanService {
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
   ): Promise<void> {
+    if (matchmakingBansDisabled()) {
+      return
+    }
     const { bannedUntil } = await this.escalateBan(userId, identifiers)
     await this.notificationService.addNotification({
       userId,
@@ -135,6 +149,9 @@ export class MatchmakingBanService {
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
     gameId: string,
   ): Promise<GamePenaltyResult> {
+    if (matchmakingBansDisabled()) {
+      return { penalty: 'lossAndWarning', needsEnforcement: false }
+    }
     return await transact(async client => {
       await client.query(GAME_PENALTY_LOCK_TIMEOUT)
       // Serializes escalation per user, so two games' penalties can't both read the same prior ban

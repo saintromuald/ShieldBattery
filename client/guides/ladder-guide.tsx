@@ -9,7 +9,7 @@ export function LadderGuidePage() {
     t(
       'ladder.explainer.intro',
       'Players often ask:\n\n*“Why do ranks use points? Why not just use ' +
-        'MMR?”*\n\nShieldBattery tracks two numbers for every player in every mode: a **rating ' +
+        'MMR?”*\n\nHyperShield tracks two numbers for every player in every mode: a **rating ' +
         '(MMR)** and **points**. They do different jobs. This guide explains each one, how your ' +
         'rank and division are worked out, and why we keep the two separate.',
     ),
@@ -102,7 +102,7 @@ export function LadderGuidePage() {
   return (
     <GuidePage
       path={LADDER_GUIDE_PATH}
-      title={t('ladder.explainer.title', 'How the ladder works in ShieldBattery')}
+      title={t('ladder.explainer.title', 'How the ladder works in HyperShield')}
       markdown={markdown}
     />
   )

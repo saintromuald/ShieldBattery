@@ -45,7 +45,7 @@ export const MenuItemButton = styled.button<{
     // and ripple.
     return css`
       background-color: rgb(from var(--theme-on-surface) r g b / 0.1);
-      outline: 3px solid var(--theme-grey-blue);
+      outline: 3px solid var(--theme-focus);
       outline-offset: 2px;
     `
   }}

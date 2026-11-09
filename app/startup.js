@@ -9,6 +9,13 @@ import path from 'path'
 import ensureSingleInstance from './single-instance'
 import { getUserDataPath } from './user-data-path'
 
+// Set this before any renderer or preload starts: server URLs and credential storage keys derive
+// from this value. Packaged builds must use the server URL compiled into their renderer instead of
+// a developer's local service. An explicitly configured server always takes precedence.
+if (isDev && process.platform === 'linux' && !process.env.SB_SERVER) {
+  process.env.SB_SERVER = 'http://192.168.40.253:5555'
+}
+
 // Set a proper app name, since our build setup makes the one in our package.json innaccurate
 app.name = path.basename(getUserDataPath())
 

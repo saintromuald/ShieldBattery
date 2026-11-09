@@ -23,6 +23,28 @@ test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
 
+test('sign up and log in from a web browser', async ({ context, page }) => {
+  await page.goto('/signup')
+
+  const username = generateUsername()
+  const password = 'password123'
+
+  await signupWith(page, {
+    username,
+    password,
+    email: `${username}@example.org`,
+  })
+  await expect(homePage.latestNewsTitleLocator()).toBeVisible()
+
+  await clearLocalState({ context, page })
+  await verificationDialogPage.suppressEmailVerificationDialog()
+  await loginPage.navigateTo()
+  await loginPage.loginWith(username, password)
+
+  await expect(page.locator('[data-testid=app-bar-user-button]')).toBeVisible()
+  await expect(homePage.latestNewsTitleLocator()).toBeVisible()
+})
+
 test('sign up and verify email in same session', async ({ page }) => {
   await goToSignup(page)
 

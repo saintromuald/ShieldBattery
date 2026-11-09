@@ -1,0 +1,18 @@
+{
+  "tenants": [
+    {
+      "id": "hypershield",
+      "state": "active",
+      "kid": "hypershield-2026-11",
+      "signing_key_env": "COORDINATOR_TENANT_HYPERSHIELD_SIGNING_KEY",
+      "client_pubkeys": [
+        "dc1edca1f2eeeae6081686004cfa66881ec001bc008eb5d99f7585263bb24768"
+      ],
+      "notify_url": "https://play.angelicgaming.gg/webhooks/netcode-v2/game-events",
+      "bounds": {
+        "min": 1,
+        "max": 12
+      }
+    }
+  ]
+}

@@ -157,6 +157,22 @@ describe('games/registration/registerGame', () => {
     expect(teamFor(p3)).toBeNull()
   })
 
+  test('inserts and returns the supplied formation UUID', async () => {
+    const formationId = '00000000-0000-4000-8000-000000000001'
+    const config = lobbyConfig([
+      [{ id: p1, race: 't', isComputer: false }],
+      [{ id: p2, race: 'z', isComputer: false }],
+    ])
+
+    const { gameId } = await registerGame(mapId, config, undefined, formationId)
+
+    expect(gameId).toBe(formationId)
+    expect(asMockedFunction(createGameRecord)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: formationId }),
+    )
+  })
+
   test('records the team of a human sharing a team with a computer player', async () => {
     // The computer gets no row, but it does occupy a slot -- the human's team index still has to
     // be its position among the config's teams, not among the rows that got written.

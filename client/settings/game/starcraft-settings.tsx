@@ -204,7 +204,8 @@ export function StarcraftSettings() {
           <Instructions>
             {t(
               'settings.game.starcraft.instructions.description',
-              'ShieldBattery requires a valid, up-to-date installation of StarCraft: Remastered. ' +
+              'HyperShield requires a valid, up-to-date installation of StarCraft: Remastered ' +
+                'for SC:R-integrated features. ' +
                 'Click the button below to automatically detect the installation folder.',
             )}
           </Instructions>

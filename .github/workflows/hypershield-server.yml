@@ -1,0 +1,118 @@
+name: HyperShield server images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image version, matching package.json (for example 12.3.6)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: hypershield-server-images
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the image version before publishing anything
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node -e 'const fs = require("node:fs"); const expected = process.env.VERSION; const actual = JSON.parse(fs.readFileSync("package.json", "utf8")).version; if (actual !== expected) { throw new Error(`package.json is ${actual}, but the image version is ${expected}`); }'
+
+  base:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set lowercase repository name
+        id: image
+        run: echo "repository=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish an immutable migration-tools base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.base
+          target: sqlx-runtime
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ steps.image.outputs.repository }}/base:sqlx-tools-${{ github.sha }}
+          cache-from: type=gha,scope=hypershield-base
+          cache-to: type=gha,mode=max,scope=hypershield-base
+
+  images:
+    needs: base
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - name: hypershield-server
+            context: .
+            file: Dockerfile
+          - name: hypershield-server-rs
+            context: ./server-rs
+            file: ./server-rs/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set lowercase image names
+        id: image
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "repository=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push an immutable ${{ matrix.name }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            SQLX_TOOLS_IMAGE=ghcr.io/${{ steps.image.outputs.repository }}/base:sqlx-tools-${{ github.sha }}
+          tags: ghcr.io/${{ steps.image.outputs.owner }}/${{ matrix.name }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  promote:
+    needs: images
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set lowercase image owner
+        id: image
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Move version and latest tags only after both images succeed
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          for name in hypershield-server hypershield-server-rs; do
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ steps.image.outputs.owner }}/${name}:${VERSION}" \
+              -t "ghcr.io/${{ steps.image.outputs.owner }}/${name}:latest" \
+              "ghcr.io/${{ steps.image.outputs.owner }}/${name}:${GITHUB_SHA}"
+          done

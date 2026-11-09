@@ -106,7 +106,7 @@ const Icon = styled.span<{
 
   color: ${props => {
     if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
-    else if (props.$focused) return 'var(--theme-amber)'
+    else if (props.$focused) return 'var(--theme-primary)'
     else return 'var(--theme-on-surface)'
   }};
 

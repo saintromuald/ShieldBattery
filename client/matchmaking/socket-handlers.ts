@@ -308,7 +308,10 @@ export const eventToAction: EventToActionMap = {
         // A failed load is the moment this client's logs say the most about why, so the app offers
         // a bug report (which uploads them) right on the notice. The web client has no logs to send.
         externalShowSnackbar(
-          i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
+          i18n.t(
+            'matchmaking.match.gameFailedToLoad',
+            'The game could not start. Check your StarCraft installation and try again.',
+          ),
           IS_ELECTRON ? DURATION_LONG : undefined,
           IS_ELECTRON
             ? {

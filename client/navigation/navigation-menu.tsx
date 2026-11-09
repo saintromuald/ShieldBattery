@@ -158,7 +158,7 @@ const ItemRoot = styled.a<{ $isActive: boolean }>`
   gap: 12px;
 
   --_link-color: ${props =>
-    props.$isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)'};
+    props.$isActive ? 'var(--theme-primary)' : 'var(--theme-on-surface-variant)'};
   color: var(--_link-color);
 
   &:link,
@@ -169,7 +169,7 @@ const ItemRoot = styled.a<{ $isActive: boolean }>`
 
   &:hover,
   &:active {
-    color: var(--theme-amber);
+    color: var(--theme-primary);
     text-decoration: none;
   }
 `
@@ -196,7 +196,8 @@ const StateLayer = styled.div<{ $isActive: boolean }>`
   contain: content;
   z-index: -1;
 
-  --_bg-color: ${props => (props.$isActive ? 'var(--theme-grey-blue-container)' : 'transparent')};
+  --_bg-color: ${props =>
+    props.$isActive ? 'rgb(from var(--theme-primary) r g b / 0.12)' : 'transparent'};
   --sb-ripple-color: var(--theme-on-surface);
 
   &:before {

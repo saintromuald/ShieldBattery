@@ -1,7 +1,7 @@
 import { rgba } from 'polished'
 import styled, { css, keyframes } from 'styled-components'
 import { decelerateEasing } from '../material/curve-constants'
-import { amber60, blue40, blue95 } from '../styles/colors'
+import { amber60, green40, green80 } from '../styles/colors'
 
 // NOTE: This component can render before our theme CSS variables are attached to the DOM, so it
 // uses literal palette values rather than `var(--...)` custom properties.
@@ -17,7 +17,7 @@ import { amber60, blue40, blue95 } from '../styles/colors'
  * Rather than hand-authoring each cell's flare, the weight's motion is simulated and every
  * cell's keyframes are sampled from it: a cell's brightness/size follow how close the weight is,
  * and the light's color follows how fast it's moving (hot amber at full speed at the bottom,
- * cooling to blue-white as it climbs). Deriving all five cells from the one motion keeps the
+ * cooling to emerald as it climbs). Deriving all five cells from the one motion keeps the
  * light reading as a single object — brightness hands off between neighbors exactly as the
  * weight travels, with no seams to tune by hand.
  */
@@ -107,9 +107,9 @@ const GLOW_ALPHA = 0.7
 
 /**
  * A cell's flare, expressed purely as transforms and layer opacities so the whole indicator runs
- * on the compositor. The cell's lit color is `mix(light, lightColor, blue40)` with `lightColor`
- * itself a mix of amber and blue-white; that's reproduced exactly by stacking a blue-white layer
- * and then an amber layer over the blue40 cell, each at the opacity that yields the same weights.
+ * on the compositor. The cell's lit color is `mix(light, lightColor, green40)` with `lightColor`
+ * itself a mix of amber and emerald; that's reproduced exactly by stacking an emerald layer
+ * and then an amber layer over the green40 cell, each at the opacity that yields the same weights.
  * The glow is a pair of fixed-blur shadows (one per light color) faded in by the same weights.
  */
 interface CellFlare {
@@ -145,7 +145,7 @@ function buildCellFlare(cellAngleDeg: number): CellFlare {
     // near; squaring the speed keeps the amber for the genuinely quick part of the arc
     const heat = speed * speed * light
 
-    // Amber's share of the final color is light * heat, and the blue-white layer beneath it
+    // Amber's share of the final color is light * heat, and the emerald layer beneath it
     // needs light * (1 - heat) to survive being partially covered by the amber
     const hotOpacity = light * heat
     const coolOpacity = hotOpacity < 1 ? (light * (1 - heat)) / (1 - hotOpacity) : 0
@@ -228,7 +228,7 @@ const Cell = styled.div<CellProps>`
   width: 9px;
   height: 16px;
 
-  background-color: ${blue40};
+  background-color: ${green40};
   border-radius: 2px;
   transform: ${CELL_SKEW};
 
@@ -251,11 +251,11 @@ const CellLayer = styled.div<CellProps & { $layer: Exclude<keyof CellFlare, 'swe
   ${props => {
     switch (props.$layer) {
       case 'coolLight':
-        return `background-color: ${blue95};`
+        return `background-color: ${green80};`
       case 'hotLight':
         return `background-color: ${amber60};`
       case 'coolGlow':
-        return `box-shadow: 0 0 ${GLOW_BLUR_PX}px ${rgba(blue95, GLOW_ALPHA)};`
+        return `box-shadow: 0 0 ${GLOW_BLUR_PX}px ${rgba(green80, GLOW_ALPHA)};`
       case 'hotGlow':
         return `box-shadow: 0 0 ${GLOW_BLUR_PX}px ${rgba(amber60, GLOW_ALPHA)};`
       default:

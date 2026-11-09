@@ -12,8 +12,8 @@ import { labelMedium } from '../styles/typography'
 export function warpFieldDescription(t: TFunction): string {
   return t(
     'lobbies.warpField.description',
-    "Apply ShieldBattery's small, carefully tested set of fixes for gameplay issues. Replays of " +
-      'these games may not play back correctly outside of ShieldBattery.',
+    "Apply HyperShield's small, carefully tested set of fixes for gameplay issues. Replays of " +
+      'these games may not play back correctly outside of HyperShield.',
   )
 }
 

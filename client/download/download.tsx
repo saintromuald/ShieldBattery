@@ -1,11 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import GithubIcon from '../icons/brands/github.svg?react'
-import KofiIcon from '../icons/brands/kofi-color.svg?react'
-import PatreonIcon from '../icons/brands/patreon.svg?react'
 import { FilledButton } from '../material/button'
-import { Tooltip } from '../material/tooltip'
-import { bodyLarge, titleLarge, titleSmall } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { navigateToDownload } from './download-navigate'
 
 const Root = styled.div`
@@ -50,67 +46,13 @@ const InstallerButtonLabel = styled.span`
   align-items: center;
 `
 
-const SupportRow = styled.div`
-  padding-top: 16px;
-  border-top: 1px solid var(--theme-outline-variant);
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-`
-
-const SupportText = styled.div`
-  ${titleSmall};
-`
-
-const SupportLinks = styled.div`
-  display: flex;
-  align-items: center;
-  /** Balance the last link's inner padding against the row's right edge */
-  margin-right: -12px;
-
-  & a {
-    &,
-    &:link,
-    &:visited {
-      width: 56px;
-      height: 48px;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      border-radius: 8px;
-      color: var(--theme-on-surface);
-    }
-
-    &:hover,
-    &:active {
-      background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-    }
-  }
-`
-
-const StyledGithubIcon = styled(GithubIcon)`
-  height: 32px;
-`
-
-const StyledKofiIcon = styled(KofiIcon)`
-  height: 32px;
-`
-
-const StyledPatreonIcon = styled(PatreonIcon)`
-  height: 32px;
-`
-
 export function Download() {
   const { t } = useTranslation()
 
   return (
     <Root>
       <IntroSection>
-        <Blurb>{t('clientDownload.blurb', 'Download the ShieldBattery client to:')}</Blurb>
+        <Blurb>{t('clientDownload.blurb', 'Download the HyperShield client to:')}</Blurb>
         <FeatureList>
           <li>{t('clientDownload.playGames', 'Play games')}</li>
           <li>{t('clientDownload.watchReplays', 'Watch replays')}</li>
@@ -129,29 +71,6 @@ export function Download() {
           }
         />
       </DownloadSection>
-
-      <SupportRow>
-        <SupportText>
-          {t('clientDownload.supportProjectText', 'Want to support the project?')}
-        </SupportText>
-        <SupportLinks>
-          <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
-            <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
-              <StyledGithubIcon />
-            </a>
-          </Tooltip>
-          <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
-            <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-              <StyledPatreonIcon />
-            </a>
-          </Tooltip>
-          <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
-            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-              <StyledKofiIcon />
-            </a>
-          </Tooltip>
-        </SupportLinks>
-      </SupportRow>
     </Root>
   )
 }

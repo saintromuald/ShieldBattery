@@ -456,7 +456,7 @@ export function MatchCanceledDialog({
               <AttributionBody>
                 {t(
                   'matchmaking.matchCanceled.anomalyFromYouDescription',
-                  "Your game sent match setup commands that ShieldBattery doesn't allow. This " +
+                  "Your game sent match setup commands that HyperShield doesn't allow. This " +
                     'usually means the game was modified, or another program interfered with it.',
                 )}
               </AttributionBody>

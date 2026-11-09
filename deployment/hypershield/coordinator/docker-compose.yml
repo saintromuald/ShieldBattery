@@ -1,0 +1,51 @@
+networks:
+  coordinator:
+    enable_ipv6: true
+
+services:
+  coordinator:
+    image: ${HYPERSHIELD_COORDINATOR_IMAGE:-ghcr.io/saintromuald/rp2-coordinator}${RP2_REF:?set RP2_REF in .env}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Direct exposure is required for relay source-address verification and ACME TLS-ALPN-01.
+      - '443:14910/tcp'
+    networks:
+      - coordinator
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: '4'
+
+  relay:
+    image: ${HYPERSHIELD_RELAY_IMAGE:-ghcr.io/saintromuald/rp2-relay}:${RELAY_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      RELAY_LISTEN: '[::]:14900'
+      RELAY_EXTRA_LISTEN_PORTS: '443'
+      RELAY_ID: '1'
+      RELAY_COORDINATOR_URL: wss://${COORDINATOR_ACME_DOMAIN}
+      RELAY_COORDINATOR_SECRET: ${COORDINATOR_BOOTSTRAP_SECRET}
+      RELAY_REGION: us-east
+      RELAY_ADVERTISE_ADDR: ${RELAY_PUBLIC_ADDRESS}:14900
+      RELAY_DRAIN_TIMEOUT_SECS: '90'
+      RELAY_TASK_STATS_INTERVAL_SECS: '0'
+    ports:
+      - '14900:14900/udp'
+      - '443:443/udp'
+    sysctls:
+      # The non-root relay binds UDP/443 inside its own network namespace.
+      net.ipv4.ip_unprivileged_port_start: '443'
+    depends_on:
+      - coordinator
+    networks:
+      - coordinator
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: '4'

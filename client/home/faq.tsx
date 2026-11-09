@@ -2,8 +2,6 @@ import * as React from 'react'
 import { useLayoutEffect, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { DISCORD_URL } from '../../common/url-constants'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -168,17 +166,14 @@ export function Faq() {
     {
       question: t(
         'landing.faq.supportedStarcraftVersionQuestion',
-        'What version of StarCraft does ShieldBattery support?',
+        'What does HyperShield use to play StarCraft: Brood War?',
       ),
       answer: (
         <p key='p1'>
           <Trans t={t} i18nKey='landing.faq.supportedStarcraftVersionAnswer'>
-            ShieldBattery supports the latest version of StarCraft: Remastered. You can download the
-            free version of StarCraft: Remastered from the{' '}
-            <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
-              Battle.net launcher
-            </a>
-            . Any purchased addons (such as HD graphics) will be usable on ShieldBattery.
+            HyperShield's native Linux client uses the bundled Hyperion engine for StarCraft: Brood
+            War matchmaking. It reads game data from an existing Classic or Remastered installation,
+            but does not need to launch StarCraft: Remastered for native matches.
           </Trans>
         </p>
       ),
@@ -186,50 +181,26 @@ export function Faq() {
     {
       question: t(
         'landing.faq.officialSupportQuestion',
-        'Is ShieldBattery developed with the support of Blizzard?',
+        'Is HyperShield developed with the support of Blizzard?',
       ),
       answer: (
         <p key='p1'>
           <Trans t={t} i18nKey='landing.faq.officialSupportAnswer'>
-            No, ShieldBattery is a project developed by passionate community members, and has no
-            official support or acknowledgement from Blizzard.
+            No, HyperShield is a community-run test project and has no official support or
+            acknowledgement from Blizzard.
           </Trans>
         </p>
       ),
     },
     {
-      question: t(
-        'landing.faq.isShieldBatteryFreeQuestion',
-        'Does ShieldBattery cost anything? How can I support the project?',
-      ),
+      question: t('landing.faq.isShieldBatteryFreeQuestion', 'Does HyperShield cost anything?'),
       answer: (
-        <>
-          <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer'>
-            <p key='p1'>ShieldBattery is totally free to use!</p>
-            <p key='p2'>
-              It does, however, cost us time and money to host and develop ShieldBattery. If you
-              would like to help us cover those costs, we'd greatly appreciate it. We have set up a
-              number of ways to contribute:
-            </p>
-          </Trans>
-          <ul key='u1'>
-            <li>
-              <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
-                Github Sponsors
-              </a>
-            </li>
-            <li>
-              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-                Ko-fi
-              </a>
-            </li>
-            <li>
-              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-                Patreon
-              </a>
-            </li>
-          </ul>
-        </>
+        <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer'>
+          <p key='p1'>HyperShield is free to use while operating as a test service.</p>
+          <p key='p2'>
+            Test features, stored data, and availability may change as the service develops.
+          </p>
+        </Trans>
       ),
     },
     {
@@ -237,18 +208,8 @@ export function Faq() {
       answer: (
         <p key='p1'>
           <Trans t={t} i18nKey='landing.faq.reportIssuesAnswer'>
-            The easiest way to report bugs or issues is through our{' '}
-            <a href={DISCORD_URL} target='_blank' rel='noopener'>
-              Discord
-            </a>
-            . If you are comfortable with doing so, you can also file issues on our{' '}
-            <a
-              href='https://github.com/ShieldBattery/ShieldBattery/issues'
-              target='_blank'
-              rel='noopener'>
-              GitHub
-            </a>
-            .
+            Use the app's Report a bug action for technical problems. For account or moderation
+            issues, contact a HyperShield administrator in the official HyperShield chat channel.
           </Trans>
         </p>
       ),
@@ -258,15 +219,9 @@ export function Faq() {
       answer: (
         <Trans t={t} i18nKey='landing.faq.openSourceAnswer'>
           <p key='p1'>
-            Yes. You can access our main repository as well as the various additional projects we've
-            written and separated into their own repositories at our{' '}
-            <a href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
-              GitHub page
-            </a>
-            .
-          </p>
-          <p key='p2'>
-            We could always use more contributors, so if you think you can help, check it out!
+            HyperShield is built from open-source software. See our{' '}
+            <a href='/licenses'>open source licenses page</a> for upstream attribution, source code,
+            and the projects included in the client.
           </p>
         </Trans>
       ),
@@ -274,58 +229,43 @@ export function Faq() {
     {
       question: t(
         'landing.faq.systemRequirementsQuestion',
-        'What are the system requirements to play on ShieldBattery?',
+        'What are the system requirements for HyperShield on Linux?',
       ),
       answer: (
         <Trans t={t} i18nKey='landing.faq.systemRequirementsAnswer'>
-          <p key='p1'>
-            Our system requirements are mainly driven by those of{' '}
-            <a
-              href='https://us.battle.net/support/en/article/28438'
-              target='_blank'
-              rel='nofollow noopener'>
-              StarCraft: Remastered
-            </a>
-            , but in brief:
-          </p>
+          <p key='p1'>The native HyperShield client currently requires:</p>
           <ul key='u1'>
-            <li>A computer running Windows 10 or later</li>
-            <li>2GB RAM</li>
-            <li>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</li>
-            <li>A StarCraft: Remastered installation, patched to the latest version</li>
+            <li>64-bit Linux on x86-64, with glibc 2.35 or newer</li>
+            <li>A graphics driver with Vulkan support</li>
+            <li>An internet connection for accounts, chat, and online matchmaking</li>
+            <li>
+              StarCraft: Brood War game data from a Classic or Remastered installation that you are
+              entitled to use
+            </li>
           </ul>
         </Trans>
       ),
     },
     {
-      question: t(
-        'landing.faq.hotkeyCustomizationQuestion',
-        'Is hotkey customization allowed or provided?',
-      ),
+      question: t('landing.faq.hotkeyCustomizationQuestion', 'Does HyperShield require Wine?'),
       answer: (
         <span>
           <Trans t={t} i18nKey='landing.faq.hotkeyCustomizationAnswer'>
-            Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you
-            want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard
-            launcher and customize them there first. After doing so, future launches through
-            ShieldBattery will use those hotkeys.
+            No. The HyperShield client and Hyperion engine run natively on Linux. Wine is only one
+            optional way to provide an existing StarCraft installation's game data; it is not used
+            to run HyperShield itself.
           </Trans>
         </span>
       ),
     },
     {
-      question: t('landing.faq.linuxSupportQuestion', 'Does ShieldBattery work on Linux or MacOS?'),
+      question: t('landing.faq.linuxSupportQuestion', 'Does HyperShield work on Linux or macOS?'),
       answer: (
         <Trans t={t} i18nKey='landing.faq.linuxSupportAnswer'>
-          <p key='p1'>This is not currently something that we have official support for.</p>
-          <p key='p2'>
-            However, there's a community-contributed integration of ShieldBattery with Wine. Check
-            out our{' '}
-            <a href={DISCORD_URL} target='_blank' rel='noopener'>
-              Discord
-            </a>{' '}
-            to learn how to run ShieldBattery on Wine.
+          <p key='p1'>
+            HyperShield provides a native Linux x86-64 AppImage; it does not require Wine.
           </p>
+          <p key='p2'>This custom client does not currently provide a macOS package.</p>
         </Trans>
       ),
     },

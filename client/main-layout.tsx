@@ -167,12 +167,12 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
 
   &:link,
   &:visited {
-    color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'inherit')};
+    color: ${({ $isActive }) => ($isActive ? 'var(--theme-primary)' : 'inherit')};
   }
 
   @media (hover: hover) {
     &:hover {
-      color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+      color: ${({ $isActive }) => ($isActive ? 'var(--theme-primary)' : 'var(--theme-on-surface)')};
       text-decoration: none;
       --menu-item-fill: var(--color-grey-blue40);
 
@@ -197,7 +197,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
         left: 16px;
         right: 16px;
         bottom: 14px;
-        outline: 3px solid var(--theme-amber);
+        outline: 3px solid var(--theme-focus);
         outline-offset: 2px;
         border-radius: 4px;
       }
@@ -205,7 +205,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   }
 
   &:active {
-    color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+    color: ${({ $isActive }) => ($isActive ? 'var(--theme-primary)' : 'var(--theme-on-surface)')};
     text-decoration: none;
     --menu-item-fill: var(--color-grey-blue50);
 
@@ -395,7 +395,7 @@ const ShadowedToggleIcon = styled(ShadowedIcon)<{ $active?: boolean }>`
   ${props =>
     props.$active
       ? css`
-          color: var(--theme-amber);
+          color: var(--theme-primary);
         `
       : css``};
   transition: color 250ms linear;

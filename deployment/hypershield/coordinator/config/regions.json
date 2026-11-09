@@ -1,0 +1,11 @@
+{
+  "regions": [
+    { "id": "eu-central", "display_name": "Europe Central", "beacon": "gamelift-ping.eu-central-1.api.aws:7770", "fallback": "dynamodb.eu-central-1.amazonaws.com:443" },
+    { "id": "hk", "display_name": "Hong Kong", "beacon": "gamelift-ping.ap-east-1.api.aws:7770", "fallback": "dynamodb.ap-east-1.amazonaws.com:443" },
+    { "id": "kr", "display_name": "Korea", "beacon": "gamelift-ping.ap-northeast-2.api.aws:7770", "fallback": "dynamodb.ap-northeast-2.amazonaws.com:443" },
+    { "id": "mx", "display_name": "Mexico", "beacon": "gamelift-ping.mx-central-1.api.aws:7770", "fallback": "dynamodb.mx-central-1.amazonaws.com:443" },
+    { "id": "sa-east", "display_name": "Latin America (São Paulo)", "beacon": "gamelift-ping.sa-east-1.api.aws:7770", "fallback": "dynamodb.sa-east-1.amazonaws.com:443" },
+    { "id": "us-east", "display_name": "US East", "beacon": "gamelift-ping.us-east-1.api.aws:7770", "fallback": "dynamodb.us-east-1.amazonaws.com:443" },
+    { "id": "us-west", "display_name": "US West", "beacon": "gamelift-ping.us-west-2.api.aws:7770", "fallback": "dynamodb.us-west-2.amazonaws.com:443" }
+  ]
+}

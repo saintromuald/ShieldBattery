@@ -33,12 +33,13 @@ import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '.
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
+import { APP_DISPLAY_NAME, APP_MODEL_ID, APP_UPDATE_URL } from './branding'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
 import { findNewestDesyncUnitTable } from './desync-unit-tables'
 import { logCrashDumps, logMachineInfo, startLocalCrashReporter } from './diagnostics'
-import { DiscordPresence, isDiscordRunning } from './discord-presence'
+import type { DiscordPresence } from './discord-presence'
 import { logElevationStatus } from './elevation'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
@@ -53,6 +54,7 @@ import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
+import { ReleaseManager } from './releases'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
@@ -146,8 +148,8 @@ switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
     discordApplicationId = DISCORD_APPLICATION_IDS.staging
     break
   default:
-    modelId = 'net.shieldbattery.client'
-    updateUrl = 'https://cdn.shieldbattery.net/app/'
+    modelId = APP_MODEL_ID
+    updateUrl = APP_UPDATE_URL
     deepLinkScheme = DEEP_LINK_SCHEMES.production
     discordApplicationId = DISCORD_APPLICATION_IDS.production
     break
@@ -174,13 +176,15 @@ nsisUpdater.verifyUpdateCodeSignature = async (publisherNames, updateFile) => {
 }
 let downloadingUpdate = false
 
-logger.info('Setting auto-updater url to: ' + updateUrl)
-autoUpdater.setFeedURL({
-  provider: 'generic',
-  url: updateUrl,
-  // NOTE(tec27): This is false for S3 because it doesn't support it, but I think Spaces will?
-  useMultipleRangeRequest: true,
-})
+if (process.platform !== 'linux') {
+  logger.info('Setting auto-updater url to: ' + updateUrl)
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: updateUrl,
+    // NOTE(tec27): This is false for S3 because it doesn't support it, but I think Spaces will?
+    useMultipleRangeRequest: true,
+  })
+}
 
 // Set up our main file's protocol to enable the necessary features
 protocol.registerSchemesAsPrivileged([
@@ -201,6 +205,7 @@ protocol.registerSchemesAsPrivileged([
 
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow: BrowserWindow | null
+let releaseManager: ReleaseManager | undefined
 let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
@@ -374,19 +379,19 @@ const TWITCH_OAUTH_RESULT_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShieldBattery</title>
+<title>${APP_DISPLAY_NAME}</title>
 <style>
   html, body { margin: 0; height: 100%; }
   body { display: flex; align-items: center; justify-content: center;
-    font-family: system-ui, -apple-system, sans-serif; background: #10151e; color: #e0e7f0; }
-  .card { text-align: center; padding: 32px; }
+    font-family: system-ui, -apple-system, sans-serif; background: #141614; color: #39d98a; }
+  .card { text-align: center; padding: 32px; background: #102334; }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
-  p { margin: 0; color: #abbeda; }
+  p { margin: 0; color: #d4af37; }
 </style>
 </head>
 <body>
   <div class="card">
-    <h1>Return to ShieldBattery</h1>
+    <h1>Return to ${APP_DISPLAY_NAME}</h1>
     <p>You can close this browser tab now.</p>
   </div>
 </body>
@@ -599,6 +604,40 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     logger.log(level, message)
   })
 
+  releaseManager = new ReleaseManager({
+    appPath: app.getAppPath(),
+    userDataPath: app.getPath('userData'),
+    clientVersion: app.getVersion(),
+    onChange: state => {
+      TypedIpcSender.from(mainWindow?.webContents).send('releaseCenterChanged', state)
+    },
+  })
+  const releases = releaseManager
+  releases.initialize().catch(err => {
+    logger.error(`Error initializing the release center: ${getErrorStack(err)}`)
+  })
+  ipcMain.handle('releaseCenterGetState', () => releases.initialize())
+  ipcMain.handle('releaseCenterRefresh', (event, product) => releases.refresh(product))
+  ipcMain.handle('releaseCenterSetChannel', (event, product, channel) =>
+    releases.setChannel(product, channel),
+  )
+  ipcMain.handle('releaseCenterSetAutomaticUpdates', (event, product, enabled) =>
+    releases.setAutomaticUpdates(product, enabled),
+  )
+  ipcMain.handle('releaseCenterInstall', (event, product, releaseId) =>
+    releases.install(product, releaseId),
+  )
+  ipcMain.handle('releaseCenterActivate', (event, product, releaseId) =>
+    releases.activate(product, releaseId),
+  )
+  ipcMain.handle('releaseCenterTrackLatest', (event, product) => releases.trackLatest(product))
+  ipcMain.handle('releaseCenterUpdateLatest', (event, product) => releases.updateLatest(product))
+  ipcMain.handle('releaseCenterUseBundledHyperion', () => releases.useBundledHyperion())
+  ipcMain.handle('releaseCenterRestartClient', async () => {
+    quitReason ??= 'switching HyperShield client version'
+    await releases.restartClient()
+  })
+
   ipcMain.handle('settingsOverwriteBlizzardFile', async () => {
     await scrSettings.writeGameSettingsFile()
   })
@@ -805,7 +844,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(event.sender).send(updateState)
     })
 
-  if (!isDev) {
+  if (!isDev && process.platform !== 'linux') {
     ipcMain.on('networkSiteConnected', () => {
       autoUpdater.checkForUpdates().catch(err => {
         logger.error(`Error checking for updates: ${err?.stack ?? err}`)
@@ -839,7 +878,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.handle(
     'discordCanShowActivity',
-    async () => !!discordPresence?.isLoaded && (await isDiscordRunning()),
+    async () =>
+      !!discordPresence?.isLoaded && (await import('./discord-presence')).isDiscordRunning(),
   )
   ipcMain.on('discordSetActivity', (event, activity) => {
     discordPresence?.setActivity(activity)
@@ -1460,12 +1500,12 @@ async function createWindow() {
     minHeight: 640,
 
     acceptFirstMouse: true,
-    accentColor: '#123a86', // This is used for the border of the window on Win 11
-    backgroundColor: '#10151e', // NOTE(tec27): This should always match the background in root CSS
+    accentColor: '#d4af37', // This is used for the border of the window on Win 11
+    backgroundColor: '#141614', // NOTE(tec27): This should always match the background in root CSS
     frame: false,
     transparent: false,
     show: false,
-    title: 'ShieldBattery',
+    title: APP_DISPLAY_NAME,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       additionalArguments: app.isPackaged ? [] : ['--sb-development-client'],
@@ -1621,7 +1661,7 @@ async function createWindow() {
     })
   }
 
-  if (!isDev) {
+  if (!isDev && process.platform !== 'linux') {
     mainWindow.once('ready-to-show', () => {
       ipcMain.on('networkSiteConnected', () => {
         autoUpdater.checkForUpdates().catch(err => {
@@ -1666,7 +1706,7 @@ app.on('ready', () => {
   // Ctrl+W to close, Ctrl+R to refresh [which we don't want outside of dev])
   Menu.setApplicationMenu(null)
 
-  if (!isDev) {
+  if (!isDev && process.platform !== 'linux') {
     autoUpdater.checkForUpdates().catch(err => {
       logger.error(`Error checking for updates: ${err?.stack ?? err}`)
     })
@@ -1696,6 +1736,12 @@ app.on('ready', () => {
       setupRefererOverrides(currentSession())
       gameServer = createGameServer(localSettings, scrSettings)
       await createWindow()
+
+      if (!isDev && process.platform === 'linux') {
+        releaseManager?.checkForAutomaticUpdates().catch(err => {
+          logger.error(`Error checking release-center updates: ${getErrorStack(err)}`)
+        })
+      }
 
       try {
         const watchedFolders = resolveReplayFolders(await localSettings.get())
@@ -1731,18 +1777,21 @@ app.on('ready', () => {
         handleLaunchArgs(process.argv.slice(1))
       }
 
-      discordPresence = new DiscordPresence({
-        sdkPath: discordSdkPath('discord_partner_sdk.dll'),
-        applicationId: discordApplicationId,
-        // Like the deep link scheme, only packaged builds register how Discord can start the app:
-        // a dev build would point it at whichever checkout's electron.exe ran last.
-        launchCommand: isDev ? undefined : `"${process.execPath}"`,
-        onJoinLobby: lobbyId => {
-          openDeepLink({ type: 'lobby', lobbyId })
-          bringWindowForward()
-        },
-      })
-      discordPresence.start()
+      if (process.platform === 'win32') {
+        const { DiscordPresence } = await import('./discord-presence')
+        discordPresence = new DiscordPresence({
+          sdkPath: discordSdkPath('discord_partner_sdk.dll'),
+          applicationId: discordApplicationId,
+          // Like the deep link scheme, only packaged builds register how Discord can start the app:
+          // a dev build would point it at whichever checkout's electron.exe ran last.
+          launchCommand: isDev ? undefined : `"${process.execPath}"`,
+          onJoinLobby: lobbyId => {
+            openDeepLink({ type: 'lobby', lobbyId })
+            bringWindowForward()
+          },
+        })
+        discordPresence.start()
+      }
 
       app.on('will-quit', () => {
         localSettings.saveSettingsToDiskSync()
@@ -1754,8 +1803,8 @@ app.on('ready', () => {
       logger.error(`Error initializing: ${err.stack ?? err}`)
       console.error(err)
       dialog.showErrorBox(
-        'ShieldBattery Error',
-        `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
+        `${APP_DISPLAY_NAME} Error`,
+        `There was an error initializing ${APP_DISPLAY_NAME}: ${err.message}\n${err.stack}`,
       )
       quitApp('initialization error')
     })
@@ -1776,8 +1825,8 @@ app.on('activate', () => {
       logger.error('Error creating window: ' + (err.stack ?? err))
       console.error(err)
       dialog.showErrorBox(
-        'ShieldBattery Error',
-        `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
+        `${APP_DISPLAY_NAME} Error`,
+        `There was an error initializing ${APP_DISPLAY_NAME}: ${err.message}\n${err.stack}`,
       )
       quitApp('window creation error')
     })

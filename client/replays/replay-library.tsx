@@ -295,7 +295,7 @@ export function ReplayLibraryUnavailable() {
       <div>
         {t(
           'replays.library.unavailableBody',
-          "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
+          "Your replays couldn't be loaded right now. Restarting HyperShield usually fixes this.",
         )}
       </div>
     </CenteredState>

@@ -144,7 +144,7 @@ const ActiveTrack = styled.div<{ $continuous: boolean }>`
   left: 0;
   width: calc((100% - ${INSET_PX * 2}px) * var(--_fraction) + ${INSET_PX - HANDLE_GAP_PX}px);
   border-radius: var(--_track-radius) 2px 2px var(--_track-radius);
-  background-color: var(--theme-amber);
+  background-color: var(--theme-primary);
 `
 
 const InactiveTrack = styled.div<{ $continuous: boolean }>`
@@ -165,7 +165,7 @@ const StopDot = styled.div<{ $active: boolean; $current: boolean }>`
 
   border-radius: 50%;
   background-color: ${props =>
-    props.$active ? 'var(--theme-on-amber)' : 'var(--color-grey-blue80)'};
+    props.$active ? 'var(--theme-on-primary)' : 'var(--color-grey-blue80)'};
   opacity: ${props => (props.$current ? 0 : 1)};
   pointer-events: none;
 `
@@ -177,7 +177,7 @@ const StopLabel = styled.div<{ $current: boolean }>`
   width: ${STOP_LABEL_WIDTH_PX}px;
   margin-left: ${-STOP_LABEL_WIDTH_PX / 2}px;
 
-  color: ${props => (props.$current ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => (props.$current ? 'var(--theme-primary)' : 'var(--theme-on-surface-variant)')};
   font-weight: ${props => (props.$current ? 600 : 500)};
   pointer-events: none;
   text-align: center;
@@ -193,7 +193,7 @@ const Halo = styled.div<{ $continuous: boolean }>`
   transform: translateX(-50%);
 
   border-radius: 50%;
-  background-color: rgb(from var(--theme-amber) r g b / 0.08);
+  background-color: rgb(from var(--theme-primary) r g b / 0.08);
   opacity: 0;
   pointer-events: none;
 
@@ -203,7 +203,7 @@ const Halo = styled.div<{ $continuous: boolean }>`
 
   ${Input}:active:enabled ~ & {
     opacity: 1;
-    background-color: rgb(from var(--theme-amber) r g b / 0.12);
+    background-color: rgb(from var(--theme-primary) r g b / 0.12);
   }
 `
 
@@ -217,7 +217,7 @@ const Handle = styled.div<{ $continuous: boolean }>`
   transform: translateX(-50%);
 
   border-radius: 2px;
-  background-color: var(--theme-amber);
+  background-color: var(--theme-primary);
   pointer-events: none;
 
   ${Input}:active:enabled ~ & {
@@ -225,7 +225,7 @@ const Handle = styled.div<{ $continuous: boolean }>`
   }
 
   ${Input}:focus-visible ~ & {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `

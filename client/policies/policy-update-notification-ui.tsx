@@ -41,7 +41,7 @@ export function PolicyUpdateNotificationUi({
       text={
         <span>
           <Trans t={t} i18nKey='policy.policyUpdateNotification'>
-            ShieldBattery's{' '}
+            HyperShield's{' '}
             <a
               href='#'
               onClick={e => {

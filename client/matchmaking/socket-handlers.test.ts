@@ -365,7 +365,9 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(openedDialogs(dispatched)).toEqual([])
     expect(showSnackbarMock).toHaveBeenCalledTimes(1)
     const [message, , options] = showSnackbarMock.mock.calls[0]
-    expect(message).toBe('The game has failed to load.')
+    expect(message).toBe(
+      'The game could not start. Check your StarCraft installation and try again.',
+    )
     expect(options?.action?.label).toBe('Report a bug')
 
     options!.action!.onClick()
@@ -517,7 +519,9 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
     expect(openedDialogs(dispatched)).toEqual([])
     expect(showSnackbarMock).toHaveBeenCalledTimes(1)
-    expect(showSnackbarMock.mock.calls[0][0]).toBe('The game has failed to load.')
+    expect(showSnackbarMock.mock.calls[0][0]).toBe(
+      'The game could not start. Check your StarCraft installation and try again.',
+    )
     expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
 
     // A later requeue from a different match isn't explained by the stale cancel.

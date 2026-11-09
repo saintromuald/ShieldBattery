@@ -123,8 +123,8 @@ function UserError({ error }: { error: FetchError }) {
         <span>
           {t(
             'auth.userErrorDisplay.clientVerificationFailed',
-            "This copy of ShieldBattery couldn't be verified. Please reinstall it from " +
-              'shieldbattery.net and try again.',
+            "This copy of HyperShield couldn't be verified. Please reinstall it from the " +
+              'HyperShield download page and try again.',
           )}
         </span>
       )
@@ -133,7 +133,7 @@ function UserError({ error }: { error: FetchError }) {
         <span>
           {t(
             'auth.userErrorDisplay.clientUpdateRequired',
-            'A newer version of ShieldBattery is available. Please update it and try again.',
+            'A newer version of HyperShield is available. Please update it and try again.',
           )}
         </span>
       )

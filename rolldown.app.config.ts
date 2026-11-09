@@ -24,6 +24,10 @@ const OUT_DIR = path.join(ROOT, 'app', 'dist')
  */
 const isProd = process.env.NODE_ENV !== 'development'
 
+// App packages are built for their host platform. Keep the statically analyzable SQLite entrypoint
+// while selecting that platform's prebuilt binding instead of always loading the Windows one.
+const sqlitePlatformEntry = `better-sqlite3/${process.platform}-${process.arch}`
+
 /**
  * Release-build settings, read into a scratch object rather than `process.env`: these belong to the
  * build, not to the process running it. Development builds ignore the file, so they bundle the
@@ -51,6 +55,9 @@ const output: OutputOptions = {
 
 const shared: RolldownOptions = {
   platform: 'node',
+  resolve: {
+    alias: { 'better-sqlite3/win32-x64': sqlitePlatformEntry },
+  },
   // Electron's own modules come from the runtime, not from the bundle.
   external: ['electron'],
   // Dynamic imports in this code defer evaluation of modules whose top level needs a real

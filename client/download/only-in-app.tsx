@@ -204,7 +204,7 @@ export function OnlyInApp() {
         <Subtitle>
           {t('clientDownload.onlyInAppBlurb', {
             defaultValue:
-              "This feature runs inside the ShieldBattery client, along with a few things the browser can't do.",
+              "This feature runs inside the HyperShield client, along with a few things the browser can't do.",
           })}
         </Subtitle>
 
@@ -268,7 +268,10 @@ export function OnlyInApp() {
             label={t('clientDownload.keepBrowsing', 'Keep browsing the web version')}
           />
           <WindowsNote>
-            {t('clientDownload.windowsOnly', 'The app runs on Windows PCs.')}
+            {t(
+              'clientDownload.windowsOnly',
+              'HyperShield has a native Linux client; SC:R-integrated features require Windows.',
+            )}
           </WindowsNote>
         </Actions>
       </Content>

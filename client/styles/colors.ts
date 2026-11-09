@@ -3,9 +3,9 @@ import { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
 
-export const blue10 = '#10151e'
-export const blue20 = '#12203a'
-export const blue30 = '#10295b'
+export const blue10 = '#141614'
+export const blue20 = '#0d1b2a'
+export const blue30 = '#102334'
 export const blue40 = '#123a86'
 export const blue50 = '#1a59c6'
 export const blue60 = '#2f77ec'
@@ -15,17 +15,29 @@ export const blue90 = '#91bbf9'
 export const blue95 = '#bfd9ff'
 export const blue99 = '#e6f0ff'
 
+export const green10 = '#071b12'
+export const green20 = '#0b2b1d'
+export const green30 = '#103e29'
+export const green40 = '#155437'
+export const green50 = '#1b6b46'
+export const green60 = '#39d98a'
+export const green70 = '#62e3a5'
+export const green80 = '#8aebbc'
+export const green90 = '#b2f2cf'
+export const green95 = '#d0f7e1'
+export const green99 = '#e9fbf1'
+
 export const amber10 = '#1b1509'
 export const amber20 = '#413001'
-export const amber30 = '#7a5f1b'
-export const amber40 = '#a87f08'
-export const amber50 = '#eab516'
-export const amber60 = '#ffc400'
-export const amber70 = '#ffca3f'
-export const amber80 = '#ffd982'
-export const amber90 = '#ffdd90'
-export const amber95 = '#ffe7b3'
-export const amber99 = '#f8f0df'
+export const amber30 = '#665318'
+export const amber40 = '#967a1f'
+export const amber50 = '#b89426'
+export const amber60 = '#d4af37'
+export const amber70 = '#ddbd55'
+export const amber80 = '#e6cd7d'
+export const amber90 = '#ecd994'
+export const amber95 = '#f3e7ba'
+export const amber99 = '#faf4e3'
 
 export const purple10 = '#131120'
 export const purple20 = '#2a1b3e'
@@ -39,9 +51,9 @@ export const purple90 = '#cda6ee'
 export const purple95 = '#eacefd'
 export const purple99 = '#f3ebf9'
 
-export const greyBlue10 = '#101725'
-export const greyBlue20 = '#182031'
-export const greyBlue30 = '#202d47'
+export const greyBlue10 = '#141614'
+export const greyBlue20 = '#0d1b2a'
+export const greyBlue30 = '#102334'
 export const greyBlue40 = '#2e3e5b'
 export const greyBlue50 = '#495d82'
 export const greyBlue60 = '#62789e'
@@ -63,17 +75,17 @@ export const grey90 = '#e0e7f0'
 export const grey95 = '#ebf1fa'
 export const grey99 = '#edf7fe'
 
-export const colorContainerLowest = '#141d2a'
-export const colorContainerLow = '#182237'
-export const colorContainer = '#18273e'
-export const colorContainerHigh = '#1c2b46'
-export const colorContainerHighest = '#1c304f'
+export const colorContainerLowest = '#0d1b2a'
+export const colorContainerLow = '#102334'
+export const colorContainer = '#122a3e'
+export const colorContainerHigh = '#163247'
+export const colorContainerHighest = '#1a3a52'
 // Colors that aren't intended to be used directly, but will be added to the container elevation
 // hierarchy when inside a container (to ensure we can basically always e.g. put a card in a
 // container and still have its bounds visible)
-const colorContainerHighestPlus1 = '#1f3355'
-const colorContainerHighestPlus2 = '#20375c'
-const colorContainerHighestPlus3 = '#213961'
+const colorContainerHighestPlus1 = '#1d405b'
+const colorContainerHighestPlus2 = '#204664'
+const colorContainerHighestPlus3 = '#234b6b'
 
 const colorError = '#ff6e6e'
 const colorSuccess = '#66bb6a'
@@ -109,6 +121,18 @@ export const THEME_CSS = css`
   --color-blue90: ${blue90};
   --color-blue95: ${blue95};
   --color-blue99: ${blue99};
+
+  --color-green10: ${green10};
+  --color-green20: ${green20};
+  --color-green30: ${green30};
+  --color-green40: ${green40};
+  --color-green50: ${green50};
+  --color-green60: ${green60};
+  --color-green70: ${green70};
+  --color-green80: ${green80};
+  --color-green90: ${green90};
+  --color-green95: ${green95};
+  --color-green99: ${green99};
 
   --color-amber10: ${amber10};
   --color-amber20: ${amber20};
@@ -158,10 +182,11 @@ export const THEME_CSS = css`
   --color-grey95: ${grey95};
   --color-grey99: ${grey99};
 
-  --theme-primary: var(--color-blue60);
-  --theme-on-primary: var(--color-blue99);
-  --theme-primary-container: var(--color-blue40);
-  --theme-on-primary-container: var(--color-blue99);
+  --theme-primary: var(--color-green60);
+  --theme-on-primary: var(--color-green10);
+  --theme-primary-container: var(--color-green40);
+  --theme-on-primary-container: var(--color-green99);
+  --theme-focus: var(--color-green70);
 
   --theme-amber: var(--color-amber60);
   --theme-on-amber: var(--color-amber10);
@@ -180,15 +205,15 @@ export const THEME_CSS = css`
 
   --theme-surface: var(--color-blue10);
   --theme-on-surface: var(--color-grey99);
-  --theme-on-surface-variant: var(--color-blue95);
-  --theme-inverse-surface: var(--color-blue95);
+  --theme-on-surface-variant: var(--color-grey-blue90);
+  --theme-inverse-surface: var(--color-amber99);
   --theme-inverse-on-surface: var(--color-grey-blue10);
-  --theme-inverse-primary: var(--color-blue50);
+  --theme-inverse-primary: var(--color-green40);
 
-  --theme-outline: var(--color-grey-blue60);
-  --theme-outline-variant: var(--color-grey-blue50);
-  --theme-inverse-outline: var(--color-grey-blue50);
-  --theme-inverse-outline-variant: var(--color-grey-blue90);
+  --theme-outline: var(--color-amber60);
+  --theme-outline-variant: var(--color-amber40);
+  --theme-inverse-outline: var(--color-amber40);
+  --theme-inverse-outline-variant: var(--color-amber60);
 
   --theme-container-lowest: ${colorContainerLowest};
   --theme-container-low: ${colorContainerLow};

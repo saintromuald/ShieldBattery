@@ -87,7 +87,7 @@ export function ExternalLinkDialog({ href, domain, onCancel }: ExternalLinkDialo
       buttons={buttons}>
       <SelectionBoundary>
         <Trans t={t} i18nKey='navigation.externalLink.dialogText'>
-          <BodyLarge>This link will take you to a site outside ShieldBattery:</BodyLarge>
+          <BodyLarge>This link will take you to a site outside HyperShield:</BodyLarge>
           <LinkAsText title={href}>{{ link: href } as TransInterpolation}</LinkAsText>
           <BodyLarge>Are you sure you want to go there?</BodyLarge>
         </Trans>

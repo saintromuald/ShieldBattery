@@ -6,15 +6,11 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { LiveGameEntry, LiveGames_FeedFragment } from '../games/live-game-entry'
 import { FragmentType, graphql, useFragment } from '../gql'
-import GithubIcon from '../icons/brands/github.svg?react'
-import KofiIcon from '../icons/brands/kofi-color.svg?react'
-import PatreonIcon from '../icons/brands/patreon.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueHomeFeed } from '../leagues/league-home-feed'
 import { OutlinedButton, TextButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { elevationPlus1 } from '../material/shadows'
-import { Tooltip } from '../material/tooltip'
 import { NewsFeed } from '../news/news-feed'
 import { localizeUrgentMessage } from '../news/urgent-message'
 import { LoadingDotsArea } from '../progress/dots'
@@ -75,64 +71,6 @@ const RightSection = styled.div`
     display: none;
   }
 `
-const SupportSection = styled.div`
-  ${elevationPlus1};
-  ${containerStyles(ContainerLevel.Low)};
-  min-height: 56px;
-  padding-inline: 16px 4px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-
-  border-radius: 4px;
-`
-
-const SupportText = styled.div`
-  ${titleSmall};
-  padding-block: 16px;
-`
-
-const SupportIcons = styled.div`
-  display: flex;
-  align-items: center;
-
-  & a {
-    &,
-    &:link,
-    &:visited {
-      width: 56px;
-      height: 48px;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      border-radius: 8px;
-      color: var(--theme-on-surface);
-      text-align: center;
-    }
-
-    &:hover,
-    &:active {
-      background-color: var(--theme-container-low);
-    }
-  }
-`
-
-const StyledGithubIcon = styled(GithubIcon)`
-  height: 32px;
-`
-
-const StyledKofiIcon = styled(KofiIcon)`
-  height: 32px;
-`
-
-const StyledPatreonIcon = styled(PatreonIcon)`
-  height: 32px;
-  color: #fff;
-`
 const BottomLinksArea = styled.div`
   grid-column: 1 / -1;
 `
@@ -156,7 +94,6 @@ const HomeLiveQuery = graphql(/* GraphQL */ `
 `)
 
 export function Home() {
-  const { t } = useTranslation()
   const [{ data: homeData, error: homeError }] = useQuery({
     query: HomeQuery,
     context: { ttl: 10 * 1000 },
@@ -181,29 +118,6 @@ export function Home() {
               <NewsFeed query={homeData} hasError={!!homeError} />
             </LeftSection>
             <RightSection>
-              <SupportSection>
-                <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
-                <SupportIcons>
-                  <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
-                    <a
-                      href='https://github.com/sponsors/ShieldBattery'
-                      target='_blank'
-                      rel='noopener'>
-                      <StyledGithubIcon />
-                    </a>
-                  </Tooltip>
-                  <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
-                    <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-                      <StyledPatreonIcon />
-                    </a>
-                  </Tooltip>
-                  <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
-                    <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-                      <StyledKofiIcon />
-                    </a>
-                  </Tooltip>
-                </SupportIcons>
-              </SupportSection>
               <LiveGamesFeed query={liveData} />
               <LiveStreamsFeed query={liveData} />
               <LeagueHomeFeed query={homeData} />

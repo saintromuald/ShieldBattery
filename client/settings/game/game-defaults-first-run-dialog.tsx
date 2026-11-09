@@ -147,7 +147,7 @@ const Footnote = styled.div`
 `
 
 /**
- * Asks the user, on their first launch, which set of values ShieldBattery's own gameplay settings
+ * Asks the user, on their first launch, which set of values HyperShield's SC:R gameplay settings
  * should start on. Shown as a modal: the choice also decides what settings added later default to,
  * so it's only dismissable by picking one.
  */
@@ -255,7 +255,7 @@ export function GameDefaultsFirstRunDialog({ close }: CommonDialogProps) {
       <Intro>
         {t(
           'settings.game.defaults.firstRun.intro',
-          'ShieldBattery tunes a few gameplay details differently from Battle.net, and we ' +
+          'HyperShield tunes a few SC:R gameplay details differently from Battle.net, and we ' +
             'recommend giving them a try. If you would rather keep things exactly how you ' +
             'remember them, Legacy leaves everything alone. Whichever you pick also becomes the ' +
             'default for features we add later.',

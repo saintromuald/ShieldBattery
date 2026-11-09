@@ -1654,6 +1654,79 @@ describe('games/game-loader/GameLoader', () => {
     expect(gameLoader.registerGameAsLoaded('game-never-existed', p1)).toBe(false)
   })
 
+  test('coalesces identical formation loads and rejects a same-ID payload collision', async () => {
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    registerActiveClients([player1.player, player2.player])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 77,
+      setups: new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ]),
+    })
+
+    let finishRegistration!: (value: any) => void
+    asMockedFunction(registerGame).mockReturnValue(
+      new Promise(resolve => {
+        finishRegistration = resolve
+      }),
+    )
+    const gameId = '00000000-0000-4000-8000-000000000001'
+    const firstRegistered = vi.fn()
+    const duplicateRegistered = vi.fn()
+    const request: GameLoadRequest = {
+      gameId,
+      players: [player1.player, player2.player],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+      onGameRegistered: firstRegistered,
+    }
+
+    const first = gameLoader.loadGame(request)
+    const duplicate = gameLoader.loadGame({ ...request, onGameRegistered: duplicateRegistered })
+    expect(duplicate).toBe(first)
+    expect(registerGame).toHaveBeenCalledTimes(1)
+    expect(asMockedFunction(registerGame).mock.calls[0][3]).toBe(gameId)
+
+    finishRegistration({
+      gameId,
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    })
+    await vi.waitFor(() => expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1))
+    expect(firstRegistered).toHaveBeenCalledExactlyOnceWith(gameId)
+    expect(duplicateRegistered).not.toHaveBeenCalled()
+    gameLoader.registerGameAsLoaded(gameId, p1)
+    gameLoader.registerGameAsLoaded(gameId, p2)
+    expect((await first).isOk()).toBe(true)
+
+    const lateDuplicate = gameLoader.loadGame({ ...request, onGameRegistered: duplicateRegistered })
+    expect(lateDuplicate).toBe(first)
+    expect((await lateDuplicate).isOk()).toBe(true)
+    expect(registerGame).toHaveBeenCalledTimes(1)
+
+    const collision = await gameLoader.loadGame({
+      ...request,
+      gameConfig: lobbyConfig([[{ id: p1, race: 't', isComputer: false }]]),
+    })
+    expect(collision.isError()).toBe(true)
+    expect(collision.errorOrNull()).toMatchObject({
+      code: GameLoadErrorType.Internal,
+      message: 'The formation ID was reused with different launch data',
+    })
+    expect(registerGame).toHaveBeenCalledTimes(1)
+    expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+  })
+
   test('fails immediately when a multi-human game loads and netcode v2 is not enabled', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)

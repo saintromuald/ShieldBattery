@@ -1,7 +1,7 @@
-import { DEFAULT_VALUE, HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { dialog } from 'electron'
 import isDev from 'electron-is-dev'
 import { getAppId } from './app-id'
+import { APP_DISPLAY_NAME } from './branding'
 import logger from './logger'
 
 /**
@@ -9,7 +9,7 @@ import logger from './logger'
  * App ID. The App ID can then be used in file associations for particular filetypes.
  */
 export async function registerCurrentProgram() {
-  if (isDev) {
+  if (isDev || process.platform !== 'win32') {
     // NOTE(tec27): We don't run the single-instance code in dev, so it's tough to test the file
     // association stuff properly there. It's also hard to launch the app from the right location
     // similar to how we do from pnpm, so we just don't do this registration. If you need to test
@@ -18,6 +18,8 @@ export async function registerCurrentProgram() {
   }
 
   const appId = getAppId()
+  const { DEFAULT_VALUE, HKCU, REG_SZ, WindowsRegistry } =
+    await import('@shieldbattery/windows-registry')
 
   const registry = new WindowsRegistry()
   try {
@@ -44,7 +46,7 @@ export async function registerCurrentProgram() {
   } catch (err) {
     logger.error(`error setting file associations: ${(err as any).stack ?? err}`)
     dialog.showErrorBox(
-      'ShieldBattery Error',
+      `${APP_DISPLAY_NAME} Error`,
       `There was an error setting file associations: ${(err as any).stack ?? err}\r\n\r\n` +
         'This is a bug, please report it.',
     )

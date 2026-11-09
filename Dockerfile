@@ -1,5 +1,6 @@
 # Get sqlx-cli so we can run migrations (Linux version needs to match what we run on below)
-FROM ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools AS rust-tools
+ARG SQLX_TOOLS_IMAGE=ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools
+FROM ${SQLX_TOOLS_IMAGE} AS rust-tools
 
 # Install dependencies in a separate stage for better caching
 FROM node:24-bookworm-slim AS deps

@@ -2,14 +2,14 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
-import Logo from '../logos/logo-no-bg.svg?react'
+import Logo from '../logos/hypershield-logo.svg?react'
 import { elevationPlus2 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 
 const BadgeRoot = styled(Tooltip)`
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
 `
 
@@ -22,26 +22,21 @@ const BadgeDisc = styled.div`
   align-items: center;
   justify-content: center;
 
-  /*
-    The logo's shield body inherits currentColor (the global svg fill), so it must be set
-    explicitly here: a light shield + the mark's own amber bolt on a saturated navy disc, like a
-    miniature app icon. The bright ring frames the coin against both the avatar behind it and the
-    surface the avatar sits on.
-  */
-  color: var(--color-blue99);
+  /* The bright ring frames the multicolor mark against both the avatar behind it and the surface
+     the avatar sits on. */
   background-color: var(--color-blue40);
   border: 2px solid var(--color-blue90);
   border-radius: 50%;
 `
 
 const BadgeLogo = styled(Logo)`
-  width: 90%;
-  height: 90%;
+  width: 100%;
+  height: 100%;
 `
 
 /**
- * The raw staff badge coin: a ShieldBattery logo on a navy disc, shown to mark that an account
- * speaks for ShieldBattery. This is the bare mark with no positioning of its own — most callers
+ * The raw staff badge coin: a HyperShield logo on a navy disc, shown to mark that an account
+ * speaks for HyperShield. This is the bare mark with no positioning of its own — most callers
  * want `StaffBadgedAvatar` instead, which anchors it over an avatar automatically.
  */
 export function StaffBadge({ className }: { className?: string }) {
@@ -50,11 +45,11 @@ export function StaffBadge({ className }: { className?: string }) {
   return (
     <BadgeRoot
       className={className}
-      text={t('users.staffBadge.tooltip', 'ShieldBattery staff')}
+      text={t('users.staffBadge.tooltip', 'HyperShield staff')}
       position='top'
       tabIndex={-1}>
       <BadgeDisc>
-        <BadgeLogo />
+        <BadgeLogo aria-hidden='true' />
       </BadgeDisc>
     </BadgeRoot>
   )
@@ -76,8 +71,8 @@ const CornerBadge = styled(StaffBadge)`
      the badge's native size so it never grows past the design on large avatars. */
   width: 55%;
   height: 55%;
-  max-width: 22px;
-  max-height: 22px;
+  max-width: 24px;
+  max-height: 24px;
   top: -10%;
   right: -14%;
 `

@@ -39,7 +39,7 @@ function ClientVerificationFailedContent() {
   return (
     <BodyLarge>
       <Trans t={t} i18nKey='network.clientVerification.failedContents'>
-        This copy of ShieldBattery couldn't be verified, so it can't connect. Please download the
+        This copy of HyperShield couldn't be verified, so it can't connect. Please download the
         latest version from <DownloadLink>our website</DownloadLink> and reinstall it.
       </Trans>
     </BodyLarge>
@@ -52,8 +52,8 @@ function ClientUpdateRequiredContent() {
   return (
     <BodyLarge>
       <Trans t={t} i18nKey='network.clientUpdate.requiredContents'>
-        This version of ShieldBattery is out of date, so it can't connect. Please download the
-        latest version from <DownloadLink>our website</DownloadLink>.
+        This version of HyperShield is out of date, so it can't connect. Please download the latest
+        version from <DownloadLink>our website</DownloadLink>.
       </Trans>
     </BodyLarge>
   )
@@ -70,7 +70,7 @@ function open(title: string, content: React.ReactNode) {
 export function showConnectionRefused(refusal: SiteConnectionRefusal) {
   if (refusal === 'clientVerification') {
     open(
-      i18n.t('network.clientVerification.failedTitle', "Couldn't verify ShieldBattery"),
+      i18n.t('network.clientVerification.failedTitle', "Couldn't verify HyperShield"),
       <ClientVerificationFailedContent />,
     )
     return

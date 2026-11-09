@@ -2,7 +2,6 @@ import Joi from 'joi'
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameConfig, GameSource, MatchmakingGameConfig } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import {
@@ -31,8 +30,8 @@ import {
 } from '../../../common/games/results'
 import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
 import {
+  isSoloType,
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
-  MatchmakingType,
   toMatchmakingSeasonJson,
   toPublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
@@ -160,23 +159,12 @@ function getMatchmakingResolutionTeams(
   userIds: ReadonlyArray<SbUserId>,
 ): SbUserId[][] {
   const { gameSourceExtra } = config
-  switch (gameSourceExtra.type) {
-    case MatchmakingType.Match1v1:
-    case MatchmakingType.Match1v1Fastest:
-      return userIds.map(id => [id])
-    case MatchmakingType.Match2v2:
-    case MatchmakingType.Match2v2Bgh:
-    case MatchmakingType.Match2v2Hunters:
-    case MatchmakingType.Match2v2Fastest:
-    case MatchmakingType.Match3v3Bgh:
-    case MatchmakingType.Match3v3Hunters:
-    case MatchmakingType.Match3v3Fastest:
-      // Records created while the observer team was serialized alongside the player teams carry it
-      // as an empty array, which would otherwise read as a team that trivially "wins".
-      return config.teams.map(team => team.map(p => p.id)).filter(team => team.length > 0)
-    default:
-      return assertUnreachable(gameSourceExtra)
+  if (isSoloType(gameSourceExtra.type)) {
+    return userIds.map(id => [id])
   }
+  // Records created while the observer team was serialized alongside the player teams carry it
+  // as an empty array, which would otherwise read as a team that trivially "wins".
+  return config.teams.map(team => team.map(p => p.id)).filter(team => team.length > 0)
 }
 
 /**
@@ -1323,26 +1311,13 @@ export default class GameResultService {
       } = gameRecord
 
       let teams: [teamA: SbUserId[], teamB: SbUserId[]]
-      if (
-        gameSourceExtra.type === MatchmakingType.Match1v1 ||
-        gameSourceExtra.type === MatchmakingType.Match1v1Fastest
-      ) {
+      if (isSoloType(gameSourceExtra.type)) {
         teams = [[userIds[0]], [userIds[1]]]
-      } else if (
-        gameSourceExtra.type === MatchmakingType.Match2v2 ||
-        gameSourceExtra.type === MatchmakingType.Match2v2Bgh ||
-        gameSourceExtra.type === MatchmakingType.Match2v2Hunters ||
-        gameSourceExtra.type === MatchmakingType.Match2v2Fastest ||
-        gameSourceExtra.type === MatchmakingType.Match3v3Bgh ||
-        gameSourceExtra.type === MatchmakingType.Match3v3Hunters ||
-        gameSourceExtra.type === MatchmakingType.Match3v3Fastest
-      ) {
+      } else {
         teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [
           teamA: SbUserId[],
           teamB: SbUserId[],
         ]
-      } else {
-        teams = assertUnreachable(gameSourceExtra)
       }
 
       const ratingChanges = calculateChangedRatings({

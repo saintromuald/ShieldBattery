@@ -1,4 +1,4 @@
-import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
+import type { WindowsRegistry } from '@shieldbattery/windows-registry'
 import { getErrorStack } from '../../common/errors'
 import log from '../logger'
 
@@ -62,6 +62,7 @@ async function readPreference(
   registry: WindowsRegistry,
   appPath: string,
 ): Promise<string | undefined> {
+  const { HKCU } = await import('@shieldbattery/windows-registry')
   const value = await registry.read(HKCU, USER_GPU_PREFERENCES_KEY, appPath)
   if (value !== undefined && typeof value !== 'string') {
     throw new Error('Got unexpected type for GPU preference: ' + JSON.stringify(value))
@@ -71,6 +72,7 @@ async function readPreference(
 
 async function applyHighPerformanceGpu(appPath: string) {
   try {
+    const { HKCU, REG_SZ, WindowsRegistry } = await import('@shieldbattery/windows-registry')
     const registry = new WindowsRegistry()
     const original = await readPreference(registry, appPath)
     const written = withHighPerformanceGpu(original)
@@ -92,6 +94,7 @@ async function restoreGpuPreference(
   change: { original: string | undefined; written: string },
 ) {
   try {
+    const { HKCU, REG_SZ, WindowsRegistry } = await import('@shieldbattery/windows-registry')
     const registry = new WindowsRegistry()
     const current = await readPreference(registry, appPath)
     if (current !== change.written) {

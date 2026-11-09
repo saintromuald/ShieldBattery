@@ -54,10 +54,10 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
 
   background-color: ${props => (props.$isActiveTab ? 'var(--theme-container-low)' : 'transparent')};
   border: 2px solid
-    ${props => (props.$isActiveTab ? 'var(--theme-amber)' : 'var(--theme-outline-variant)')};
+    ${props => (props.$isActiveTab ? 'var(--theme-primary)' : 'var(--theme-outline-variant)')};
   border-radius: 6px;
   color: ${props =>
-    props.$isActiveTab ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)'};
+    props.$isActiveTab ? 'var(--theme-primary)' : 'var(--theme-on-surface-variant)'};
   transition:
     background-color 30ms linear,
     border 60ms linear,

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import styled from 'styled-components'
-import Logo from '../logos/logo-no-bg.svg?react'
+import Logo from '../logos/hypershield-logo.svg?react'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { HeadlineSmall } from '../styles/typography'
 
@@ -35,7 +35,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
     <CenteredContentContainer $targetWidth={420}>
       <Root>
         <LogoAndTitle>
-          <StyledLogo />
+          <StyledLogo aria-hidden='true' />
           <HeadlineSmall>{title}</HeadlineSmall>
         </LogoAndTitle>
         {children}

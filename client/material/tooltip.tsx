@@ -69,14 +69,14 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
 
   a:link,
   a:visited {
-    color: var(--color-blue50);
+    color: var(--color-green40);
     text-decoration: underline;
     font-weight: 700;
   }
 
   a:hover,
   a:active {
-    color: var(--color-blue60);
+    color: var(--color-green50);
     text-decoration: underline;
     font-weight: 700;
   }

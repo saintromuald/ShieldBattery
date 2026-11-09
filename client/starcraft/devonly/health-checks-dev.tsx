@@ -73,7 +73,7 @@ function ShieldBatteryContent() {
 
   return (
     <div>
-      <TitleMedium>ShieldBattery</TitleMedium>
+      <TitleMedium>HyperShield SC:R integration</TitleMedium>
       <CheckBox
         label='sb_init.dll'
         checked={files.init}
@@ -85,7 +85,7 @@ function ShieldBatteryContent() {
         onChange={e => setFiles({ ...files, main: e.target.checked })}
       />
       <FilledButton
-        label='Show ShieldBattery Health Dialog'
+        label='Show HyperShield SC:R Health Dialog'
         onClick={() => {
           setShown(true)
         }}

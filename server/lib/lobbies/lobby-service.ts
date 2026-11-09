@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
@@ -156,6 +157,7 @@ export function knownRegionOrUndefined(
 }
 
 interface Countdown {
+  formationId: string
   timer?: Deferred<void>
 }
 
@@ -2314,10 +2316,11 @@ export class LobbyService {
     this._warmLobbyRegions(lobby)
 
     const lobbyId = lobby.id
+    const formationId = randomUUID()
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
     setTimeout(() => countdownTimer.resolve(), 5000)
-    this.lobbyCountdowns.set(lobbyId, { timer: countdownTimer })
+    this.lobbyCountdowns.set(lobbyId, { formationId, timer: countdownTimer })
 
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby)
@@ -2355,12 +2358,15 @@ export class LobbyService {
     // this point resolves into cancel events published to the lobby rather than an error to the
     // caller, so the operation is done (as far as the caller is concerned) once the countdown has
     // begun.
-    this._runCountdownAndLoad(lobby, gameConfig, countdownTimer).catch(swallowNonBuiltins)
+    this._runCountdownAndLoad(lobby, gameConfig, formationId, countdownTimer).catch(
+      swallowNonBuiltins,
+    )
   }
 
   private async _runCountdownAndLoad(
     lobby: Lobby,
     gameConfig: GameConfig,
+    formationId: string,
     countdownTimer: Deferred<void>,
   ): Promise<void> {
     const lobbyId = lobby.id
@@ -2384,6 +2390,7 @@ export class LobbyService {
         netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
       }))
       const gameLoadResult = await this.gameLoader.loadGame({
+        gameId: formationId,
         players: loadedPlayers,
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,

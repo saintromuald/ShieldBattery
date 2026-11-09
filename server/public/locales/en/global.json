@@ -103,6 +103,7 @@
     }
   },
   "auth": {
+    "accountIndependence": "HyperShield accounts are independent of other Brood War services. Credentials from other services are not shared; use a separate HyperShield account.",
     "emailValidator": {
       "pattern": "Enter a valid email address",
       "required": "Enter an email address"
@@ -124,9 +125,9 @@
       "password": {
         "alreadyHaveCodeLink": "Already have a code?",
         "emailAddress": "Email address",
-        "explanationText": "Enter the email address and username associated with your account. We'll send you an email with a reset code to set a new password.",
+        "explanationText": "Enter the email address and username associated with your HyperShield account. We'll send you an email with a reset code to set a new password.",
         "sendResetEmail": "Send reset email",
-        "title": "Request password reset",
+        "title": "Reset your HyperShield password",
         "username": "Username"
       },
       "reset": {
@@ -137,14 +138,14 @@
         "passwordCode": "Reset code",
         "setNewPassword": "Set new password",
         "successMessage": "Your password has been reset.",
-        "title": "Reset password"
+        "title": "Reset HyperShield password"
       },
       "user": {
         "emailAddress": "Email address",
-        "enterEmail": "Enter the email address associated with your account. We'll send you an email with all the usernames associated with that email address (if any).",
+        "enterEmail": "Enter the email address associated with your HyperShield account. We'll send you an email with all the usernames associated with that email address (if any).",
         "recoverUsername": "Recover username",
         "successMessage": "You should receive an email shortly with all the usernames associated with that email address (if any).",
-        "title": "Recover your username"
+        "title": "Recover your HyperShield username"
       }
     },
     "language": {
@@ -158,7 +159,7 @@
       "logIn": "Log in",
       "password": "Password",
       "rememberMe": "Remember me",
-      "title": "Log in to ShieldBattery",
+      "title": "Log in to HyperShield",
       "username": "Username"
     },
     "noPermissionsPage": {
@@ -193,21 +194,21 @@
       "ageConfirmation": "I certify that I am 13 years of age or older",
       "alreadyHaveAccount": "Already have an account? <1>Log in</1>",
       "confirmPassword": "Confirm password",
-      "createAccount": "Create account",
+      "createAccount": "Create a HyperShield account",
       "emailAddress": "Email address",
       "haveSignupCodeLink": "Have a signup code?",
       "password": "Password",
       "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <5>Acceptable Use</5>, and <8>Privacy</8> policies",
       "signupCode": "Signup code (optional)",
-      "title": "Create account",
+      "title": "Create a HyperShield account",
       "username": "Username"
     },
     "userErrorDisplay": {
       "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
       "banWithoutReason": "No reason specified",
       "clientSetupRequired": "Please finish setting up StarCraft in Settings, then try creating your account again.",
-      "clientUpdateRequired": "A newer version of ShieldBattery is available. Please update it and try again.",
-      "clientVerificationFailed": "This copy of ShieldBattery couldn't be verified. Please reinstall it from shieldbattery.net and try again.",
+      "clientUpdateRequired": "A newer version of HyperShield is available. Please update it and try again.",
+      "clientVerificationFailed": "This copy of HyperShield couldn't be verified. Please reinstall it from the HyperShield download page and try again.",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
       "invalidCode": "The provided code is invalid. It may have expired.",
@@ -232,7 +233,7 @@
     "detailsDescription": "Please describe the bug and provide as much detail as possible about what you were doing when the bug occurred.",
     "detailsRequired": "Bug reports must include details.",
     "error": "Error: {{errorMessage}}",
-    "logUploadDescription": "Your bug report will include ShieldBattery logs from your machine to help diagnose the issue. Logs may be kept for up to 30 days and are viewable only by ShieldBattery staff.",
+    "logUploadDescription": "Your bug report will include HyperShield logs from your machine to help diagnose the issue. Logs may be kept for up to 30 days and are viewable only by HyperShield administrators.",
     "reportSubmitted": "Bug report submitted.",
     "title": "Report a bug"
   },
@@ -1001,11 +1002,11 @@
   },
   "clientDownload": {
     "andMore": "And more!",
-    "blurb": "Download the ShieldBattery client to:",
+    "blurb": "Download the HyperShield client to:",
     "download": "Download",
     "downloadClient": "Download client",
     "keepBrowsing": "Keep browsing the web version",
-    "onlyInAppBlurb": "This feature runs inside the ShieldBattery client, along with a few things the browser can't do.",
+    "onlyInAppBlurb": "This feature runs inside the HyperShield client, along with a few things the browser can't do.",
     "onlyInAppNetcodeDescription": "Lower latency and fewer stalls, even on spotty connections.",
     "onlyInAppNetcodeTitle": "Improved netcode",
     "onlyInAppRankedDescription": "1v1 and team queues with seasonal MMR and placements.",
@@ -1014,9 +1015,8 @@
     "onlyInAppReplaysTitle": "Fast replay launching",
     "onlyInAppTitle": "Take it into the app",
     "playGames": "Play games",
-    "supportProjectText": "Want to support the project?",
     "watchReplays": "Watch replays",
-    "windowsOnly": "The app runs on Windows PCs."
+    "windowsOnly": "HyperShield has a native Linux client; SC:R-integrated features require Windows."
   },
   "clientUpdate": {
     "errorBoundary": {
@@ -1034,8 +1034,7 @@
     }
   },
   "comingSoon": {
-    "headline": "This feature is coming soon!",
-    "subtitle": "Help fund ShieldBattery's development"
+    "headline": "This feature is coming soon!"
   },
   "common": {
     "actions": {
@@ -1112,7 +1111,7 @@
       "decline": "No thanks",
       "enable": "Show my activity",
       "footnote": "Nothing shows while you’re not in a lobby, a game or a replay. You can change this later in Settings › Connections.",
-      "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
+      "intro": "HyperShield can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
       "sharedGame": "The game mode, the matchup or your race, the map, and how long the game has been going",
       "sharedLobby": "The map of the lobby you’re in, its name if it’s listed, and a Join button, or Ask to Join if it’s unlisted",
       "sharedReplay": "That you’re watching a replay, and its map",
@@ -1205,6 +1204,7 @@
       "useMapSettings": "The map's own units, triggers, and rules."
     },
     "launchingGameDialog": {
+      "preparingHyperion": "Preparing HyperShield…",
       "resolvingFailure": "Checking why the game could not start…",
       "startingGameServer": "Starting a game server…",
       "title": "Launching game…"
@@ -1274,7 +1274,7 @@
     "buttonCopyLink": "Copy link to game",
     "buttonDismissReviewRequest": "Dismiss request",
     "buttonDownloadReplay": "Download replay",
-    "buttonOpenInApp": "Open in ShieldBattery",
+    "buttonOpenInApp": "Open in HyperShield",
     "buttonReplaySaved": "In library",
     "buttonReport": "Report",
     "buttonRequestReview": "Request review",
@@ -1447,7 +1447,7 @@
     "alreadyReported": "You've already reported this player for this game.",
     "badRequest": "Your report could not be submitted. Please check the details and try again.",
     "closed": "Reports for this game are closed. Players can be reported for 24 hours after a game ends.",
-    "description": "Report a player for breaking the rules in this game. Reports are reviewed by ShieldBattery staff.",
+    "description": "Report a player for breaking the rules in this game. Reports are reviewed by HyperShield administrators.",
     "details": "Details",
     "detailsOptional": "Details (optional)",
     "detailsRequiredForOther": "Please describe what happened.",
@@ -1526,8 +1526,7 @@
     "copyLink": "Copy link to this guide"
   },
   "home": {
-    "latestNewsTitle": "Latest news",
-    "supportTitle": "Support the project"
+    "latestNewsTitle": "Latest news"
   },
   "ladder": {
     "activity": {
@@ -1547,11 +1546,11 @@
     "errorRetrievingRankings": "There was an error retrieving the current rankings.",
     "explainer": {
       "divisions": "## Divisions\n\nDivisions run from Bronze 1 up through Diamond 3, then Champion. Each one is a range of points, and the bonus pool affects them in two ways:\n\n* **In the lower divisions** (Bronze through Silver 2), the thresholds stay put or rise only part of the way, so bonus points really help you climb.\n* **From Silver 3 up**, the thresholds rise by the same amount as the bonus pool. There, bonus points just keep pace with the bar, so these divisions show how well you play. To reach Champion you have to win more than you lose against strong opponents, not just keep playing.\n\nThe ladder ranks everyone in a mode by points.",
-      "intro": "Players often ask:\n\n*“Why do ranks use points? Why not just use MMR?”*\n\nShieldBattery tracks two numbers for every player in every mode: a **rating (MMR)** and **points**. They do different jobs. This guide explains each one, how your rank and division are worked out, and why we keep the two separate.",
+      "intro": "Players often ask:\n\n*“Why do ranks use points? Why not just use MMR?”*\n\nHyperShield tracks two numbers for every player in every mode: a **rating (MMR)** and **points**. They do different jobs. This guide explains each one, how your rank and division are worked out, and why we keep the two separate.",
       "linkLabel": "How ladder works",
       "points": "## Points\n\nYour **rank** on the ladder and your **division** come from **points**. Points start at 0 every season and are what you climb with.\n\nPoints are designed to **follow your MMR**. Over a season, a player’s points settle at about **four times their MMR**. A 1750 MMR player will tend to end up around 7,000 points.\n\nAfter each game, your points change based on how your current points compare to your opponent’s skill:\n\n* If your points are **below** where your skill says they should be, wins give more points and losses cost fewer.\n* If your points are **above** where your skill says they should be, the opposite happens.\n* **Every win gives at least 1 point**, and points can’t go below 0.\n\nTwo extras help you get where you belong without grinding:\n\n* **Catch-up bonus:** While your points are below what your MMR says they should be, each win gives extra points: up to 400 when you’re far behind, shrinking as you get close. While your MMR is still uncertain, such as when you’re new, the catch-up aims a little lower until your MMR settles. Most players get close to their real level within about 40 games.\n* **Bonus pool:** From the start of each season, everyone builds up bonus points at **200 per week**, whether or not they play. While you have unused bonus, each **win gives double points**, catch-up included, and each **loss costs nothing**. The pool stops growing a week before the season ends, so you have time to use it up. Missing a busy week or two doesn’t put you behind. Your bonus waits for you.",
       "rating": "## Rating (MMR)\n\nEvery player has a separate **matchmaking rating (MMR)** for each mode. We use **Glicko-2**, a well-known rating system that tracks three things for each player:\n\n* **Rating:** our best guess at your skill. New players start at 1500.\n* **Uncertainty:** how confident we are in that guess. It’s high when you’re new and gets smaller as you play.\n* **Volatility:** how consistent your results are.\n\nAfter each game, your rating moves based on how surprising the result was. Beating someone much stronger moves it a lot, and beating someone much weaker barely moves it. When uncertainty is high, it moves faster, so new players reach the right level quickly.\n\nIf you don’t play for two weeks or more, your uncertainty goes up a bit. That lets your rating move more fluidly if your skill changed while you were away. Your rating itself doesn’t drop just because you took a break.\n\nIn team games, your result is compared against the average rating of the other team.\n\nYour MMR is what the matchmaker uses to find you fair games. MMR becomes visible once you’ve finished **5 placement games** in a mode.",
-      "title": "How the ladder works in ShieldBattery",
+      "title": "How the ladder works in HyperShield",
       "whyPoints": "## Why Not Use MMR for Ranks?\n\nWe do use MMR for what it’s best at, which is finding you fair games. Points and divisions never affect who you get matched against. But MMR makes a poor rank, for a few reasons:\n\n**MMR is a measurement.** It’s built to estimate your skill as accurately as possible, as fast as possible. That means big swings when you’re new and quiet stability later. If ranks were MMR, someone who won their first five games could jump near the top of the ladder on a lucky streak. Points take that same estimate and turn it into steady progress you can actually follow.\n\n**Seasons need a fresh start, but matchmaking doesn’t.** When a season begins, everyone’s points go back to 0, so everyone gets a new climb. Your MMR usually carries over, so your first games of the season are still fair. If ranks were MMR, we’d have two bad choices. Either a new season changes nothing, or we wipe everyone’s MMR and matchmaking is a mess for weeks while it relearns everyone. (On the rare occasions we do reset MMR, it’s to fix something bigger, not because a new season started.)\n\n**Ranks should reward playing the season.** With MMR alone, a strong player could play a handful of games, reach a high rating, and then stop to protect it. With points, your position comes from actually playing this season. The bonus pool also makes sure that taking time off doesn’t mean you can’t catch up.\n\n**Points are easier to understand.** A win always moves you up. Your bonus cushions losses. You can see exactly how far you are from the next division. MMR changes depend on uncertainty and volatility values most people never see, which makes them confusing to follow game by game.\n\n**Over time, they agree.** Because points always move toward about four times your MMR, an active player’s division ends up reflecting their real skill. Points are mostly a fairer, more readable way to show where you are, and they reset each season so there’s always a climb ahead.",
       "wrapUp": "## Wrapping Up\n\n* **MMR** measures your skill and decides who you play. It carries over between seasons.\n* **Points** follow your MMR, reset each season, and decide your rank and division.\n* The **bonus pool** lets you play on your own schedule without falling behind.\n\nSee you on the ladder!"
     },
@@ -1581,27 +1580,27 @@
       "termsOfService": "Terms of Service"
     },
     "faq": {
-      "hotkeyCustomizationAnswer": "Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.",
-      "hotkeyCustomizationQuestion": "Is hotkey customization allowed or provided?",
-      "isShieldBatteryFreeAnswer": "<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>",
-      "isShieldBatteryFreeQuestion": "Does ShieldBattery cost anything? How can I support the project?",
-      "linuxSupportAnswer": "<0>This is not currently something that we have official support for.</0><1>However, there's a community-contributed integration of ShieldBattery with Wine. Check out our <2>Discord</2> to learn how to run ShieldBattery on Wine.</1>",
-      "linuxSupportQuestion": "Does ShieldBattery work on Linux or MacOS?",
-      "officialSupportAnswer": "No, ShieldBattery is a project developed by passionate community members, and has no official support or acknowledgement from Blizzard.",
-      "officialSupportQuestion": "Is ShieldBattery developed with the support of Blizzard?",
-      "openSourceAnswer": "<0>Yes. You can access our main repository as well as the various additional projects we've written and separated into their own repositories at our <2>GitHub page</2>.</0><1>We could always use more contributors, so if you think you can help, check it out!</1>",
+      "hotkeyCustomizationAnswer": "No. The HyperShield client and Hyperion engine run natively on Linux. Wine is only one optional way to provide an existing StarCraft installation's game data; it is not used to run HyperShield itself.",
+      "hotkeyCustomizationQuestion": "Does HyperShield require Wine?",
+      "isShieldBatteryFreeAnswer": "<0>HyperShield is free to use while operating as a test service.</0><1>Test features, stored data, and availability may change as the service develops.</1>",
+      "isShieldBatteryFreeQuestion": "Does HyperShield cost anything?",
+      "linuxSupportAnswer": "<0>HyperShield provides a native Linux x86-64 AppImage; it does not require Wine.</0><1>This custom client does not currently provide a macOS package.</1>",
+      "linuxSupportQuestion": "Does HyperShield work on Linux or macOS?",
+      "officialSupportAnswer": "No, HyperShield is a community-run test project and has no official support or acknowledgement from Blizzard.",
+      "officialSupportQuestion": "Is HyperShield developed with the support of Blizzard?",
+      "openSourceAnswer": "<0>HyperShield is built from open-source software. See our <2>open source licenses page</2> for upstream attribution, source code, and the projects included in the client.</0>",
       "openSourceQuestion": "Is the project open source?",
-      "reportIssuesAnswer": "The easiest way to report bugs or issues is through our <2>Discord</2>. If you are comfortable with doing so, you can also file issues on our <5>GitHub</5>.",
+      "reportIssuesAnswer": "Use the app's Report a bug action for technical problems. For account or moderation issues, contact a HyperShield administrator in the official HyperShield chat channel.",
       "reportIssuesQuestion": "How can I report bugs or issues?",
-      "supportedStarcraftVersionAnswer": "ShieldBattery supports the latest version of StarCraft: Remastered. You can download the free version of StarCraft: Remastered from the <2>Battle.net launcher</2>. Any purchased addons (such as HD graphics) will be usable on ShieldBattery.",
-      "supportedStarcraftVersionQuestion": "What version of StarCraft does ShieldBattery support?",
-      "systemRequirementsAnswer": "<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>",
-      "systemRequirementsQuestion": "What are the system requirements to play on ShieldBattery?",
+      "supportedStarcraftVersionAnswer": "HyperShield's native Linux client uses the bundled Hyperion engine for StarCraft: Brood War matchmaking. It reads game data from an existing Classic or Remastered installation, but does not need to launch StarCraft: Remastered for native matches.",
+      "supportedStarcraftVersionQuestion": "What does HyperShield use to play StarCraft: Brood War?",
+      "systemRequirementsAnswer": "<0>The native HyperShield client currently requires:</0><1><0>64-bit Linux on x86-64, with glibc 2.35 or newer</0><1>A graphics driver with Vulkan support</1><2>An internet connection for accounts, chat, and online matchmaking</2><3>StarCraft: Brood War game data from a Classic or Remastered installation that you are entitled to use</3></1>",
+      "systemRequirementsQuestion": "What are the system requirements for HyperShield on Linux?",
       "title": "Frequently Asked Questions"
     },
     "splash": {
-      "blurb": "ShieldBattery is a community server that supports official StarCraft: Remastered clients. Download our launcher to get access to 1v1 and team matchmaking, improved netcode, fast replay launching, and more!",
-      "disclaimerText": "StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.",
+      "blurb": "HyperShield is a community test server for StarCraft: Brood War. Its native Linux client provides 1v1 and team matchmaking through the bundled Hyperion engine, with chat, rankings, replays, and more.",
+      "disclaimerText": "StarCraft is a registered trademark of Blizzard Entertainment, Inc. HyperShield is a community-run test project, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.",
       "gameCount": "<0></0><1>games played</1>",
       "subtitle": "The premier StarCraft 1 community platform"
     }
@@ -1703,15 +1702,15 @@
     "discordSdkDescription": "The app shows your activity on Discord through the Discord Social SDK, which includes other open source software.",
     "discordSdkHeader": "Discord Social SDK",
     "discordSdkUnavailable": "This build doesn't include the Discord Social SDK.",
-    "electronDescription": "The app is built on Electron, which includes Chromium and other open source software. Their licenses are in LICENSE.electron.txt and LICENSES.chromium.html, in the folder ShieldBattery is installed to.",
+    "electronDescription": "The app is built on Electron, which includes Chromium and other open source software. Their licenses are in LICENSE.electron.txt and LICENSES.chromium.html, in the folder HyperShield is installed to.",
     "electronHeader": "Electron and Chromium",
-    "gameDescription": "Open source software and fonts included in the part of ShieldBattery that runs inside StarCraft.",
+    "gameDescription": "Open source software and fonts included in the part of HyperShield that runs inside StarCraft.",
     "gameHeader": "In-game",
     "gameUnavailable": "The in-game license notices are missing. They are only generated by release builds.",
-    "intro": "ShieldBattery is open source under the MIT license, and you can find its source code on <2>GitHub</2>. It is built with the help of many other open source projects, which are listed here along with their licenses.",
+    "intro": "HyperShield is open source under the MIT license. It includes many open source projects, listed here with their licenses. Upstream notices are preserved in the bundled license files.",
     "noLicenseFile": "This package does not include a license file. It is licensed under {{license}}.",
-    "packagesDescriptionApp": "Open source packages included in this version of the ShieldBattery app.",
-    "packagesDescriptionWeb": "Open source packages included in this version of the ShieldBattery website.",
+    "packagesDescriptionApp": "Open source packages included in this version of the HyperShield app.",
+    "packagesDescriptionWeb": "Open source packages included in this version of the HyperShield website.",
     "packagesHeader": "Software packages",
     "packagesUnavailable": "The list of software packages could not be loaded. It is only generated by release builds.",
     "title": "Open source licenses"
@@ -1870,24 +1869,24 @@
     },
     "landing": {
       "appLaunch": {
-        "button": "Open in the ShieldBattery app",
+        "button": "Open in the HyperShield app",
         "failedSubtitle": "It might not be installed on this computer.",
         "failedTitle": "The app didn't open.",
         "fallbackHint": "Nothing happening? <1>Try again</1> or <4>download the app</4>",
-        "opening": "Opening in the ShieldBattery app…",
+        "opening": "Opening in the HyperShield app…",
         "retryAfterFailure": "Try opening the app again"
       },
-      "download": "Download ShieldBattery",
-      "downloadHint": "Don't have ShieldBattery yet? <1>Download it for free</1>",
+      "download": "Download HyperShield",
+      "downloadHint": "Don't have HyperShield yet? <1>Download it for free</1>",
       "joinCode": {
         "copied": "Copied to clipboard",
         "copy": "Copy code",
         "label": "Or enter this code in the app",
         "labelAfterFailure": "Already have the app? Enter this code",
-        "labelMobile": "On your PC? Open ShieldBattery and enter this code"
+        "labelMobile": "On your computer? Open HyperShield and enter this code"
       },
       "loadError": "There was a problem loading this lobby.",
-      "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby."
+      "openInApp": "Already have HyperShield? Open this link from inside the app to join the lobby."
     },
     "leaveAndCreate": {
       "confirmAction": "Leave and create",
@@ -2080,7 +2079,7 @@
       "startingGame": "Starting game"
     },
     "warpField": {
-      "description": "Apply ShieldBattery's small, carefully tested set of fixes for gameplay issues. Replays of these games may not play back correctly outside of ShieldBattery.",
+      "description": "Apply HyperShield's small, carefully tested set of fixes for gameplay issues. Replays of these games may not play back correctly outside of HyperShield.",
       "fixesHeading": "Warp Field currently includes:",
       "fixStalledWalk": "Units no longer get stuck in place after an attack, ignoring orders to move until told to stop."
     }
@@ -2279,10 +2278,10 @@
       "pickSubtext": "Pick {{num}}"
     },
     "explainer": {
-      "dynamicSearch": "## Dynamic Search\n\nA common guess is that the ShieldBattery queue is first-come, first-served, and that the person waiting the longest will be in the next game. That’s not necessarily how it works. That system tends to produce more lopsided games on average. A brand-new player could be paired with someone in Champion just because they clicked “Find match” at the same time.\n\nThe matchmaker runs a search every few seconds instead. Each time, for each mode (1v1, 2v2, 3v3 BGH, and so on), it:\n\n1. **Picks a random sample of the players queued for that mode.** If only a few players are searching, that’s all of them. When the queue is busy, it’s a random set of about twenty. The sample is fully random, so everyone has the same chance of being looked at in each search, however long they’ve been waiting.\n2. **Tries every possible group from that sample.** For team modes, it also tries every way of splitting each group into two teams and keeps the most even split.\n3. **Gives each possible match a quality score.**\n4. **Starts the best matches that score high enough.** Each player can only be in one match, so once someone is used in a high-scoring match, any lower-scoring match that needed them is dropped.\n\nAnyone who isn’t matched simply stays in the queue for the next search a few seconds later.",
+      "dynamicSearch": "## Dynamic Search\n\nA common guess is that the HyperShield queue is first-come, first-served, and that the person waiting the longest will be in the next game. That’s not necessarily how it works. That system tends to produce more lopsided games on average. A brand-new player could be paired with someone in Champion just because they clicked “Find match” at the same time.\n\nThe matchmaker runs a search every few seconds instead. Each time, for each mode (1v1, 2v2, 3v3 BGH, and so on), it:\n\n1. **Picks a random sample of the players queued for that mode.** If only a few players are searching, that’s all of them. When the queue is busy, it’s a random set of about twenty. The sample is fully random, so everyone has the same chance of being looked at in each search, however long they’ve been waiting.\n2. **Tries every possible group from that sample.** For team modes, it also tries every way of splitting each group into two teams and keeps the most even split.\n3. **Gives each possible match a quality score.**\n4. **Starts the best matches that score high enough.** Each player can only be in one match, so once someone is used in a high-scoring match, any lower-scoring match that needed them is dropped.\n\nAnyone who isn’t matched simply stays in the queue for the next search a few seconds later.",
       "exampleImageAlt": "A table of possible 2v2 matches between six queued players, ranked by score",
       "exampleImageCaption": "A made-up example. The scores use the matchmaker’s real formula.",
-      "intro": "One question comes up in our community more than almost any other:\n\n*“A game started while I was in the queue. Why wasn’t I in it?”*\n\nThe answer comes from how ShieldBattery’s matchmaker is built. This guide walks through how a match gets put together, from the moment you click “Find match” to the moment the game loads.",
+      "intro": "One question comes up in our community more than almost any other:\n\n*“A game started while I was in the queue. Why wasn’t I in it?”*\n\nThe answer comes from how HyperShield’s matchmaker is built. This guide walks through how a match gets put together, from the moment you click “Find match” to the moment the game loads.",
       "linkLabel": "How matchmaking works",
       "mapChoices": "## Map Choices\n\n* In modes with **map vetoes** (like 1v1 and 2v2), vetoes never stop you from being matched. They only affect which map gets picked once the match is made.\n* In modes where you **pick the maps you want** (the Fastest modes), you can only be matched with players who picked at least one of the same maps. If you pick only one map, there are fewer people you can be matched with.",
       "matchFallsThrough": "## When A Match Falls Through\n\nWhen a match is found, everyone has 60 seconds to accept. If someone declines, doesn’t respond, or fails to load into the game, the match is cancelled. **Everyone else goes back into the queue with their original wait time**, so you don’t start over because someone else wasn’t ready.\n\nThe player who caused the failure gets a matchmaking penalty. The first time is just a warning. Repeat offenses lead to short matchmaking timeouts that get longer each time, and which clear up after a period of good behavior.",
@@ -2290,7 +2289,7 @@
       "qualityExample": "Arbiter has been waiting the longest, so every match with Arbiter in it gets a boost. Several of those matches are ready to go, including one with you. But Arbiter, Reaver, Valkyrie and Goliath are all close to each other in rating, so the match with just those four has the lowest skill cost and starts first. That leaves only you and Defiler, which isn’t enough for a 2v2, so every other match is skipped. You both stay in the queue for the next search, and your wait keeps counting.\n\nTo give a rough sense of scale, here’s how long a 1v1 needs before it can start under our standard tuning, assuming good connections:\n\n* **Ratings about 100 apart:** almost immediately\n* **About 200 apart:** around a minute and a half\n* **About 300 apart:** around three and a half minutes\n* **About 400 apart:** around six and a half minutes\n\nWe adjust these settings over time as we learn more, so treat the numbers as loose approximations. The weights on each factor that we use are also independently configured per game mode.",
       "qualityIndex": "## Quality Index\n\nA match’s quality score weighs **how long the players have waited** against **how good the game is likely to be**. The score is measured in seconds of waiting. Put simply, each flaw in a match costs a set number of seconds. A match can start once the players’ time in queue overcomes the downsides of the proposed match.\n\nThose downsides include:\n\n* **Skill spread.** How far apart everyone’s ratings (MMR) are. This is the biggest factor, and the queue time penalty increases rapidly as the gap gets wider.\n* **Balance.** How likely one side is to win. A 50/50 match costs nothing, while a match one side is heavily expected to win costs more queue time.\n* **Latency.** Your connection only matters once it’s bad enough to change how the game feels. StarCraft plays the same at 30ms as it does at around 100ms. Past that, the game feel is impacted. So matches cost nothing for latency until they cross one of our defined thresholds, and then each step costs extra waiting time. The estimate is based on the server region each player picked and their measured ping to it.\n\nThe wait time used is that of **whoever in the match has waited longest**. So a player who has been searching for several minutes makes every match they could be in easier to start, including one with you, even if you only just joined.\n\nHere’s what a single 2v2 search might look like. Skill, Balance and Ping are the costs of each flaw, in seconds. A match’s score is the longest wait, plus a 30-second head start, minus those costs. A match can start once its score reaches 0. Matches are started from the top down, and each player can only be in one.",
       "quietHours": "## Quiet Hours\n\nWhen few people are playing, holding out for a close match might mean nobody gets a game at all. The matchmaker keeps a running estimate of how many people have been queuing for each mode recently. When that number drops below a healthy level, it lowers the bar so matches can start sooner. When things pick up again, the bar goes back up.",
-      "title": "How matchmaking works in ShieldBattery",
+      "title": "How matchmaking works in HyperShield",
       "whyNotMe": "## So Why Did A Game Start Without Me?\n\nPutting it together, here are the usual reasons:\n\n* **The players in it were a better fit for each other than for you.** Their ratings were closer to each other’s, or their connections to each other were better. The matchmaker always takes the best available match first.\n* **Someone in that match had waited longer.** Their wait time let a match form that wasn’t ready yet with you in it.\n* **It was a different mode.** Players can queue for several modes at once, and a game that starts in 2v2 doesn’t involve the 1v1 queue.\n* **The sample didn’t include you that time.** On a busy queue, each search looks at a random sample. You have the same chance as everyone else in every search, and searches happen every few seconds.\n* **Your map picks didn’t overlap** (Fastest modes only).\n\nNone of these means your place in the queue was skipped or reset. Your wait time keeps counting, and as it grows, the matchmaker accepts a wider range of matches for you.",
       "wrapUp": "## Wrapping Up\n\n* The matchmaker looks for the **best match** as opposed to the next person in line.\n* Each match is scored on skill spread, balance and latency, weighed against how long the players have waited.\n* Waiting longer makes it less picky, and that includes other players’ wait times.\n* If a match falls through because of someone else, you keep your place.\n\nSee you in the queue!"
     },
@@ -2307,7 +2306,14 @@
         "2v2hunters": "Team · Hunters",
         "3v3bgh": "Team · Big Game Hunters",
         "3v3fastest": "Team · Fastest Map",
-        "3v3hunters": "Team · Hunters"
+        "3v3hunters": "Team · Hunters",
+        "hyperion1v1rule1": "Solo · HyperShield classic",
+        "hyperion1v1rule2": "Solo · HyperShield anti-meta",
+        "hyperion1v1rule3": "Solo · HyperShield Rule 3",
+        "hyperion2v2rule1": "Team · HyperShield classic",
+        "hyperion2v2rule2": "Team · HyperShield anti-meta",
+        "hyperion3v3rule1": "Team · HyperShield classic",
+        "hyperion3v3rule2": "Team · HyperShield anti-meta"
       },
       "description": "Select a race to be used whenever your opponent has selected the same primary race.",
       "errors": {
@@ -2354,11 +2360,11 @@
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "The game has failed to load.",
+      "gameFailedToLoad": "The game could not start. Check your StarCraft installation and try again.",
       "reportBug": "Report a bug"
     },
     "matchCanceled": {
-      "anomalyFromYouDescription": "Your game sent match setup commands that ShieldBattery doesn't allow. This usually means the game was modified, or another program interfered with it.",
+      "anomalyFromYouDescription": "Your game sent match setup commands that HyperShield doesn't allow. This usually means the game was modified, or another program interfered with it.",
       "anomalyFromYouTitle": "Game anomalies detected from your game",
       "anomalyNoPenaltyDescription": "No win or loss was recorded. Your rating and points are unchanged.",
       "backInQueueDescription": "Searching for a new match.",
@@ -2416,7 +2422,14 @@
       "2v2hunters": "2v2 Hunters",
       "3v3bgh": "3v3 BGH",
       "3v3fastest": "3v3 Fastest",
-      "3v3hunters": "3v3 Hunters"
+      "3v3hunters": "3v3 Hunters",
+      "hyperion1v1rule1": "HyperShield 1v1 Rule 1",
+      "hyperion1v1rule2": "HyperShield 1v1 Rule 2",
+      "hyperion1v1rule3": "HyperShield 1v1 Rule 3",
+      "hyperion2v2rule1": "HyperShield 2v2 Rule 1",
+      "hyperion2v2rule2": "HyperShield 2v2 Rule 2",
+      "hyperion3v3rule1": "HyperShield 3v3 Rule 1",
+      "hyperion3v3rule2": "HyperShield 3v3 Rule 2"
     }
   },
   "material": {
@@ -2486,7 +2499,7 @@
     },
     "externalLink": {
       "alwaysTrust": "Always trust this domain",
-      "dialogText": "<0>This link will take you to a site outside ShieldBattery:</0><1>{{link}}</1><2>Are you sure you want to go there?</2>",
+      "dialogText": "<0>This link will take you to a site outside HyperShield:</0><1>{{link}}</1><2>Are you sure you want to go there?</2>",
       "openLink": "Open Link",
       "title": "External link"
     },
@@ -2504,15 +2517,15 @@
   },
   "network": {
     "clientUpdate": {
-      "requiredContents": "This version of ShieldBattery is out of date, so it can't connect. Please download the latest version from <1>our website</1>.",
+      "requiredContents": "This version of HyperShield is out of date, so it can't connect. Please download the latest version from <1>our website</1>.",
       "requiredTitle": "Update required"
     },
     "clientVerification": {
-      "failedContents": "This copy of ShieldBattery couldn't be verified, so it can't connect. Please download the latest version from <1>our website</1> and reinstall it.",
-      "failedTitle": "Couldn't verify ShieldBattery"
+      "failedContents": "This copy of HyperShield couldn't be verified, so it can't connect. Please download the latest version from <1>our website</1> and reinstall it.",
+      "failedTitle": "Couldn't verify HyperShield"
     },
     "connectionStatus": {
-      "connecting": "Connecting to ShieldBattery…"
+      "connecting": "Connecting to HyperShield…"
     },
     "notConnectedText": "Not connected"
   },
@@ -2552,18 +2565,135 @@
   "policy": {
     "acceptableUse": "Acceptable use",
     "acceptableUseAllCaps": "Acceptable Use Policy",
-    "policyUpdateNotification": "ShieldBattery's <2>{{label}}</2> has been updated.",
+    "policyUpdateNotification": "HyperShield's <2>{{label}}</2> has been updated.",
     "privacyPolicy": "Privacy policy",
     "privacyPolicyAllCaps": "Privacy Policy",
     "termsOfService": "Terms of service",
     "termsOfServiceAllCaps": "Terms of Service"
+  },
+  "releaseCenter": {
+    "actions": {
+      "changingAutomaticUpdates": "Updating automatic update settings…",
+      "changingChannel": "Changing release channel…",
+      "installing": "Installing the selected version…",
+      "refresh": "Refresh",
+      "refreshing": "Checking for new releases…",
+      "restartAndSwitch": "Restart & switch",
+      "restarting": "Restarting HyperShield…",
+      "switching": "Switching the selected version…",
+      "trackingLatest": "Tracking the latest release…",
+      "trackLatest": "Track latest",
+      "tryAgain": "Try again",
+      "updateLatest": "Update to latest",
+      "updatingLatest": "Updating to the latest release…",
+      "useBundled": "Use bundled version",
+      "usingBundled": "Selecting the bundled version…"
+    },
+    "catalog": {
+      "browse": "Browse releases",
+      "compatibility": "Engine compatibility is checked before a match. Some older releases may not support current matchmaking; the bundled version remains available above.",
+      "hide": "Hide release browser",
+      "lastChecked": "Last checked: {{date}}",
+      "notChecked": "Not checked yet",
+      "showing": "Showing {{shown}} of {{total}} releases",
+      "subtitle_one": "{{count}} versions · Install, pin, or switch releases",
+      "subtitle_other": "{{count}} versions · Install, pin, or switch releases",
+      "title": "Release browser"
+    },
+    "channel": {
+      "prerelease": "Prerelease",
+      "stable": "Stable"
+    },
+    "empty": {
+      "catalogBody": "Refresh to check online. If you are offline, any saved releases will appear here.",
+      "catalogTitle": "No releases in the catalog",
+      "filteredBody": "Try another channel or search by a different version, title, or tag.",
+      "filteredTitle": "No matching releases"
+    },
+    "errors": {
+      "action": "The release action could not be completed. Try again.",
+      "cached": "Showing the saved release catalog. You can retry when you are back online.",
+      "catalog": "The release catalog could not be refreshed.",
+      "load": "Could not load release information. Try again.",
+      "noCache": "No saved releases are available. Check your connection and try again.",
+      "unavailable": "Release information is unavailable in this environment."
+    },
+    "filter": {
+      "all": "All versions",
+      "clear": "Clear filters",
+      "label": "Filter release catalog"
+    },
+    "loading": {
+      "body": "Getting your installed versions and saved release catalogs.",
+      "title": "Loading release information…"
+    },
+    "products": {
+      "hyperion": "Hyperion engine",
+      "hypershield": "HyperShield client"
+    },
+    "progress": {
+      "label": "Release download progress",
+      "speed": "{{speed}}/s"
+    },
+    "release": {
+      "dateUnavailable": "Publish date unavailable",
+      "install": "Install {{version}}",
+      "installed": "Installed",
+      "inUse": "In use",
+      "newestPrerelease": "Newest prerelease",
+      "newestStable": "Newest stable",
+      "releasePage": "Release page",
+      "selectedForRestart": "Selected for restart",
+      "sizeUnavailable": "Download size unavailable",
+      "switchTo": "Switch to {{version}}",
+      "unavailable": "Unavailable",
+      "unavailableFor": "Unavailable: {{version}}"
+    },
+    "restart": {
+      "body": "Restart to finish switching versions. HyperShield will never restart automatically.",
+      "title": "Your staged HyperShield update is ready",
+      "versionBody": "{{version}} is selected. Restart to finish switching; HyperShield will never restart automatically."
+    },
+    "search": {
+      "label": "Search versions, titles, or tags"
+    },
+    "selection": {
+      "bundled": "Bundled recovery copy",
+      "latest": "Tracks latest",
+      "pinned": "Pinned version"
+    },
+    "settings": {
+      "automaticUpdates": "Automatic updates",
+      "channel": "Release channel",
+      "latestExplanation": "While tracking latest, compatible updates from your selected channel can install automatically.",
+      "pinnedExplanation": "Pinned versions pause automatic updates. Track latest to resume updates from your channel.",
+      "prereleaseExplanation": "Prereleases include newer changes that may still need testing. Switch channels at any time.",
+      "stableExplanation": "Stable releases are recommended for playing. You can still browse every prerelease below."
+    },
+    "status": {
+      "needsAttention": "Needs attention",
+      "restartRequired": "Restart required",
+      "updateAvailable": "Update available",
+      "upToDate": "Up to date",
+      "working": "Working on the selected release…"
+    },
+    "summary": {
+      "current": "Current {{product}} version",
+      "notInstalled": "Not installed"
+    },
+    "title": "Updates & versions",
+    "unavailable": {
+      "body": "Open the desktop app or retry to load updates and versions.",
+      "title": "Release information is unavailable"
+    },
+    "unsupported": "Installation is not supported on this system. All releases remain available to browse."
   },
   "replays": {
     "activity": {
       "title": "Replays"
     },
     "fileDropError": "There was a problem opening the replay file",
-    "fileDropText": "Drop replays here to watch them with ShieldBattery.",
+    "fileDropText": "Drop replays here to watch them with HyperShield.",
     "library": {
       "addToPlaylist": "Add to playlist…",
       "bookmark": "Bookmark",
@@ -2631,11 +2761,11 @@
       },
       "showInExplorer": "Show in Explorer",
       "sourceTagBnet": "B.NET",
-      "sourceTagSb": "SB",
+      "sourceTagSb": "HS",
       "sourceTooltipBnet": "Played on Battle.net",
-      "sourceTooltipSb": "Played on ShieldBattery",
+      "sourceTooltipSb": "Played on HyperShield",
       "unavailable": "Replay library unavailable",
-      "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
+      "unavailableBody": "Your replays couldn't be loaded right now. Restarting HyperShield usually fixes this.",
       "unreadableReplays": "Unreadable replays",
       "viewGamePage": "View game page",
       "watchReplay": "Watch replay"
@@ -2711,7 +2841,7 @@
           }
         },
         "openingTitle": "Opening replays",
-        "quickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
+        "quickOpen": "Launch replays opened with HyperShield immediately without previewing",
         "removeFolder": "Remove folder",
         "title": "Replays"
       },
@@ -2725,9 +2855,9 @@
           "description": "Your commands always take at least 2 frames to happen, even when your connection is fast enough for less. This only changes your own game.",
           "label": "Add input delay to match TR24 Low"
         },
-        "minimizeWhilePlaying": "Minimize ShieldBattery while a game is running",
+        "minimizeWhilePlaying": "Minimize HyperShield while a game is running",
         "playingOverline": "Playing",
-        "quitOnClose": "Quit ShieldBattery when closing the window",
+        "quitOnClose": "Quit HyperShield when closing the window",
         "rollbackTarget": {
           "description": "Higher values make your commands more responsive, but units may visibly jump more often.",
           "label": "Rollback balance",
@@ -2736,7 +2866,7 @@
           "responsive": "More responsive",
           "smoother": "Smoother"
         },
-        "runOnStartup": "Run ShieldBattery on system startup",
+        "runOnStartup": "Run HyperShield on system startup",
         "serverRegion": {
           "autoPlain": "Auto (recommended)",
           "autoResolved": "Auto — {{region}} ({{rtt}}ms)",
@@ -2764,7 +2894,7 @@
           "resetChoice": "Reset them to {{preset}}",
           "resetTitle": "Reset to {{preset}}?",
           "resetToLegacyDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the Battle.net behavior.",
-          "resetToRecommendedDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the ShieldBattery defaults.",
+          "resetToRecommendedDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the HyperShield defaults.",
           "switchedTitle": "Switched to {{preset}}"
         },
         "firstRun": {
@@ -2774,7 +2904,7 @@
           "dragPan": "Drag pan",
           "dragPanDescription": "<0>Recommended</0> pans more slowly and is adjustable in Settings › Input. <2>Legacy</2> keeps the fixed original speed.",
           "footnote": "Your other Battle.net settings carry over either way. Change this later in Settings › Game › Defaults.",
-          "intro": "ShieldBattery tunes a few gameplay details differently from Battle.net, and we recommend giving them a try. If you would rather keep things exactly how you remember them, Legacy leaves everything alone. Whichever you pick also becomes the default for features we add later.",
+          "intro": "HyperShield tunes a few SC:R gameplay details differently from Battle.net, and we recommend giving them a try. If you would rather keep things exactly how you remember them, Legacy leaves everything alone. Whichever you pick also becomes the default for features we add later.",
           "overline": "First launch",
           "playerColors": "Player colors",
           "playerColorsDescription": "Shift+Tab colors. <1>Recommended</1>: allies cool, enemies warm, everyone distinct. <3>Legacy</3>: you teal, allies yellow, enemies red.",
@@ -2783,7 +2913,7 @@
           "startingFogDescription": "<0>Recommended</0> shows unexplored terrain dimly. <3>Legacy</3> keeps it black until scouted.",
           "title": "Same game. Your call on the details."
         },
-        "intro": "The preset decides which values ShieldBattery's own gameplay settings start on. It also picks the default for anything added later.",
+        "intro": "The preset decides which values HyperShield's SC:R gameplay settings start on. It also picks the default for anything added later.",
         "legacyDescription": "Matches Battle.net.",
         "preset": {
           "legacy": "Legacy",
@@ -2794,7 +2924,7 @@
           "grabPanAdjustable": "Adjustable",
           "grabPanFixed": "Fixed speed"
         },
-        "recommendedDescription": "ShieldBattery's tuned defaults.",
+        "recommendedDescription": "HyperShield's tuned SC:R defaults.",
         "resetToPreset": "Reset to preset",
         "table": {
           "caption": "Amber dot: your value differs from the selected preset.",
@@ -3070,7 +3200,7 @@
         "disableHd": "Don't load HD graphics (Crashes if switching to HD in game)",
         "instructions": {
           "advanced": "If detection fails, you can set the path manually. Click the button below and select the directory that contains your StarCraft: Remastered installation.",
-          "description": "ShieldBattery requires a valid, up-to-date installation of StarCraft: Remastered. Click the button below to automatically detect the installation folder."
+          "description": "HyperShield requires a valid, up-to-date installation of StarCraft: Remastered for SC:R-integrated features. Click the button below to automatically detect the installation folder."
         },
         "keepReplaysAlongsideGames": {
           "description": "Replays stay open when a match or another replay starts, so several can run at once. Each one is a separate copy of StarCraft, which takes more of your computer's resources.",
@@ -3260,11 +3390,11 @@
         "title": "Chat"
       },
       "connections": {
-        "description": "Link external accounts to your ShieldBattery profile.",
+        "description": "Link external accounts to your HyperShield profile.",
         "discord": {
-          "description": "Show what you’re doing on ShieldBattery on your Discord profile.",
+          "description": "Show what you’re doing on HyperShield on your Discord profile.",
           "name": "Discord",
-          "note": "Shows your lobby, game or replay on the Discord account signed in to the Discord app on the same computer as the ShieldBattery app.",
+          "note": "Shows your lobby, game or replay on the Discord account signed in to the Discord app on the same computer as the HyperShield app.",
           "showActivity": "Show my activity on Discord"
         },
         "title": "Connections",
@@ -3275,7 +3405,7 @@
           "disconnect": "Disconnect",
           "disconnectedSnackbar": "Twitch account disconnected.",
           "errors": {
-            "alreadyLinked": "That Twitch account is already linked to another ShieldBattery account.",
+            "alreadyLinked": "That Twitch account is already linked to another HyperShield account.",
             "generic": "Something went wrong linking your Twitch account. Please try again.",
             "invalidState": "Your Twitch linking request expired. Please try again.",
             "notConfigured": "Twitch linking is not available right now."
@@ -3366,21 +3496,25 @@
   "starcraft": {
     "shieldbatteryHealth": {
       "bottomContents": "If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!",
-      "middleContents": "This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.",
+      "middleContents": "This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try reinstalling HyperShield.",
       "noProblems": "Your local installation is now free of problems.",
       "rescanFiles": "Rescan files",
       "title": "Installation problems detected",
-      "topContents": "We've detected that the following ShieldBattery files are missing or have been modified:"
+      "topContents": "We've detected that the following HyperShield SC:R files are missing or have been modified:"
     },
     "starcraftHealth": {
-      "header": "The following problems need to be corrected before you can play games on ShieldBattery:",
-      "installPathContents": "Your StarCraft path setting does not point to a valid installation. Please correct the value in <2>Settings</2>. If you do not have the game installed, it can be easily downloaded from <5><0>Battle.net</0></5>. You may need to restart ShieldBattery after installation.",
+      "header": "The following problems need to be corrected before you can use SC:R-integrated features on HyperShield:",
+      "installPathContents": "Your StarCraft path setting does not point to a valid installation. Please correct the value in <2>Settings</2>. If you do not have the game installed, it can be easily downloaded from <5><0>Battle.net</0></5>. You may need to restart HyperShield after installation.",
       "noProblems": "Your local installation is now free of problems.",
-      "starcraftVersionContents": "Your StarCraft installation is out of date. ShieldBattery supports installations of the latest Remastered version from Battle.net. Please install the <2><0>latest version</0></2> and restart ShieldBattery.",
+      "starcraftVersionContents": "Your StarCraft installation is out of date. HyperShield's SC:R-integrated features support the latest Remastered version from Battle.net. Please install the <2><0>latest version</0></2> and restart HyperShield.",
       "title": "Installation problems detected"
     }
   },
   "systemBar": {
+    "releaseCenter": {
+      "open": "Open updates & versions, current client version {{version}}",
+      "tooltip": "Updates & versions"
+    },
     "support": "Support"
   },
   "twitch": {
@@ -3617,7 +3751,7 @@
       }
     },
     "staffBadge": {
-      "tooltip": "ShieldBattery staff"
+      "tooltip": "HyperShield staff"
     },
     "titles": {
       "novice": "Novice"

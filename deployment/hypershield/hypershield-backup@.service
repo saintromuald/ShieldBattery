@@ -1,0 +1,12 @@
+[Unit]
+Description=HyperShield encrypted %i backup
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+ExecStart=/opt/hypershield/src/deployment/hypershield/backup.sh %i

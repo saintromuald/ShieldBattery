@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -274,11 +274,11 @@ function PackagesSection() {
         {IS_ELECTRON
           ? t(
               'licenses.packagesDescriptionApp',
-              'Open source packages included in this version of the ShieldBattery app.',
+              'Open source packages included in this version of the HyperShield app.',
             )
           : t(
               'licenses.packagesDescriptionWeb',
-              'Open source packages included in this version of the ShieldBattery website.',
+              'Open source packages included in this version of the HyperShield website.',
             )}
       </SectionDescription>
       {content}
@@ -344,7 +344,7 @@ function GameSection() {
       <SectionDescription>
         {t(
           'licenses.gameDescription',
-          'Open source software and fonts included in the part of ShieldBattery that runs inside ' +
+          'Open source software and fonts included in the part of HyperShield that runs inside ' +
             'StarCraft.',
         )}
       </SectionDescription>
@@ -378,7 +378,7 @@ function GameSection() {
           'licenses.electronDescription',
           'The app is built on Electron, which includes Chromium and other open source software. ' +
             'Their licenses are in LICENSE.electron.txt and LICENSES.chromium.html, in the ' +
-            'folder ShieldBattery is installed to.',
+            'folder HyperShield is installed to.',
         )}
       </SectionDescription>
     </>
@@ -391,14 +391,12 @@ export function LicensesPage() {
   return (
     <PolicyPage title={t('licenses.title', 'Open source licenses')}>
       <Intro>
-        <Trans t={t} i18nKey='licenses.intro'>
-          ShieldBattery is open source under the MIT license, and you can find its source code on{' '}
-          <a href='https://github.com/ShieldBattery/ShieldBattery' target='_blank' rel='noopener'>
-            GitHub
-          </a>
-          . It is built with the help of many other open source projects, which are listed here
-          along with their licenses.
-        </Trans>
+        {t(
+          'licenses.intro',
+          'HyperShield is open source under the MIT license. It includes many open source ' +
+            'projects, listed here with their licenses. Upstream notices are preserved in the ' +
+            'bundled license files.',
+        )}
       </Intro>
 
       <SectionHeader>{t('licenses.assetsHeader', 'Fonts, sounds, and icons')}</SectionHeader>

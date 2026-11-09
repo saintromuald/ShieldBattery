@@ -88,7 +88,7 @@ export function ConnectionStatus() {
           data-testid='connection-status'>
           <Pill>
             <MaterialIcon icon='cloud_off' />
-            <span>{t('network.connectionStatus.connecting', 'Connecting to ShieldBattery…')}</span>
+            <span>{t('network.connectionStatus.connecting', 'Connecting to HyperShield…')}</span>
           </Pill>
         </Container>
       ) : null}

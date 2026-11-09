@@ -187,23 +187,21 @@ export function LiveGameEntry({
   const matchmakingType = game.config.gameSourceExtra.matchmakingType
 
   // NOTE(tec27): 1v1 puts all players in the first team
-  const teamElements =
-    matchmakingType === MatchmakingType.Match1v1 ||
-    matchmakingType === MatchmakingType.Match1v1Fastest
-      ? [
-          <OneTeam key='0'>
-            {game.config.teams[0].map(p => (
-              <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
-            ))}
-          </OneTeam>,
-        ]
-      : game.config.teams.map((t, i) => (
-          <Team key={i}>
-            {t.map(p => (
-              <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
-            ))}
-          </Team>
-        ))
+  const teamElements = isSoloType(matchmakingType)
+    ? [
+        <OneTeam key='0'>
+          {game.config.teams[0].map(p => (
+            <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
+          ))}
+        </OneTeam>,
+      ]
+    : game.config.teams.map((t, i) => (
+        <Team key={i}>
+          {t.map(p => (
+            <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
+          ))}
+        </Team>
+      ))
 
   const startTime = new Date(game.startTime)
 

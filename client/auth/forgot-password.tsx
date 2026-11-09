@@ -64,14 +64,14 @@ export function ForgotPassword() {
   })
 
   return (
-    <AuthLayout title={t('auth.forgot.password.title', 'Request password reset')}>
+    <AuthLayout title={t('auth.forgot.password.title', 'Reset your HyperShield password')}>
       {error ? <UserErrorDisplay error={error} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
         <BodyLarge>
           {t(
             'auth.forgot.password.explanationText',
-            "Enter the email address and username associated with your account. We'll send you " +
-              'an email with a reset code to set a new password.',
+            'Enter the email address and username associated with your HyperShield account. ' +
+              "We'll send you an email with a reset code to set a new password.",
           )}
         </BodyLarge>
         <Link href='/reset-password'>

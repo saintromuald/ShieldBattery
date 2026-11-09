@@ -20,7 +20,7 @@ test.afterEach(async ({ page }) => {
 })
 
 test('logging in with an existing account', async () => {
-  const expectedChannelName = '#ShieldBattery'
+  const expectedChannelName = '#HyperShield'
 
   await loginPage.navigateTo()
   await loginPage.fillLoginForm('admin', 'admin1234')
@@ -29,7 +29,7 @@ test('logging in with an existing account', async () => {
 
   await verificationDialogPage.closeDialog()
 
-  const actualChannelName = await chatPage.getNameOfShieldBatteryChannel()
+  const actualChannelName = await chatPage.getNameOfHyperShieldChannel()
   expect(actualChannelName).toBe(expectedChannelName)
 })
 

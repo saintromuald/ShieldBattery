@@ -26,6 +26,13 @@ export enum MatchmakingType {
   Match3v3Bgh = '3v3bgh',
   Match3v3Hunters = '3v3hunters',
   Match3v3Fastest = '3v3fastest',
+  Hyperion1v1Rule1 = 'hyperion1v1rule1',
+  Hyperion1v1Rule2 = 'hyperion1v1rule2',
+  Hyperion1v1Rule3 = 'hyperion1v1rule3',
+  Hyperion2v2Rule1 = 'hyperion2v2rule1',
+  Hyperion2v2Rule2 = 'hyperion2v2rule2',
+  Hyperion3v3Rule1 = 'hyperion3v3rule1',
+  Hyperion3v3Rule2 = 'hyperion3v3rule2',
 }
 
 /** A single player's entry in a match found message. */
@@ -40,6 +47,8 @@ export interface MatchedPlayer {
 
 /** Data carried by the [`PublishedMatchmakingMessage::MatchFound`] event. */
 export interface MatchFoundMessage {
+  /** Stable identity of this formation, reused by the game and relay session. */
+  formationId: string
   mode: MatchmakingType
   teamA: MatchedPlayer[]
   teamB: MatchedPlayer[]

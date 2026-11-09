@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { useResizeObserver } from '../dom/dimension-hooks'
 import { navigateToDownload } from '../download/download-navigate'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logoImage from '../logos/hypershield-logo.svg'
 import { FilledButton, Label } from '../material/button'
 import { makePublicAssetUrl } from '../network/server-url'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -70,9 +71,11 @@ const Logo = styled.img`
   height: auto;
 `
 
-const LogoText = styled.img`
-  width: auto;
-  height: 56px;
+const ProductName = styled.div`
+  ${headlineLarge};
+  font-size: 48px;
+  line-height: 56px;
+  white-space: nowrap;
 `
 
 const Subtitle = styled.div`
@@ -144,7 +147,7 @@ const GradientCircle = styled(m.div)`
 const Blurb = styled.div`
   ${titleMedium};
   max-width: 480px;
-  /** Align with left edge of logotext/subtitle */
+  /** Align with the left edge of the product name and subtitle. */
   margin-left: 212px;
   margin-top: -16px;
 
@@ -206,8 +209,6 @@ export function SplashContent() {
   const scale = baseSize / 1360
 
   const monitorImage = makePublicAssetUrl('images/splash-monitor.png')
-  const logoImage = makePublicAssetUrl('images/logo-no-bg-large.svg')
-  const logoText = makePublicAssetUrl('images/logotext-white-56px.svg')
 
   return (
     <Root ref={resizeObserverRef}>
@@ -247,7 +248,7 @@ export function SplashContent() {
         <LogoLayout>
           <Logo src={logoImage} alt='' />
           <LogoTextAndSubtitle>
-            <LogoText src={logoText} alt='ShieldBattery' />
+            <ProductName>HyperShield</ProductName>
             <Subtitle>
               {t('landing.splash.subtitle', 'The premier StarCraft 1 community platform')}
             </Subtitle>
@@ -255,9 +256,9 @@ export function SplashContent() {
         </LogoLayout>
         <Blurb>
           <Trans t={t} i18nKey='landing.splash.blurb'>
-            ShieldBattery is a community server that supports official StarCraft: Remastered
-            clients. Download our launcher to get access to 1v1 and team matchmaking, improved
-            netcode, fast replay launching, and more!
+            HyperShield is a community test server for StarCraft: Brood War. Its native Linux client
+            provides 1v1 and team matchmaking through the bundled Hyperion engine, with chat,
+            rankings, replays, and more.
           </Trans>
         </Blurb>
 
@@ -272,9 +273,9 @@ export function SplashContent() {
       </ContentArea>
       <DisclaimerText>
         <Trans t={t} i18nKey='landing.splash.disclaimerText'>
-          StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is
-          developed solely by members of the community, unaffiliated with Blizzard, and is not
-          officially endorsed or supported by Blizzard.
+          StarCraft is a registered trademark of Blizzard Entertainment, Inc. HyperShield is a
+          community-run test project, unaffiliated with Blizzard, and is not officially endorsed or
+          supported by Blizzard.
         </Trans>
       </DisclaimerText>
     </Root>

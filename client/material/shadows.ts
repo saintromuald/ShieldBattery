@@ -22,7 +22,7 @@ function shadowDef(
     0px ${uOff}px ${uBlur}px ${uSpread}px rgb(from var(--color-grey-blue10) r g b / ${shadowKeyUmbraOpacity}),
     0px ${pOff}px ${pBlur}px ${pSpread}px rgb(from var(--color-grey-blue20) r g b / ${shadowKeyPenumbraOpacity}),
     0px ${aOff}px ${aBlur}px ${aSpread}px rgb(from var(--color-blue10) r g b / ${shadowAmbientOpacity}),
-    0px 0px 1px 1px rgb(from var(--color-blue80) r g b / ${shadowOutlineOpacity})
+    0px 0px 1px 1px rgb(from var(--color-amber60) r g b / ${shadowOutlineOpacity})
   `
 }
 

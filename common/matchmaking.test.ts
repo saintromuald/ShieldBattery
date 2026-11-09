@@ -7,6 +7,7 @@ import {
   getDivisionContext,
   getMatchmakingTypesForFormat,
   hasVetoes,
+  isMatchmakingQueueable,
   isSoloType,
   makeSeasonId,
   MATCHMAKING_MODES,
@@ -159,6 +160,15 @@ describe('common/matchmaking', () => {
       }
     })
 
+    it('keeps Rule 3 known but permanently non-queueable', () => {
+      expect(isMatchmakingQueueable(MatchmakingType.Hyperion1v1Rule3)).toBe(false)
+      for (const type of ALL_MATCHMAKING_TYPES.filter(
+        type => type !== MatchmakingType.Hyperion1v1Rule3,
+      )) {
+        expect(isMatchmakingQueueable(type)).toBe(true)
+      }
+    })
+
     it('derives TEAM_SIZES from the registry', () => {
       expect(TEAM_SIZES[MatchmakingType.Match1v1]).toBe(1)
       expect(TEAM_SIZES[MatchmakingType.Match1v1Fastest]).toBe(1)
@@ -169,6 +179,13 @@ describe('common/matchmaking', () => {
       expect(TEAM_SIZES[MatchmakingType.Match3v3Bgh]).toBe(3)
       expect(TEAM_SIZES[MatchmakingType.Match3v3Hunters]).toBe(3)
       expect(TEAM_SIZES[MatchmakingType.Match3v3Fastest]).toBe(3)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion1v1Rule1]).toBe(1)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion1v1Rule2]).toBe(1)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion1v1Rule3]).toBe(1)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion2v2Rule1]).toBe(2)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion2v2Rule2]).toBe(2)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion3v3Rule1]).toBe(3)
+      expect(TEAM_SIZES[MatchmakingType.Hyperion3v3Rule2]).toBe(3)
     })
 
     it('derives hasVetoes from map selection style', () => {
@@ -201,17 +218,24 @@ describe('common/matchmaking', () => {
       expect(getMatchmakingTypesForFormat('1v1')).toEqual([
         MatchmakingType.Match1v1,
         MatchmakingType.Match1v1Fastest,
+        MatchmakingType.Hyperion1v1Rule1,
+        MatchmakingType.Hyperion1v1Rule2,
+        MatchmakingType.Hyperion1v1Rule3,
       ])
       expect(getMatchmakingTypesForFormat('2v2')).toEqual([
         MatchmakingType.Match2v2,
         MatchmakingType.Match2v2Bgh,
         MatchmakingType.Match2v2Hunters,
         MatchmakingType.Match2v2Fastest,
+        MatchmakingType.Hyperion2v2Rule1,
+        MatchmakingType.Hyperion2v2Rule2,
       ])
       expect(getMatchmakingTypesForFormat('3v3')).toEqual([
         MatchmakingType.Match3v3Bgh,
         MatchmakingType.Match3v3Hunters,
         MatchmakingType.Match3v3Fastest,
+        MatchmakingType.Hyperion3v3Rule1,
+        MatchmakingType.Hyperion3v3Rule2,
       ])
     })
 
@@ -249,6 +273,27 @@ describe('common/matchmaking', () => {
       expect(matchmakingTypeToLabel(MatchmakingType.Match3v3Fastest, useDefault)).toBe(
         '3v3 Fastest',
       )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule1, useDefault)).toBe(
+        'HyperShield 1v1 Rule 1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule2, useDefault)).toBe(
+        'HyperShield 1v1 Rule 2',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule3, useDefault)).toBe(
+        'HyperShield 1v1 Rule 3',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion2v2Rule1, useDefault)).toBe(
+        'HyperShield 2v2 Rule 1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion2v2Rule2, useDefault)).toBe(
+        'HyperShield 2v2 Rule 2',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion3v3Rule1, useDefault)).toBe(
+        'HyperShield 3v3 Rule 1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion3v3Rule2, useDefault)).toBe(
+        'HyperShield 3v3 Rule 2',
+      )
     })
 
     it('looks up labels by the expected i18n keys (kept extractable for i18next-cli)', () => {
@@ -276,6 +321,27 @@ describe('common/matchmaking', () => {
       )
       expect(matchmakingTypeToLabel(MatchmakingType.Match3v3Fastest, echoKey)).toBe(
         'matchmaking.type.3v3fastest',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule1, echoKey)).toBe(
+        'matchmaking.type.hyperion1v1rule1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule2, echoKey)).toBe(
+        'matchmaking.type.hyperion1v1rule2',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion1v1Rule3, echoKey)).toBe(
+        'matchmaking.type.hyperion1v1rule3',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion2v2Rule1, echoKey)).toBe(
+        'matchmaking.type.hyperion2v2rule1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion2v2Rule2, echoKey)).toBe(
+        'matchmaking.type.hyperion2v2rule2',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion3v3Rule1, echoKey)).toBe(
+        'matchmaking.type.hyperion3v3rule1',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Hyperion3v3Rule2, echoKey)).toBe(
+        'matchmaking.type.hyperion3v3rule2',
       )
     })
 

@@ -5,9 +5,9 @@ import { EmailVerificationDialogPage } from '../pages/email-verification-dialog-
 import { HomePage } from '../pages/home-page'
 import { LoginPage } from '../pages/login-page'
 
-// The newest seeded news post (see migrations/20260711120000_seed_news_posts.sql).
-const NEWEST_POST_TITLE = 'Update 10.4.0'
-const NEWEST_POST_ID = '5eed0000-0000-0000-0000-000000000023'
+// The welcome post added by the HyperShield branding migration.
+const NEWEST_POST_TITLE = 'Welcome to HyperShield'
+const NEWEST_POST_ID = '68797065-7265-4000-8000-000000000001'
 
 let loginPage: LoginPage
 let homePage: HomePage
@@ -46,7 +46,7 @@ test('news post permalinks serve Open Graph tags for the post', async ({ request
   const html = await response.text()
 
   expect(extractMetaContent(html, 'property', 'og:title')).toBe(
-    `${NEWEST_POST_TITLE} · ShieldBattery`,
+    `${NEWEST_POST_TITLE} · HyperShield`,
   )
   expect(extractMetaContent(html, 'property', 'og:type')).toBe('article')
   expect(extractMetaContent(html, 'property', 'og:description')).toBeTruthy()
@@ -56,5 +56,5 @@ test('other pages keep the default Open Graph tags', async ({ request }) => {
   const response = await request.get('/')
   const html = await response.text()
 
-  expect(extractMetaContent(html, 'property', 'og:title')).toBe('ShieldBattery')
+  expect(extractMetaContent(html, 'property', 'og:title')).toBe('HyperShield')
 })

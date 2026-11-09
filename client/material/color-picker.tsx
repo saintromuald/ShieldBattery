@@ -61,7 +61,7 @@ const GridSwatch = styled.button<{ $color: string; $active: boolean }>`
       : 'inset 0 0 0 1px rgb(255 255 255 / 0.15)'};
 
   &:focus-visible {
-    outline: 2px solid var(--theme-amber);
+    outline: 2px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `

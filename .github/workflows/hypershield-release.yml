@@ -1,0 +1,122 @@
+name: HyperShield Linux release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag; its version must match package.json'
+        required: true
+        default: 'hypershield-v12.3.7'
+      hyperionTag:
+        description: 'Public Hyperion Shield release to bundle'
+        required: true
+        default: 'v0.7.1-remastered'
+      serverUrl:
+        description: 'HyperShield server URL embedded in this client build'
+        required: true
+      channel:
+        description: 'Publish as a prerelease or a stable release'
+        required: true
+        default: 'prerelease'
+        type: choice
+        options:
+          - prerelease
+          - stable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hypershield-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      HYPERION_TAG: ${{ inputs.hyperionTag }}
+      SB_SERVER: ${{ inputs.serverUrl }}
+      CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Validate the release version and channel
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#hypershield-v}"
+          if [ "$VERSION" = "$TAG" ] || [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag must look like hypershield-v12.4.0 or hypershield-v12.4.0-rc.1" >&2
+            exit 1
+          fi
+          node -e 'const fs = require("node:fs"); const expected = process.env.VERSION; for (const file of ["package.json", "app/package.json"]) { const actual = JSON.parse(fs.readFileSync(file, "utf8")).version; if (actual !== expected) { throw new Error(`${file} is ${actual}, but the release tag is ${expected}`); } }'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; choose a new version instead of replacing its assets." >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install app dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./app
+
+      - name: Download the public Hyperion Shield package
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hyperion-package" hyperion
+          gh release download "$HYPERION_TAG" \
+            --repo saintromuald/hyperion-public \
+            --pattern 'Hyperion-Shield-*-linux-x64.tar.gz' \
+            --dir "$RUNNER_TEMP/hyperion-package"
+          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f -name 'Hyperion-Shield-*-linux-x64.tar.gz' -print -quit)
+          if [ -z "$archive" ]; then
+            echo "The Hyperion release has no public Linux x64 Shield package." >&2
+            exit 1
+          fi
+          tar -xzf "$archive" -C hyperion --no-same-owner
+          test -x hyperion/Hyperion.x86_64
+          test -f hyperion/libSDL3.so.0
+          test -f hyperion/release.json
+          test ! -e hyperion/Game
+
+      - name: Build the HyperShield AppImage
+        run: |
+          set -euo pipefail
+          pnpm run clean
+          node tools/prebuild.mjs
+          pnpm run build-app-client
+          pnpm exec electron-builder build --linux --x64 -c linux.yml
+
+      - name: Check the release artifact
+        run: |
+          set -euo pipefail
+          artifact="dist/HyperShield-${VERSION}-x86_64.AppImage"
+          test -f "$artifact"
+          chmod +x "$artifact"
+          (cd dist && sha256sum "$(basename "$artifact")" > "$(basename "$artifact").sha256")
+
+      - name: Publish the versioned release
+        run: |
+          set -euo pipefail
+          prerelease=()
+          if [ "$CHANNEL" = prerelease ]; then prerelease=(--prerelease); fi
+          artifact="dist/HyperShield-${VERSION}-x86_64.AppImage"
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "HyperShield v${VERSION}" \
+            --notes "Native Linux HyperShield client with Hyperion ${HYPERION_TAG}. The AppImage includes the public Shield engine and no StarCraft game files. Use the in-app release center to browse, install, or switch versions." \
+            "${prerelease[@]}" \
+            "$artifact" \
+            "$artifact.sha256"

@@ -15,6 +15,7 @@ import { InputError } from '../material/input-error'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
+import { AccountIndependenceNotice } from './account-independence-notice'
 import { signUp } from './action-creators'
 import {
   confirmPasswordValidator,
@@ -177,7 +178,8 @@ export function Signup() {
   }
 
   return (
-    <AuthLayout title={t('auth.signup.title', 'Create account')}>
+    <AuthLayout title={t('auth.signup.title', 'Create a HyperShield account')}>
+      <AccountIndependenceNotice />
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
         {showCodeInput ? (
@@ -250,7 +252,7 @@ export function Signup() {
 
         <FilledButton
           type='submit'
-          label={t('auth.signup.createAccount', 'Create account')}
+          label={t('auth.signup.createAccount', 'Create a HyperShield account')}
           onClick={submit}
           tabIndex={0}
           testName='submit-button'

@@ -25,7 +25,7 @@ export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.valu
 export type MatchmakingFormat = '1v1' | '2v2' | '3v3'
 
 /** The ruleset/map family of a mode within a format. */
-export type MatchmakingVariant = 'standard' | 'hunters' | 'bgh' | 'fastest'
+export type MatchmakingVariant = 'standard' | 'hunters' | 'bgh' | 'fastest' | 'hyperion'
 
 /**
  * How players choose maps for a mode:
@@ -56,6 +56,8 @@ export interface MatchmakingModeInfo {
   mapSelectionStyle: MapSelectionStyle
   /** Whether players can pick an alternate race for mirror matchups (1v1-style modes only). */
   supportsAlternateRace: boolean
+  /** False only for a mode retained in the type system but forbidden from queueing. */
+  queueable?: boolean
   /**
    * Returns the mode's localized display label. Written as an inline `t()` call with a string-literal
    * key so the translation extractor (i18next-cli) can statically extract it — a dynamic `t(key)` is invisible to the
@@ -151,6 +153,70 @@ export const MATCHMAKING_MODES = {
     supportsAlternateRace: false,
     label: t => t('matchmaking.type.3v3fastest', '3v3 Fastest'),
   },
+  [MatchmakingType.Hyperion1v1Rule1]: {
+    type: MatchmakingType.Hyperion1v1Rule1,
+    format: '1v1',
+    variant: 'hyperion',
+    teamSize: 1,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: true,
+    label: t => t('matchmaking.type.hyperion1v1rule1', 'HyperShield 1v1 Rule 1'),
+  },
+  [MatchmakingType.Hyperion1v1Rule2]: {
+    type: MatchmakingType.Hyperion1v1Rule2,
+    format: '1v1',
+    variant: 'hyperion',
+    teamSize: 1,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: true,
+    label: t => t('matchmaking.type.hyperion1v1rule2', 'HyperShield 1v1 Rule 2'),
+  },
+  [MatchmakingType.Hyperion1v1Rule3]: {
+    type: MatchmakingType.Hyperion1v1Rule3,
+    format: '1v1',
+    variant: 'hyperion',
+    teamSize: 1,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: true,
+    queueable: false,
+    label: t => t('matchmaking.type.hyperion1v1rule3', 'HyperShield 1v1 Rule 3'),
+  },
+  [MatchmakingType.Hyperion2v2Rule1]: {
+    type: MatchmakingType.Hyperion2v2Rule1,
+    format: '2v2',
+    variant: 'hyperion',
+    teamSize: 2,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.hyperion2v2rule1', 'HyperShield 2v2 Rule 1'),
+  },
+  [MatchmakingType.Hyperion2v2Rule2]: {
+    type: MatchmakingType.Hyperion2v2Rule2,
+    format: '2v2',
+    variant: 'hyperion',
+    teamSize: 2,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.hyperion2v2rule2', 'HyperShield 2v2 Rule 2'),
+  },
+  [MatchmakingType.Hyperion3v3Rule1]: {
+    type: MatchmakingType.Hyperion3v3Rule1,
+    format: '3v3',
+    variant: 'hyperion',
+    teamSize: 3,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.hyperion3v3rule1', 'HyperShield 3v3 Rule 1'),
+  },
+  [MatchmakingType.Hyperion3v3Rule2]: {
+    type: MatchmakingType.Hyperion3v3Rule2,
+    format: '3v3',
+    variant: 'hyperion',
+    teamSize: 3,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.hyperion3v3rule2', 'HyperShield 3v3 Rule 2'),
+  },
 } satisfies Record<MatchmakingType, MatchmakingModeInfo>
 
 /** Returns the static mode descriptor for a given `MatchmakingType`. */
@@ -184,6 +250,12 @@ export function hasVetoes(type: MatchmakingType): boolean {
  */
 export function isSoloType(type: MatchmakingType): boolean {
   return MATCHMAKING_MODES[type].teamSize === 1
+}
+
+/** Whether this mode may be queued. Rule 3 stays known for records/MMR but is never queueable. */
+export function isMatchmakingQueueable(type: MatchmakingType): boolean {
+  const mode = MATCHMAKING_MODES[type]
+  return !('queueable' in mode && mode.queueable === false)
 }
 
 /**
@@ -974,6 +1046,21 @@ export type MatchmakingPreferences1v1Fastest = BaseMatchmakingPreferences<
   MatchmakingPreferencesData1v1
 >
 
+export type MatchmakingPreferencesHyperion1v1 = BaseMatchmakingPreferences<
+  | MatchmakingType.Hyperion1v1Rule1
+  | MatchmakingType.Hyperion1v1Rule2
+  | MatchmakingType.Hyperion1v1Rule3,
+  MatchmakingPreferencesData1v1
+>
+
+export type MatchmakingPreferencesHyperionTeam = BaseMatchmakingPreferences<
+  | MatchmakingType.Hyperion2v2Rule1
+  | MatchmakingType.Hyperion2v2Rule2
+  | MatchmakingType.Hyperion3v3Rule1
+  | MatchmakingType.Hyperion3v3Rule2,
+  Record<string, never>
+>
+
 /**
  * Describes a user's preferences for finding a match in matchmaking. Each matchmaking type can have
  * its own custom data, with `race`, `mapPoolId`, and `mapSelections` being common among all
@@ -989,6 +1076,8 @@ export type MatchmakingPreferences =
   | MatchmakingPreferences3v3Bgh
   | MatchmakingPreferences3v3Hunters
   | MatchmakingPreferences3v3Fastest
+  | MatchmakingPreferencesHyperion1v1
+  | MatchmakingPreferencesHyperionTeam
 
 export type PartialMatchmakingPreferences = SetRequired<
   Partial<MatchmakingPreferences>,

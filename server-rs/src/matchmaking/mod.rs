@@ -3,6 +3,7 @@ use enumset::EnumSetType;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 use typeshare::typeshare;
+use uuid::Uuid;
 
 use crate::users::SbUserId;
 
@@ -30,6 +31,8 @@ pub struct MatchedPlayer {
 #[serde(rename_all = "camelCase")]
 #[typeshare]
 pub struct MatchFoundMessage {
+    /// Stable identity of this formation, reused by the game and relay session.
+    pub formation_id: Uuid,
     pub mode: MatchmakingType,
     pub team_a: Vec<MatchedPlayer>,
     pub team_b: Vec<MatchedPlayer>,
@@ -108,6 +111,27 @@ pub enum MatchmakingType {
     #[serde(rename = "3v3fastest")]
     #[sqlx(rename = "3v3fastest")]
     Match3v3Fastest,
+    #[serde(rename = "hyperion1v1rule1")]
+    #[sqlx(rename = "hyperion1v1rule1")]
+    Hyperion1v1Rule1,
+    #[serde(rename = "hyperion1v1rule2")]
+    #[sqlx(rename = "hyperion1v1rule2")]
+    Hyperion1v1Rule2,
+    #[serde(rename = "hyperion1v1rule3")]
+    #[sqlx(rename = "hyperion1v1rule3")]
+    Hyperion1v1Rule3,
+    #[serde(rename = "hyperion2v2rule1")]
+    #[sqlx(rename = "hyperion2v2rule1")]
+    Hyperion2v2Rule1,
+    #[serde(rename = "hyperion2v2rule2")]
+    #[sqlx(rename = "hyperion2v2rule2")]
+    Hyperion2v2Rule2,
+    #[serde(rename = "hyperion3v3rule1")]
+    #[sqlx(rename = "hyperion3v3rule1")]
+    Hyperion3v3Rule1,
+    #[serde(rename = "hyperion3v3rule2")]
+    #[sqlx(rename = "hyperion3v3rule2")]
+    Hyperion3v3Rule2,
 }
 
 impl MatchmakingType {
@@ -122,6 +146,11 @@ impl MatchmakingType {
             MatchmakingType::Match3v3Bgh => 3,
             MatchmakingType::Match3v3Hunters => 3,
             MatchmakingType::Match3v3Fastest => 3,
+            MatchmakingType::Hyperion1v1Rule1
+            | MatchmakingType::Hyperion1v1Rule2
+            | MatchmakingType::Hyperion1v1Rule3 => 1,
+            MatchmakingType::Hyperion2v2Rule1 | MatchmakingType::Hyperion2v2Rule2 => 2,
+            MatchmakingType::Hyperion3v3Rule1 | MatchmakingType::Hyperion3v3Rule2 => 3,
         }
     }
 
@@ -143,6 +172,13 @@ impl MatchmakingType {
             MatchmakingType::Match3v3Bgh => "3v3bgh",
             MatchmakingType::Match3v3Hunters => "3v3hunters",
             MatchmakingType::Match3v3Fastest => "3v3fastest",
+            MatchmakingType::Hyperion1v1Rule1 => "hyperion1v1rule1",
+            MatchmakingType::Hyperion1v1Rule2 => "hyperion1v1rule2",
+            MatchmakingType::Hyperion1v1Rule3 => "hyperion1v1rule3",
+            MatchmakingType::Hyperion2v2Rule1 => "hyperion2v2rule1",
+            MatchmakingType::Hyperion2v2Rule2 => "hyperion2v2rule2",
+            MatchmakingType::Hyperion3v3Rule1 => "hyperion3v3rule1",
+            MatchmakingType::Hyperion3v3Rule2 => "hyperion3v3rule2",
         }
     }
 }
@@ -158,6 +194,24 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::MatchmakingType;
+
+    #[test]
+    fn hyperion_modes_have_independent_names_and_team_sizes() {
+        let expected = [
+            (MatchmakingType::Hyperion1v1Rule1, "hyperion1v1rule1", 1, 2),
+            (MatchmakingType::Hyperion1v1Rule2, "hyperion1v1rule2", 1, 2),
+            (MatchmakingType::Hyperion1v1Rule3, "hyperion1v1rule3", 1, 2),
+            (MatchmakingType::Hyperion2v2Rule1, "hyperion2v2rule1", 2, 4),
+            (MatchmakingType::Hyperion2v2Rule2, "hyperion2v2rule2", 2, 4),
+            (MatchmakingType::Hyperion3v3Rule1, "hyperion3v3rule1", 3, 6),
+            (MatchmakingType::Hyperion3v3Rule2, "hyperion3v3rule2", 3, 6),
+        ];
+        for (mode, name, team_size, total_players) in expected {
+            assert_eq!(mode.as_str(), name);
+            assert_eq!(mode.team_size(), team_size);
+            assert_eq!(mode.total_players(), total_players);
+        }
+    }
 
     #[test]
     fn as_str_matches_serde_rename() {

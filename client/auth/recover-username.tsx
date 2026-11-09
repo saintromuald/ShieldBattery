@@ -73,7 +73,7 @@ export function RecoverUsername() {
   })
 
   return (
-    <AuthLayout title={t('auth.forgot.user.title', 'Recover your username')}>
+    <AuthLayout title={t('auth.forgot.user.title', 'Recover your HyperShield username')}>
       {error ? <UserErrorDisplay error={error} /> : null}
       {completed ? (
         <SuccessMessage data-testid='recover-username-success'>
@@ -88,8 +88,8 @@ export function RecoverUsername() {
           <Explanation>
             {t(
               'auth.forgot.user.enterEmail',
-              "Enter the email address associated with your account. We'll send you an email " +
-                'with all the usernames associated with that email address (if any).',
+              "Enter the email address associated with your HyperShield account. We'll send " +
+                'you an email with all the usernames associated with that email address (if any).',
             )}
           </Explanation>
           <TextField

@@ -1,0 +1,43 @@
+# HyperShield's native Windows x64 package with the public Hyperion Shield engine.
+appId: gg.angelicgaming.hypershield
+productName: HyperShield
+publish: []
+beforePack: ./tools/check-discord-sdk.cjs
+afterPack: ./tools/check-hyperion-package.cjs
+extraResources:
+  - from: game/dist
+    to: game/dist
+  - from: discord-sdk
+    to: discord-sdk
+    filter:
+      - discord_partner_sdk.dll
+      - License-Notices.txt
+  - from: hyperion
+    to: hyperion
+    filter:
+      - Hyperion.exe
+      - SDL3.dll
+      - Data/**/*
+      - docs/**/*
+      - README.txt
+      - release.json
+      - EDITION.txt
+files:
+  - 'assets/**/*'
+  - 'dist/**/*'
+  - '!node_modules/**/*'
+  - '!build/**/*'
+  - '!**/*.map'
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+nsis:
+  artifactName: 'HyperShield-Setup-${version}.${ext}'
+  include: tools/nsis/shieldbattery-protocol.nsh
+win:
+  icon: branding/hypershield.ico
+  target: nsis

@@ -1,5 +1,6 @@
 import { Counter } from '@prometheus-io/client'
 import { Map as IMap, Set as ISet, Record } from 'immutable'
+import { randomUUID } from 'node:crypto'
 import { container, singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
@@ -374,6 +375,12 @@ const LoadingDatas = {
  * Parameters to `GameLoader.loadGame`.
  */
 export interface GameLoadRequest {
+  /**
+   * The formation's stable identity. Older internal callers may omit it and receive a fresh UUID.
+   * Repeating an identical request with the same ID joins the original load instead of registering
+   * or configuring another game.
+   */
+  gameId?: string
   /** Associates the registered game with the caller before any setup events are delivered. */
   onGameRegistered?: (gameId: string) => void
   /**
@@ -404,6 +411,53 @@ export interface GameLoadRequest {
   ranks?: GamePlayerRank[]
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalize)
+  }
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonicalize(item)]),
+    )
+  }
+  return value
+}
+
+function gameLoadFingerprint(request: GameLoadRequest): string {
+  return JSON.stringify(
+    canonicalize({
+      players: request.players,
+      playerInfos: request.playerInfos,
+      mapId: request.mapId,
+      gameConfig: {
+        ...request.gameConfig,
+        // These are derived from the roster and transport during loading, not
+        // independent formation inputs. Their presence on a later retry must
+        // not change the request's identity.
+        resultsExempt: undefined,
+        useNetcodeV2: undefined,
+      },
+      ranks: request.ranks,
+    }),
+  )
+}
+
+function gameLoadCollision(): AsyncResult<GameLoadResult, GameLoaderError> {
+  const deferred = createDeferred<Result<GameLoadResult, GameLoaderError>>()
+  deferred.resolve(
+    Result.error(
+      new BaseGameLoaderError(
+        GameLoadErrorType.Internal,
+        'The formation ID was reused with different launch data',
+      ),
+    ),
+  )
+  return Result.fromAsync(() => deferred)
 }
 
 function gameUserPath(gameId: string, userId: SbUserId) {
@@ -445,7 +499,7 @@ function getGeneralGameSetup({
 
     return {
       gameId,
-      name: 'ShieldBattery Lobby',
+      name: 'HyperShield Lobby',
       map: toMapInfoJson(map),
       gameType: gameConfig.gameType,
       gameSubType: gameConfig.gameSubType,
@@ -462,7 +516,7 @@ function getGeneralGameSetup({
   } else if (gameConfig.gameSource === GameSource.Matchmaking) {
     return {
       gameId,
-      name: 'ShieldBattery Matchmaking',
+      name: 'HyperShield Matchmaking',
       map: toMapInfoJson(map),
       gameType: gameConfig.gameType,
       gameSubType: gameConfig.gameSubType,
@@ -524,6 +578,13 @@ export class GameLoader {
   // Maps game id -> loading data
   private loadingGames = IMap<string, LoadingData>()
   private recentlyLoadedGames = new Set<string>()
+  // Formation replay registry for this process. The coordinator provides the
+  // cross-process authority; retaining completed entries also prevents a late
+  // duplicate from starting a second local load after loadingGames is cleaned up.
+  private inFlightLoads = new Map<
+    string,
+    { fingerprint: string; result: AsyncResult<GameLoadResult, GameLoaderError> }
+  >()
 
   private gameLoadRequestsTotalMetric = new Counter({
     name: 'shieldbattery_game_loader_requests_total',
@@ -555,20 +616,31 @@ export class GameLoader {
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({
-    players,
-    playerInfos,
-    mapId,
-    gameConfig,
-    ranks,
-    signal,
-    onGameRegistered,
-  }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
+  loadGame(request: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
+    const gameId = request.gameId ?? randomUUID()
+    const fingerprint = gameLoadFingerprint(request)
+    const existing = this.inFlightLoads.get(gameId)
+    if (existing) {
+      return existing.fingerprint === fingerprint ? existing.result : gameLoadCollision()
+    }
+
+    // Starting a load runs no await before its registry entry is installed, so
+    // two calls cannot both register or configure the same formation. The first
+    // caller's signal and registration callback own the shared operation.
+    const result = this.startGameLoad(request, gameId)
+    this.inFlightLoads.set(gameId, { fingerprint, result })
+    return result
+  }
+
+  private startGameLoad(
+    { players, playerInfos, mapId, gameConfig, ranks, signal, onGameRegistered }: GameLoadRequest,
+    gameId: string,
+  ): AsyncResult<GameLoadResult, GameLoaderError> {
     const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
 
     this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
 
-    registerGame(mapId, gameConfig).then(
+    registerGame(mapId, gameConfig, undefined, gameId).then(
       ({ gameId, resultCodes }) => {
         const abortController = new AbortController()
         const deadline = extendableDeadline(gameLoaded, GAME_LOAD_TIMEOUT, 'game load timed out')

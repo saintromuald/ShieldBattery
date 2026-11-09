@@ -132,9 +132,9 @@ export function BugReportDialog(props: CommonDialogProps) {
           <LogUploadDescription>
             {t(
               'bugReport.logUploadDescription',
-              'Your bug report will include ShieldBattery logs from your machine to help ' +
+              'Your bug report will include HyperShield logs from your machine to help ' +
                 'diagnose the issue. Logs may be kept for up to 30 days and are viewable only by ' +
-                'ShieldBattery staff.',
+                'HyperShield administrators.',
             )}
           </LogUploadDescription>
           {

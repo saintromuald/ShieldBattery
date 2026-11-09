@@ -137,7 +137,7 @@ export function DiscordActivityPromptDialog({ close }: CommonDialogProps) {
       <Intro>
         {t(
           'discord.activityPrompt.intro',
-          'ShieldBattery can show what you’re doing on the Discord account signed in to the ' +
+          'HyperShield can show what you’re doing on the Discord account signed in to the ' +
             'Discord app on this computer:',
         )}
       </Intro>

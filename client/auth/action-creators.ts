@@ -162,7 +162,7 @@ export function signUp(
     const result = await createSignupSession(
       fields,
       {
-        collectProof,
+        collectProof: IS_ELECTRON ? collectProof : undefined,
         collectLegacyIds: getExtraSessionData,
       },
       spec.signal,

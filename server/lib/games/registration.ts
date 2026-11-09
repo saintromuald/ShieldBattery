@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { GameConfig } from '../../../common/games/configuration'
 import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
 import { SbMapId } from '../../../common/maps'
@@ -16,11 +17,18 @@ import { genResultCode } from './gen-result-code'
  *   type
  * @param gameConfig an object describing the configuration of the game
  * @param startTime the time the game is being started at. Optional, defaults to the current time.
+ * @param requestedGameId a stable formation UUID. A fresh UUID is generated when it is omitted.
  *
  * @returns an object containing the generated `gameId` and a map of `resultCodes` indexed by
  *   player name
  */
-export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, startTime = new Date()) {
+export async function registerGame(
+  mapId: SbMapId,
+  gameConfig: GameConfig,
+  startTime = new Date(),
+  requestedGameId?: string,
+) {
+  const gameId = requestedGameId ?? randomUUID()
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
     const humans = team.filter(p => !p.isComputer)
     r.push(...humans)
@@ -62,12 +70,9 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
     }
   }
 
-  // NOTE(tec27): the value here makes the linter happy, but this will actually be set in the
-  // transaction below
-  let gameId = ''
-
   await transact(async client => {
-    gameId = await createGameRecord(client, {
+    await createGameRecord(client, {
+      id: gameId,
       startTime,
       mapId,
       config: gameConfig,

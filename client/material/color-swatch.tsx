@@ -27,7 +27,7 @@ export const SwatchButton = styled.button<{ $color: string }>`
   }
 
   &:focus-visible {
-    outline: 2px solid var(--theme-amber);
+    outline: 2px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `
@@ -51,12 +51,12 @@ export const AddSwatchTile = styled.button`
 
   &:hover,
   &:focus-visible {
-    border-color: var(--color-blue80);
-    color: var(--color-blue80);
+    border-color: var(--theme-primary);
+    color: var(--theme-primary);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--theme-amber);
+    outline: 2px solid var(--theme-focus);
     outline-offset: 2px;
   }
 
@@ -97,7 +97,7 @@ export const RemoveSwatchBadge = styled.button`
   }
 
   &:focus-visible {
-    outline: 2px solid var(--theme-amber);
+    outline: 2px solid var(--theme-focus);
     outline-offset: 1px;
   }
 `

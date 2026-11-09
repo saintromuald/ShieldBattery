@@ -22,7 +22,7 @@ const PreviewRoot = styled.div`
   max-width: 100%;
   aspect-ratio: 5 / 3;
 
-  background-color: #07090f;
+  background-color: var(--theme-surface);
   border: 1px solid var(--theme-outline-variant);
   border-radius: 4px;
   box-sizing: border-box;
@@ -99,8 +99,17 @@ const TeamColorsBackdrop = styled.div`
   inset: 0;
 
   background:
-    radial-gradient(ellipse 60% 70% at 20% 80%, #1a2438 0 60%, transparent 61%),
-    radial-gradient(ellipse 50% 60% at 82% 22%, #1a2438 0 60%, transparent 61%), #0d1220;
+    radial-gradient(
+      ellipse 60% 70% at 20% 80%,
+      rgb(from var(--color-green40) r g b / 0.35) 0 60%,
+      transparent 61%
+    ),
+    radial-gradient(
+      ellipse 50% 60% at 82% 22%,
+      rgb(from var(--color-green40) r g b / 0.35) 0 60%,
+      transparent 61%
+    ),
+    var(--color-blue20);
 `
 
 const SelfAndAllies = styled.div`
@@ -195,7 +204,7 @@ const GrabPanSceneRoot = styled.div`
   justify-content: center;
   gap: 10px;
 
-  background: radial-gradient(ellipse at 50% 120%, #182031, transparent 70%);
+  background: radial-gradient(ellipse at 50% 120%, var(--color-grey-blue30), transparent 70%);
 `
 
 const SliderTrack = styled.div`
@@ -203,7 +212,7 @@ const SliderTrack = styled.div`
   width: 100%;
   height: 4px;
 
-  background-color: #2e3e5b;
+  background-color: var(--color-grey-blue40);
   border-radius: 2px;
 `
 
@@ -246,9 +255,9 @@ function GrabPanScene({ preset }: { preset: GameDefaultsPreset }) {
   const recommended = preset === GameDefaultsPreset.Recommended
 
   const position = recommended ? '62%' : '38%'
-  const fillColor = recommended ? 'var(--theme-amber)' : '#62789e'
-  const knobColor = recommended ? 'var(--theme-amber)' : '#9bb1d3'
-  const captionColor = recommended ? 'var(--color-amber80)' : 'var(--color-grey-blue80)'
+  const fillColor = recommended ? 'var(--theme-primary)' : 'var(--color-grey-blue60)'
+  const knobColor = recommended ? 'var(--theme-primary)' : 'var(--color-grey-blue80)'
+  const captionColor = recommended ? 'var(--color-green80)' : 'var(--color-grey-blue80)'
   const caption = recommended
     ? t('settings.game.defaults.preview.grabPanAdjustable', 'Adjustable')
     : t('settings.game.defaults.preview.grabPanFixed', 'Fixed speed')

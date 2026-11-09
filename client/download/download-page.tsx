@@ -1,6 +1,6 @@
 import styled from 'styled-components'
-import LogoText from '../logos/logotext-640x100.svg?react'
-import { makePublicAssetUrl } from '../network/server-url'
+import LogoImage from '../logos/hypershield-logo.svg'
+import { headlineLarge } from '../styles/typography'
 import Download from './download'
 
 const Wrapper = styled.div`
@@ -19,9 +19,10 @@ const Logo = styled.img`
   display: block;
 `
 
-const LogoTextContainer = styled.div`
+const ProductName = styled.div`
+  ${headlineLarge};
   margin: 0 auto 32px;
-  display: block;
+  font-size: 56px;
   text-align: center;
 `
 
@@ -29,10 +30,8 @@ export function DownloadPage() {
   return (
     <div>
       <Wrapper>
-        <Logo src={makePublicAssetUrl('/images/logo.svg')} />
-        <LogoTextContainer>
-          <LogoText />
-        </LogoTextContainer>
+        <Logo src={LogoImage} alt='' />
+        <ProductName>HyperShield</ProductName>
         <div>
           <Download />
         </div>

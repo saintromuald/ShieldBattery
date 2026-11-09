@@ -1,4 +1,4 @@
-import { getServerConfig } from '../server-config-storage'
+import { getFallbackServerConfig, getServerConfig } from '../server-config-storage'
 import { baseUrl } from './server-base-url'
 
 /**
@@ -28,7 +28,7 @@ export function getServerOrigin() {
 
 /**
  * Returns an URL for a path that is supposed to be in a public assets directory. In case it's not
- * set (should be very rare), we default to our production server CDN.
+ * set (should be very rare), we default to the current server channel's safe fallback.
  */
 export function makePublicAssetUrl(path: string) {
   const slashlessPath = path.startsWith('/') ? path.substring(1) : '' + path
@@ -36,6 +36,6 @@ export function makePublicAssetUrl(path: string) {
   if (publicAssetsUrl) {
     return publicAssetsUrl + slashlessPath
   } else {
-    return 'https://cdn.shieldbattery.net/public/' + slashlessPath
+    return getFallbackServerConfig().publicAssetsUrl + slashlessPath
   }
 }

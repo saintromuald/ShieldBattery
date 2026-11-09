@@ -294,6 +294,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
             };
 
             let event = PublishedMatchmakingMessage::MatchFound(MatchFoundMessage {
+                formation_id: Uuid::new_v4(),
                 mode: m.mode,
                 team_a: m.team_a.iter().map(make_matched_player).collect(),
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
@@ -591,10 +592,21 @@ async fn cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_backbone_fetch_result, fetch_served_backbone_rtts};
+    use super::{
+        PlayerModeRatingDto, QueueTicket, apply_backbone_fetch_result, build_player, build_ticket,
+        fetch_served_backbone_rtts,
+    };
+    use crate::matchmaking::MatchmakingType;
     use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
+    use crate::matchmaking::config::{MatchmakerConfig, ModeConfig};
+    use crate::matchmaking::matchmaker::Matchmaker;
     use arc_swap::ArcSwap;
+    use base64::Engine as _;
+    use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
     use color_eyre::eyre::eyre;
+    use std::sync::Arc;
+    use std::time::Instant;
+    use uuid::Uuid;
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
@@ -602,6 +614,100 @@ mod tests {
             b: b.to_string(),
             rtt_ms,
         }
+    }
+
+    #[test]
+    fn multiqueue_ticket_requeues_the_complete_original_mode_set() {
+        let start = Instant::now();
+        let mut matchmaker = Matchmaker::new(
+            Arc::new(MatchmakerConfig::from_global(ModeConfig {
+                min_quality: f32::NEG_INFINITY,
+                ..Default::default()
+            })),
+            BackboneRttTable::default(),
+        );
+        let players = [7usize, 11usize].map(|id| {
+            build_player(
+                id,
+                vec![
+                    PlayerModeRatingDto {
+                        mode: MatchmakingType::Hyperion1v1Rule1,
+                        rating: 1000.0 + id as f32,
+                        uncertainty: Some(25.0),
+                        map_selections: Some(vec!["map-rule-1".to_owned()]),
+                    },
+                    PlayerModeRatingDto {
+                        mode: MatchmakingType::Hyperion1v1Rule2,
+                        rating: 2000.0 + id as f32,
+                        uncertainty: Some(50.0),
+                        map_selections: Some(vec!["map-rule-2".to_owned()]),
+                    },
+                ],
+                Some("us-east".to_owned()),
+                Some(23.5),
+            )
+        });
+        for player in players.iter().cloned() {
+            matchmaker.insert_player(player).unwrap();
+        }
+        let found = matchmaker.find_matches_for_modes(&[MatchmakingType::Hyperion1v1Rule1], start);
+        assert_eq!(found.len(), 1);
+        let ticketed = found[0].team_a[0].clone();
+        let ticket = build_ticket(&ticketed, &Uuid::new_v4(), start);
+        let ticket: QueueTicket =
+            serde_json::from_slice(&BASE64_STANDARD.decode(ticket).unwrap()).unwrap();
+        assert_eq!(ticket.mode_ratings.len(), 2);
+        for (mode, rating, map) in [
+            (
+                MatchmakingType::Hyperion1v1Rule1,
+                1000.0 + ticketed.player.id as f32,
+                "map-rule-1",
+            ),
+            (
+                MatchmakingType::Hyperion1v1Rule2,
+                2000.0 + ticketed.player.id as f32,
+                "map-rule-2",
+            ),
+        ] {
+            let entry = ticket
+                .mode_ratings
+                .iter()
+                .find(|entry| entry.mode == mode)
+                .unwrap();
+            assert_eq!(entry.rating, rating);
+            assert_eq!(entry.map_selections.as_deref(), Some(&[map.to_owned()][..]));
+        }
+        assert_eq!(ticket.region.as_deref(), Some("us-east"));
+        assert_eq!(ticket.rtt_ms, Some(23.5));
+        assert_eq!(ticket.queue_time, 0);
+
+        // Claim the formed match before requeueing the innocent players with their original tickets.
+        for player in players.iter() {
+            matchmaker.remove_player(player.id);
+        }
+        for (index, player) in players.into_iter().enumerate() {
+            let player = if index == 0 {
+                build_player(
+                    ticket.id,
+                    ticket.mode_ratings.clone(),
+                    ticket.region.clone(),
+                    ticket.rtt_ms,
+                )
+            } else {
+                player
+            };
+            matchmaker.requeue_player(player, start).unwrap();
+        }
+        let found = matchmaker.find_matches_for_modes(&[MatchmakingType::Hyperion1v1Rule2], start);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].mode, MatchmakingType::Hyperion1v1Rule2);
+        assert!(
+            found[0]
+                .team_a
+                .iter()
+                .chain(&found[0].team_b)
+                .all(|entry| { entry.queue_time == start && entry.player.ratings.len() == 2 })
+        );
     }
 
     #[test]

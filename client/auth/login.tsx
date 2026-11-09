@@ -10,6 +10,7 @@ import { CheckBox } from '../material/check-box'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
+import { AccountIndependenceNotice } from './account-independence-notice'
 import { logIn } from './action-creators'
 import { passwordValidator, usernameValidator } from './auth-form-validators'
 import { AuthLayout } from './auth-layout'
@@ -139,7 +140,8 @@ export function Login() {
   const signupSearch = signupSearchParams.toString() ? '?' + signupSearchParams.toString() : ''
 
   return (
-    <AuthLayout title={t('auth.login.title', 'Log in to ShieldBattery')}>
+    <AuthLayout title={t('auth.login.title', 'Log in to HyperShield')}>
+      <AccountIndependenceNotice />
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
         <UsernameField

@@ -1,0 +1,10 @@
+{
+  "regions": [
+    {
+      "id": "us-east",
+      "display_name": "US East",
+      "beacon": "gamelift-ping.us-east-1.api.aws:7770",
+      "fallback": "dynamodb.us-east-1.amazonaws.com:443"
+    }
+  ]
+}

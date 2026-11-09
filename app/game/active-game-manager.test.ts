@@ -2,11 +2,16 @@ import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
+import { GameType } from '../../common/games/game-type'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { InGameReportRequest } from '../../common/ipc'
+import { SlotType } from '../../common/lobbies/slot'
+import { MapInfoJson } from '../../common/maps'
+import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
+import { HyperionInstall, HyperionLaunchOptions } from './hyperion/launch'
 
 const { verifyGame, electronApp } = vi.hoisted(() => ({
   verifyGame: vi.fn<() => Promise<void>>(),
@@ -134,6 +139,24 @@ describe('ActiveGameManager packaged launch checks', () => {
     await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
     expect(verifyGame).not.toHaveBeenCalled()
   })
+
+  it('keeps ordinary matchmaking on SC:R when a Hyperion backend is available', async () => {
+    const localSettings = Object.assign(new EventEmitter(), {
+      get: async () => ({ starcraftPath: 'C:\\StarCraft', launch32Bit: false }),
+    })
+    const hyperionLaunch = vi.fn()
+    const manager = new ActiveGameManager({} as any, localSettings as any, {} as any, {
+      install: {} as HyperionInstall,
+      launch: hyperionLaunch,
+    })
+    const config = configFor('ordinary-matchmaking')
+    config.setup.matchmakingType = MatchmakingType.Match1v1
+
+    manager.setGameConfig(config)
+
+    await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
+    expect(hyperionLaunch).not.toHaveBeenCalled()
+  })
 })
 
 describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
@@ -213,6 +236,324 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const errorStatus = statuses.find(status => status.state === 'error')
     expect(errorStatus, 'an error status was emitted').toBeDefined()
     expect(String(errorStatus!.extra)).toContain('no adoptable keypair (noKeysGenerated)')
+  })
+})
+
+describe('ActiveGameManager Hyperion sidecar launch', () => {
+  const hostId = makeSbUserId(101)
+  const guestId = makeSbUserId(202)
+  const install: HyperionInstall = {
+    executablePath: '/hyperion/Hyperion.x86_64',
+    compatibility: {
+      adapterProtocol: 1,
+      engineBuild: 'hyperion-test-build',
+      simRevision: 22,
+      rules: 'classic',
+      modId: '',
+      modFingerprint: 'b'.repeat(40),
+      dataFingerprint: '0123abcd',
+      rollback: false,
+    },
+  }
+
+  function hyperionConfigFor(gameId: string): GameLaunchConfig {
+    const host = {
+      id: 'host-slot',
+      userId: hostId,
+      race: 'z',
+      playerId: 0,
+      teamId: 0,
+      type: SlotType.Human,
+      typeId: 6,
+    }
+    const guest = {
+      id: 'guest-slot',
+      userId: guestId,
+      race: 't',
+      playerId: 1,
+      teamId: 1,
+      type: SlotType.Human,
+      typeId: 6,
+    }
+    return {
+      localUser: { id: hostId, name: 'HostPlayer', created: 0 },
+      blockedUsers: [],
+      serverConfig: { serverUrl: 'https://server.invalid' },
+      language: 'en',
+      setup: {
+        gameId,
+        name: 'Hyperion test game',
+        map: {
+          hash: 'a'.repeat(64),
+          mapData: { format: 'scx' },
+          mapUrl: 'https://maps.invalid/map.scx',
+        } as MapInfoJson,
+        gameType: GameType.OneVsOne,
+        gameSubType: 0,
+        slots: [host, guest],
+        host,
+        users: [
+          { id: hostId, name: 'HostPlayer', created: 0 },
+          { id: guestId, name: 'GuestPlayer', created: 0 },
+        ],
+        disableAllianceChanges: true,
+        seed: 0x12345678,
+        useNetcodeV2: true,
+        matchmakingType: MatchmakingType.Hyperion1v1Rule1,
+        resultCode: 'result-code-for-the-sidecar',
+      },
+    } as GameLaunchConfig
+  }
+
+  function hyperionNetcodeFor(clientPubkey: string): NetcodeV2ServerSetup {
+    return {
+      token: 'session-token-test-value',
+      clientPubkey,
+      homeRelay: {
+        relayId: 7,
+        addrs: ['127.0.0.1:9000'],
+        serverName: 'localhost',
+        cert: 'relay-certificate',
+      },
+      roster: [
+        { slot: 0, userId: hostId, homeRelayId: 7 },
+        { slot: 1, userId: guestId, homeRelayId: 7 },
+      ],
+      initialBufferTurns: 3,
+      rollback: false,
+    }
+  }
+
+  function makeHarness(
+    launch: (options: HyperionLaunchOptions) => Promise<any>,
+    backend: {
+      install?: HyperionInstall
+      readInstall?: (options?: { gameDataPath?: string }) => Promise<HyperionInstall>
+    } = { install },
+  ) {
+    const mapStore = {
+      getPath: vi.fn(() => '/maps/fighting-spirit.scx'),
+      downloadMap: vi.fn(async () => true),
+    }
+    const localSettings = Object.assign(new EventEmitter(), {
+      get: backend.install
+        ? () => new Promise(() => {})
+        : async () => ({ starcraftPath: '/games/StarCraft' }),
+    })
+    const scrSettings = { syncWithGameSettingsFile: vi.fn(async () => {}) }
+    const manager = new ActiveGameManager(
+      mapStore as any,
+      localSettings as any,
+      scrSettings as any,
+      {
+        ...backend,
+        launch,
+      },
+    )
+    return { manager, mapStore }
+  }
+
+  function launchResult(options: HyperionLaunchOptions) {
+    let resolveExit!: (code: number) => void
+    const exit = new Promise<number>(resolve => {
+      resolveExit = resolve
+    })
+    return {
+      result: {
+        proc: { waitForExit: vi.fn(() => exit) },
+        releaseGpuPreference: vi.fn(),
+        quit: vi.fn(async () => {}),
+        resultContext: options.resultContext,
+      },
+      resolveExit,
+    }
+  }
+
+  it('waits for the complete handoff, launches once, and preserves a clean finish', async () => {
+    let launchedOptions: HyperionLaunchOptions | undefined
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      launchedOptions = options
+      await options.prepareMap?.()
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager, mapStore } = makeHarness(launch)
+    const statuses: any[] = []
+    manager.on('gameStatus', status => statuses.push(status))
+
+    manager.setGameConfig(hyperionConfigFor('hyperion-1'))
+    expect(launch).not.toHaveBeenCalled()
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-1', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+    manager.setNetcodeV2Setup('hyperion-1', hyperionNetcodeFor(pubkey))
+    expect(launch).toHaveBeenCalledTimes(1)
+
+    expect(launchedOptions!.localUserId).toBe(hostId)
+    expect(launchedOptions!.mapPath).toBe('/maps/fighting-spirit.scx')
+    expect(launchedOptions!.ruleConfiguration).toEqual({
+      ruleSet: 'hyperion',
+      antiMeta: false,
+    })
+    expect(launchedOptions!.resultContext).toEqual({
+      resultCode: 'result-code-for-the-sidecar',
+      serverUrl: 'https://server.invalid',
+    })
+    await vi.waitFor(() => expect(mapStore.downloadMap).toHaveBeenCalledTimes(1))
+    await launch.mock.results[0].value
+
+    launchedOptions!.onStart!()
+    expect(manager.getStatus()).toMatchObject({
+      state: 'playing',
+      networkStatus: { transport: 'netcodeV2' },
+    })
+    launchedOptions!.onFinished!()
+    expect(process.result.quit).toHaveBeenCalledTimes(1)
+    expect(manager.getStatus()?.state).toBe('finished')
+
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(statuses.some(status => status.state === 'error')).toBe(false)
+    expect(process.result.releaseGpuPreference).toHaveBeenCalledTimes(1)
+  })
+
+  it('enables anti-meta only for Hyperion Rule 2', async () => {
+    let launchedOptions: HyperionLaunchOptions | undefined
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      launchedOptions = options
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch)
+    const config = hyperionConfigFor('hyperion-rule-2')
+    config.setup.matchmakingType = MatchmakingType.Hyperion1v1Rule2
+
+    manager.setGameConfig(config)
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-rule-2', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    expect(launchedOptions!.ruleConfiguration).toEqual({
+      ruleSet: 'hyperion',
+      antiMeta: true,
+    })
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  })
+
+  it('fails closed when automatic installation resolution fails', async () => {
+    const failure = new Error(
+      'HyperShield is not installed correctly. Reinstall HyperShield and try again.',
+    )
+    const readInstall = vi.fn(async () => Promise.reject(failure))
+    const launch = vi.fn()
+    const { manager } = makeHarness(launch, { readInstall })
+    const statuses: any[] = []
+    const ended = vi.fn()
+    manager.on('gameStatus', status => statuses.push(status))
+    manager.on('gameProcessEnded', ended)
+    vi.mocked(checkStarcraftPath).mockClear()
+    verifyGame.mockClear()
+
+    manager.setGameConfig(hyperionConfigFor('hyperion-missing-install'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-missing-install', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(readInstall).toHaveBeenCalledTimes(1))
+    expect(readInstall).toHaveBeenCalledWith({ gameDataPath: '/games/StarCraft' })
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(statuses).toContainEqual(expect.objectContaining({ state: 'error', extra: failure }))
+    expect(ended).toHaveBeenCalledWith('hyperion-missing-install')
+    expect(launch).not.toHaveBeenCalled()
+    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    expect(verifyGame).not.toHaveBeenCalled()
+  })
+
+  it('rejects unsupported Rule 3 without launching either backend', async () => {
+    const launch = vi.fn()
+    const { manager } = makeHarness(launch)
+    const statuses: any[] = []
+    manager.on('gameStatus', status => statuses.push(status))
+    const config = hyperionConfigFor('hyperion-rule-3')
+    config.setup.matchmakingType = MatchmakingType.Hyperion1v1Rule3
+    vi.mocked(checkStarcraftPath).mockClear()
+    verifyGame.mockClear()
+
+    manager.setGameConfig(config)
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-rule-3', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(statuses).toContainEqual(
+      expect.objectContaining({
+        state: 'error',
+        extra: expect.objectContaining({ message: 'This HyperShield mode is not available.' }),
+      }),
+    )
+    expect(launch).not.toHaveBeenCalled()
+    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    expect(verifyGame).not.toHaveBeenCalled()
+  })
+
+  it('reuses the carried handoff on a same-ID relaunch without spawning twice for one process', async () => {
+    const processes: Array<ReturnType<typeof launchResult>> = []
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      const process = launchResult(options)
+      processes.push(process)
+      return process.result
+    })
+    const { manager } = makeHarness(launch)
+    manager.setGameConfig(hyperionConfigFor('hyperion-relaunch'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-relaunch', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    manager.setGameConfig(hyperionConfigFor('hyperion-relaunch'))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(2))
+    expect(processes[0].result.quit).toHaveBeenCalledTimes(1)
+  })
+
+  it('quits a process whose launch became stale while configuration was pending', async () => {
+    let finishLaunch!: (result: any) => void
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn((options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return new Promise<any>(resolve => {
+        finishLaunch = resolve
+      })
+    })
+    const { manager } = makeHarness(launch)
+    const ended = vi.fn()
+    manager.on('gameProcessEnded', ended)
+    manager.setGameConfig(hyperionConfigFor('hyperion-stale'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-stale', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    manager.clearGameConfig('hyperion-stale')
+    finishLaunch(process.result)
+    await vi.waitFor(() => expect(process.result.quit).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(ended).toHaveBeenCalledWith('hyperion-stale'))
+    expect(manager.getStatus()).toBeNull()
+  })
+
+  it('surfaces a launch rejection and emits the process-ended lifecycle event', async () => {
+    const failure = new Error('sidecar spawn failed')
+    const launch = vi.fn(async () => Promise.reject(failure))
+    const { manager } = makeHarness(launch)
+    const statuses: any[] = []
+    const ended = vi.fn()
+    manager.on('gameStatus', status => statuses.push(status))
+    manager.on('gameProcessEnded', ended)
+    manager.setGameConfig(hyperionConfigFor('hyperion-error'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-error', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(statuses).toContainEqual(expect.objectContaining({ state: 'error', extra: failure }))
+    expect(ended).toHaveBeenCalledWith('hyperion-error')
   })
 })
 

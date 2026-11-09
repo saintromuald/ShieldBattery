@@ -10,6 +10,7 @@ import {
   DivisionContext,
   getDivisionContext,
   getMatchmakingModeInfo,
+  isSoloType,
   MapSelectionStyle,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -78,6 +79,12 @@ const REAL_MODES: RealModeData[] = [
   { type: MatchmakingType.Match3v3Bgh, group: '3v3' },
   { type: MatchmakingType.Match3v3Hunters, group: '3v3' },
   { type: MatchmakingType.Match3v3Fastest, group: '3v3' },
+  { type: MatchmakingType.Hyperion1v1Rule1, group: '1v1' },
+  { type: MatchmakingType.Hyperion1v1Rule2, group: '1v1' },
+  { type: MatchmakingType.Hyperion2v2Rule1, group: '2v2' },
+  { type: MatchmakingType.Hyperion2v2Rule2, group: '2v2' },
+  { type: MatchmakingType.Hyperion3v3Rule1, group: '3v3' },
+  { type: MatchmakingType.Hyperion3v3Rule2, group: '3v3' },
 ]
 
 const MODE_GROUPS: { id: '1v1' | '2v2' | '3v3'; label: string; team: boolean }[] = [
@@ -1397,10 +1404,7 @@ export function FindMatch() {
       mapSelectionCount = mapPool
         ? mapSelections.filter(id => mapPool.maps.includes(id)).length
         : mapSelections.length
-      if (
-        (type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
-        race !== 'r'
-      ) {
+      if (isSoloType(type) && race !== 'r') {
         const data1v1 = prefs.data as {
           useAlternateRace?: boolean
           alternateRace?: AssignedRaceChar
@@ -1440,33 +1444,41 @@ export function FindMatch() {
     setDrawerType(type)
   }
 
-  const handleFindMatch = healthChecked(() => {
-    if (inLobby || isSubmitting || effectiveSelectedTypes.size === 0) return
+  const handleFindMatch = healthChecked(
+    () => {
+      if (inLobby || isSubmitting || effectiveSelectedTypes.size === 0) return
 
-    const allPrefs: MatchmakingPreferences[] = []
-    for (const type of effectiveSelectedTypes) {
-      const prefs = matchmakingPreferences.get(type)?.preferences
-      if (!prefs) {
-        // The preferences subscription seeds defaults for every type on connect, so this is
-        // effectively unreachable past app startup; bail rather than silently queueing a subset.
-        return
+      const allPrefs: MatchmakingPreferences[] = []
+      for (const type of effectiveSelectedTypes) {
+        const prefs = matchmakingPreferences.get(type)?.preferences
+        if (!prefs) {
+          // The preferences subscription seeds defaults for every type on connect, so this is
+          // effectively unreachable past app startup; bail rather than silently queueing a subset.
+          return
+        }
+        allPrefs.push(prefs as MatchmakingPreferences)
       }
-      allPrefs.push(prefs as MatchmakingPreferences)
-    }
-    if (allPrefs.length === 0) return
+      if (allPrefs.length === 0) return
 
-    setIsSubmitting(true)
-    dispatch(
-      findMatch(allPrefs, {
-        onSuccess: () => {
-          setIsSubmitting(false)
-        },
-        onError: () => {
-          setIsSubmitting(false)
-        },
-      }),
-    )
-  })
+      setIsSubmitting(true)
+      dispatch(
+        findMatch(allPrefs, {
+          onSuccess: () => {
+            setIsSubmitting(false)
+          },
+          onError: () => {
+            setIsSubmitting(false)
+          },
+        }),
+      )
+    },
+    {
+      requiresScrBackend: () =>
+        Array.from(effectiveSelectedTypes).some(
+          type => getMatchmakingModeInfo(type).variant !== 'hyperion',
+        ),
+    },
+  )
 
   const handleCancel = () => {
     dispatch(
@@ -1513,6 +1525,20 @@ export function FindMatch() {
         return t('matchmaking.findMatch.desc.3v3hunters', 'Team · Hunters')
       case MatchmakingType.Match3v3Fastest:
         return t('matchmaking.findMatch.desc.3v3fastest', 'Team · Fastest Map')
+      case MatchmakingType.Hyperion1v1Rule1:
+        return t('matchmaking.findMatch.desc.hyperion1v1rule1', 'Solo · HyperShield classic')
+      case MatchmakingType.Hyperion1v1Rule2:
+        return t('matchmaking.findMatch.desc.hyperion1v1rule2', 'Solo · HyperShield anti-meta')
+      case MatchmakingType.Hyperion1v1Rule3:
+        return t('matchmaking.findMatch.desc.hyperion1v1rule3', 'Solo · HyperShield Rule 3')
+      case MatchmakingType.Hyperion2v2Rule1:
+        return t('matchmaking.findMatch.desc.hyperion2v2rule1', 'Team · HyperShield classic')
+      case MatchmakingType.Hyperion2v2Rule2:
+        return t('matchmaking.findMatch.desc.hyperion2v2rule2', 'Team · HyperShield anti-meta')
+      case MatchmakingType.Hyperion3v3Rule1:
+        return t('matchmaking.findMatch.desc.hyperion3v3rule1', 'Team · HyperShield classic')
+      case MatchmakingType.Hyperion3v3Rule2:
+        return t('matchmaking.findMatch.desc.hyperion3v3rule2', 'Team · HyperShield anti-meta')
       default:
         return type satisfies never
     }

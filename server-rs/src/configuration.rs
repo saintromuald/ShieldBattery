@@ -186,7 +186,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
     let file_store = std::env::var("SB_FILE_STORE")
         .wrap_err("Failed to read SB_FILE_STORE")
         .and_then(|s| {
-            println!("SB_FILE_STORE: {s}");
             serde_json::from_str::<FileStoreSettings>(&s)
                 .wrap_err("Failed to parse SB_FILE_STORE JSON")
         })?;
@@ -285,7 +284,7 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         reverse_proxied: std::env::var("SB_HTTPS_REVERSE_PROXY")
             .unwrap_or("false".into())
             .eq_ignore_ascii_case("true"),
-        datadog_api_key: std::env::var("SB_DATADOG_KEY").ok().map(Into::into),
+        datadog_api_key: env_var_non_empty("SB_DATADOG_KEY").map(Into::into),
         jwt_secret: std::env::var("SB_JWT_SECRET")
             .wrap_err("SB_JWT_SECRET is not set")?
             .into(),

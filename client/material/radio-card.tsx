@@ -105,7 +105,7 @@ const CardRoot = styled.label<{ $selected: boolean; $disabled?: boolean }>`
         `}
 
   &:has(input:focus-visible) {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `
@@ -150,7 +150,7 @@ const Indicator = styled.span<{ $selected: boolean }>`
 
   border: 2px solid currentColor;
   border-radius: 50%;
-  color: ${props => (props.$selected ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => (props.$selected ? 'var(--theme-primary)' : 'var(--theme-on-surface-variant)')};
 
   &::after {
     content: '';

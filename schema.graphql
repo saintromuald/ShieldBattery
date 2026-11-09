@@ -647,6 +647,34 @@ type MatchmakingExtra3V3HuntersData implements MatchmakingExtra {
 	matchmakingType: MatchmakingType!
 }
 
+type MatchmakingExtraHyperion1V1Rule1Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion1V1Rule2Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion1V1Rule3Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion2V2Rule1Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion2V2Rule2Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion3V3Rule1Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtraHyperion3V3Rule2Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
 """
 All of the matchmaking types that we support. These values match the enum values used in the database.
 """

@@ -1,7 +1,11 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  isMatchmakingQueueable,
+  MatchmakingType,
+} from '../../../common/matchmaking'
 import {
   AddMatchmakingTimeRequest,
   GetFutureMatchmakingTimesResponse,
@@ -116,7 +120,12 @@ export class MatchmakingTimesApi {
       }),
     })
 
-    const matchmakingTypes = applyToAllMatchmakingTypes ? ALL_MATCHMAKING_TYPES : [matchmakingType]
+    if (enabled && !isMatchmakingQueueable(matchmakingType)) {
+      throw httpErrors.BadRequest('HyperShield Rule 3 is disabled and cannot be scheduled')
+    }
+    const matchmakingTypes = applyToAllMatchmakingTypes
+      ? ALL_MATCHMAKING_TYPES.filter(isMatchmakingQueueable)
+      : [matchmakingType]
     const date = new Date(startDate)
 
     const results = await Promise.all(

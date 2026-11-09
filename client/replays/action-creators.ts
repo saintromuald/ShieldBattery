@@ -41,7 +41,7 @@ async function setGameConfig(
 
   const localUser: SbUser = {
     id: user?.id ?? makeSbUserId(0),
-    name: user?.name ?? 'ShieldBattery User',
+    name: user?.name ?? 'HyperShield User',
     created: user?.created ?? 0,
   }
 

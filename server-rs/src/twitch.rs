@@ -1524,7 +1524,7 @@ impl TwitchMutation {
                 {
                     return Err(graphql_error(
                         "TWITCH_ALREADY_LINKED",
-                        "That Twitch account is already linked to another ShieldBattery account.",
+                        "That Twitch account is already linked to another HyperShield account.",
                     ));
                 }
                 error!("Failed to upsert Twitch connection: {e:?}");

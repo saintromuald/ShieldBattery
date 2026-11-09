@@ -24,7 +24,7 @@ import {
 } from '../games/game-side-panel'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { MaterialIcon } from '../icons/material/material-icon'
-import Logo from '../logos/logo-no-bg.svg?react'
+import Logo from '../logos/hypershield-logo.svg?react'
 import { IconButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
@@ -46,8 +46,9 @@ import {
 const ipcRenderer = new TypedIpcRenderer()
 
 const SbSourceLogo = styled(Logo)`
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 `
 
 const SourceBadgeSb = styled.div`
@@ -421,10 +422,10 @@ export function ReplayInspector({
   const chips = (
     <GameSidePanelChipsRow>
       {entry.sbGameId ? (
-        <Tooltip text={t('replays.library.sourceTooltipSb', 'Played on ShieldBattery')}>
+        <Tooltip text={t('replays.library.sourceTooltipSb', 'Played on HyperShield')}>
           <SourceBadgeSb>
-            <SbSourceLogo />
-            {t('replays.library.sourceTagSb', 'SB')}
+            <SbSourceLogo aria-hidden='true' />
+            {t('replays.library.sourceTagSb', 'HS')}
           </SourceBadgeSb>
         </Tooltip>
       ) : (

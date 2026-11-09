@@ -131,7 +131,7 @@ export function GameDefaultsApplyDialog({
         )
       : t(
           'settings.game.defaults.apply.resetToRecommendedDescription',
-          'Starting fog, cursor sizing, team colors and drag pan switch to the ShieldBattery ' +
+          'Starting fog, cursor sizing, team colors and drag pan switch to the HyperShield ' +
             'defaults.',
         )
 

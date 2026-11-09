@@ -3504,6 +3504,13 @@ describe('lobbies/lobby-service', () => {
       await runCountdown(host)
 
       expect(loadGameRequests).toHaveLength(2)
+      expect(loadGameRequests[0].gameId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      )
+      expect(loadGameRequests[1].gameId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      )
+      expect(loadGameRequests[1].gameId).not.toBe(loadGameRequests[0].gameId)
       expect(lobbyService.runStates.get(id)!.gameId).toBe('test-game-id')
       expect(lobbyPublishes(id).filter(data => data?.type === 'gameStarted')).toHaveLength(2)
     })

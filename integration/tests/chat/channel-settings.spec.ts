@@ -32,7 +32,7 @@ test.afterEach(async ({ page }) => {
 test('changing channel banner', async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -51,7 +51,7 @@ test('changing channel banner', async ({ page }) => {
 test('changing inappropriate channel banner', async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -65,7 +65,7 @@ test('changing inappropriate channel banner', async ({ page }) => {
 test('changing channel badge', async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -84,7 +84,7 @@ test('changing channel badge', async ({ page }) => {
 test('changing inappropriate channel badge', async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -100,7 +100,7 @@ test('changing channel description', async ({ page }) => {
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -118,7 +118,7 @@ test('changing channel topic', async ({ page }) => {
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 
@@ -132,13 +132,13 @@ test('changing channel topic', async ({ page }) => {
 })
 
 test('making a channel private', async ({ page }) => {
-  // The seeded ShieldBattery channel is official, and official channels can't be made private.
+  // The seeded HyperShield channel is official, and official channels can't be made private.
   const channelName = `private-${Date.now()}`
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
-  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await expect(homePage.channelLinkLocator('HyperShield')).toBeVisible()
   await chatPage.createChannel(channelName)
 
   await chatPage.openChannelSettings()
@@ -154,13 +154,13 @@ test('making a channel private', async ({ page }) => {
 })
 
 test('viewing the invite links of a private channel', async ({ page }) => {
-  // The seeded ShieldBattery channel is official, and official channels can't be made private.
+  // The seeded HyperShield channel is official, and official channels can't be made private.
   const channelName = `invites-${Date.now()}`
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
-  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await expect(homePage.channelLinkLocator('HyperShield')).toBeVisible()
   await chatPage.createChannel(channelName)
 
   await chatPage.openChannelSettings()
@@ -187,7 +187,7 @@ test('creating a private channel with its settings', async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
-  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await expect(homePage.channelLinkLocator('HyperShield')).toBeVisible()
 
   await chatPage.submitCreateChannelForm({
     name: channelName,
@@ -213,9 +213,9 @@ test('creating a private channel with its settings', async ({ page }) => {
 test("creating a channel with a taken name doesn't join that channel", async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await expect(homePage.channelLinkLocator('HyperShield')).toBeVisible()
 
-  await chatPage.submitCreateChannelForm({ name: 'ShieldBattery', topic: 'Not my channel' })
+  await chatPage.submitCreateChannelForm({ name: 'HyperShield', topic: 'Not my channel' })
 
   await expect(page.getByText('A channel with this name already exists.')).toBeVisible()
   expect(new URL(page.url()).pathname).toBe('/chat/new')
@@ -224,7 +224,7 @@ test("creating a channel with a taken name doesn't join that channel", async ({ 
 test("official channels can't be made private", async ({ page }) => {
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await homePage.goToJoinedChatChannel('ShieldBattery')
+  await homePage.goToJoinedChatChannel('HyperShield')
 
   await chatPage.openChannelSettings()
 

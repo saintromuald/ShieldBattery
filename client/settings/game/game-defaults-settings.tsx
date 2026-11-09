@@ -175,7 +175,7 @@ const TableCaption = styled.div`
 `
 
 /**
- * Lets the user change which set of values ShieldBattery's own gameplay settings start on, and
+ * Lets the user change which set of values HyperShield's SC:R gameplay settings start on, and
  * shows how their current values compare against each preset.
  */
 export function GameDefaultsSettings() {
@@ -278,7 +278,7 @@ export function GameDefaultsSettings() {
   const presetDescriptions: Readonly<Record<GameDefaultsPreset, string>> = {
     [GameDefaultsPreset.Recommended]: t(
       'settings.game.defaults.recommendedDescription',
-      "ShieldBattery's tuned defaults.",
+      "HyperShield's tuned SC:R defaults.",
     ),
     [GameDefaultsPreset.Legacy]: t(
       'settings.game.defaults.legacyDescription',
@@ -292,7 +292,7 @@ export function GameDefaultsSettings() {
         <SettingsSectionDescription>
           {t(
             'settings.game.defaults.intro',
-            "The preset decides which values ShieldBattery's own gameplay settings start on. It " +
+            "The preset decides which values HyperShield's SC:R gameplay settings start on. It " +
               'also picks the default for anything added later.',
           )}
         </SettingsSectionDescription>

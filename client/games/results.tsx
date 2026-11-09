@@ -722,7 +722,7 @@ export function ConnectedGameResultsPage({
         ) : null}
         {replayInfo && !IS_ELECTRON && window.SB_DEEP_LINK_SCHEME ? (
           <OutlinedButton
-            label={t('gameDetails.buttonOpenInApp', 'Open in ShieldBattery')}
+            label={t('gameDetails.buttonOpenInApp', 'Open in HyperShield')}
             iconStart='open_in_new'
             onClick={() => {
               window.location.href = getGameDeepLink(

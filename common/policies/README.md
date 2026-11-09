@@ -1,12 +1,10 @@
-# policies
+# HyperShield test-service policies
 
-These policies are only valid for the official version of ShieldBattery. Forks
-or other hosts should provide their own replacements to match their own policies
-and usage.
+These documents describe this custom HyperShield TEST SERVICE deployment. They are deliberately
+concise operational policies, not reviewed public production legal terms. Other deployments should
+review and replace them to match their own storage, support, and usage practices.
 
 ## Update guide
 
-Any updates to these policies should add an entry to the changelog at the
-beginning (or add a changelog if one is not yet there) and update the effective
-date. **Make sure to increment the version number in `versions.ts` as well**, as
-this is how users get notified of the changes.
+After changing a policy, update its effective date and increment the corresponding version in
+`versions.ts`. Clients use that version to notify existing users about the updated document.

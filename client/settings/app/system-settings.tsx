@@ -59,7 +59,7 @@ export function AppSystemSettings() {
           </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
-            label={t('settings.app.system.runOnStartup', 'Run ShieldBattery on system startup')}
+            label={t('settings.app.system.runOnStartup', 'Run HyperShield on system startup')}
             inputProps={{ tabIndex: 0 }}
           />
           <IndentedCheckBox
@@ -75,10 +75,7 @@ export function AppSystemSettings() {
           </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('quitOnClose')}
-            label={t(
-              'settings.app.system.quitOnClose',
-              'Quit ShieldBattery when closing the window',
-            )}
+            label={t('settings.app.system.quitOnClose', 'Quit HyperShield when closing the window')}
             inputProps={{ tabIndex: 0 }}
           />
         </SectionContainer>
@@ -90,7 +87,7 @@ export function AppSystemSettings() {
             {...bindCheckable('minimizeWhilePlaying')}
             label={t(
               'settings.app.system.minimizeWhilePlaying',
-              'Minimize ShieldBattery while a game is running',
+              'Minimize HyperShield while a game is running',
             )}
             inputProps={{ tabIndex: 0 }}
           />

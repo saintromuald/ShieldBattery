@@ -412,6 +412,83 @@ impl MatchmakingExtra3v3FastestData {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion1v1Rule1Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion1v1Rule1Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion1v1Rule1
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion1v1Rule2Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion1v1Rule2Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion1v1Rule2
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion1v1Rule3Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion1v1Rule3Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion1v1Rule3
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion2v2Rule1Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion2v2Rule1Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion2v2Rule1
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion2v2Rule2Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion2v2Rule2Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion2v2Rule2
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion3v3Rule1Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion3v3Rule1Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion3v3Rule1
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtraHyperion3v3Rule2Data {}
+
+#[Object]
+impl MatchmakingExtraHyperion3v3Rule2Data {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Hyperion3v3Rule2
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Interface)]
 #[graphql(field(name = "matchmaking_type", ty = "MatchmakingType"))]
 #[serde(tag = "type")]
@@ -434,6 +511,20 @@ pub enum MatchmakingExtra {
     Match3v3Hunters(MatchmakingExtra3v3HuntersData),
     #[serde(rename = "3v3fastest")]
     Match3v3Fastest(MatchmakingExtra3v3FastestData),
+    #[serde(rename = "hyperion1v1rule1")]
+    Hyperion1v1Rule1(MatchmakingExtraHyperion1v1Rule1Data),
+    #[serde(rename = "hyperion1v1rule2")]
+    Hyperion1v1Rule2(MatchmakingExtraHyperion1v1Rule2Data),
+    #[serde(rename = "hyperion1v1rule3")]
+    Hyperion1v1Rule3(MatchmakingExtraHyperion1v1Rule3Data),
+    #[serde(rename = "hyperion2v2rule1")]
+    Hyperion2v2Rule1(MatchmakingExtraHyperion2v2Rule1Data),
+    #[serde(rename = "hyperion2v2rule2")]
+    Hyperion2v2Rule2(MatchmakingExtraHyperion2v2Rule2Data),
+    #[serde(rename = "hyperion3v3rule1")]
+    Hyperion3v3Rule1(MatchmakingExtraHyperion3v3Rule1Data),
+    #[serde(rename = "hyperion3v3rule2")]
+    Hyperion3v3Rule2(MatchmakingExtraHyperion3v3Rule2Data),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Union)]

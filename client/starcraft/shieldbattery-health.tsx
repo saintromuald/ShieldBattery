@@ -64,7 +64,7 @@ export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps
       {DEV_ERROR ? (
         <DevContent>
           <Text>
-            Couldn't find necessary ShieldBattery files, you probably need to run game/build.bat
+            Couldn't find necessary HyperShield SC:R files; you probably need to run game/build.bat
           </Text>
         </DevContent>
       ) : null}
@@ -72,7 +72,8 @@ export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps
       <div>
         <Text>
           <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.topContents'>
-            We've detected that the following ShieldBattery files are missing or have been modified:
+            We've detected that the following HyperShield SC:R files are missing or have been
+            modified:
           </Trans>
         </Text>
         <FileList>
@@ -86,7 +87,7 @@ export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps
           <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.middleContents'>
             This is often the result of installed anti-virus software taking action on false
             positives. You may need to add exceptions for these files, or tell the software to
-            remove them from quarantine. You can also try re-installing ShieldBattery.
+            remove them from quarantine. You can also try reinstalling HyperShield.
           </Trans>
         </Text>
 

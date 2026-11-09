@@ -25,12 +25,12 @@ export function MatchmakingGuidePage() {
       'matchmaking.explainer.intro',
       'One question comes up in our community more than almost any other:\n\n*“A game started ' +
         'while I was in the queue. Why wasn’t I in it?”*\n\nThe answer comes from how ' +
-        'ShieldBattery’s matchmaker is built. This guide walks through how a match gets put ' +
+        'HyperShield’s matchmaker is built. This guide walks through how a match gets put ' +
         'together, from the moment you click “Find match” to the moment the game loads.',
     ),
     t(
       'matchmaking.explainer.dynamicSearch',
-      '## Dynamic Search\n\nA common guess is that the ShieldBattery queue is first-come, ' +
+      '## Dynamic Search\n\nA common guess is that the HyperShield queue is first-come, ' +
         'first-served, and that the person waiting the longest will be in the next game. That’s ' +
         'not necessarily how it works. That system tends to produce more lopsided games on ' +
         'average. A brand-new player could be paired with someone in Champion just because they ' +
@@ -149,7 +149,7 @@ export function MatchmakingGuidePage() {
   return (
     <GuidePage
       path={MATCHMAKING_GUIDE_PATH}
-      title={t('matchmaking.explainer.title', 'How matchmaking works in ShieldBattery')}
+      title={t('matchmaking.explainer.title', 'How matchmaking works in HyperShield')}
       markdown={markdown}
     />
   )

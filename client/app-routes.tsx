@@ -5,7 +5,6 @@ import { ForgotPassword } from './auth/forgot-password'
 import { Login } from './auth/login'
 import { RecoverUsername } from './auth/recover-username'
 import { ResetPassword } from './auth/reset-password'
-import { OnlyInAppPage } from './download/only-in-app'
 import { LADDER_GUIDE_PATH, MATCHMAKING_GUIDE_PATH } from './guides/guide-urls'
 import { Home } from './home/home'
 import { MainLayoutLoadingDotsArea } from './main-layout'
@@ -104,7 +103,7 @@ export function AppRoutes({
       <Route path='/recover-username' component={RecoverUsername} />
       <Route path='/login' component={Login} />
       <Route path='/reset-password' component={ResetPassword} />
-      <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInAppPage} />
+      <Route path='/signup' component={Signup} />
       <Route
         path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
         component={Signup}

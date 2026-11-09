@@ -69,9 +69,9 @@ const ItemButton = styled.button<{ $active: boolean }>`
   font-weight: 600;
   text-align: left;
 
-  color: ${props => (props.$active ? 'var(--color-blue80)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => (props.$active ? 'var(--theme-primary)' : 'var(--theme-on-surface-variant)')};
   background-color: ${props =>
-    props.$active ? 'rgb(from var(--color-blue60) r g b / 0.16)' : 'transparent'};
+    props.$active ? 'rgb(from var(--theme-primary) r g b / 0.16)' : 'transparent'};
   transition:
     background-color 75ms linear,
     color 75ms linear;
@@ -79,7 +79,7 @@ const ItemButton = styled.button<{ $active: boolean }>`
   &:hover {
     background-color: ${props =>
       props.$active
-        ? 'rgb(from var(--color-blue60) r g b / 0.2)'
+        ? 'rgb(from var(--theme-primary) r g b / 0.2)'
         : 'rgb(from var(--color-grey-blue60) r g b / 0.12)'};
   }
 `

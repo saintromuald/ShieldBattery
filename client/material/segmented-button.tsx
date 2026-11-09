@@ -23,7 +23,7 @@ const Root = styled.div<{ $disabled?: boolean }>`
   display: inline-flex;
   padding: 2px;
 
-  border: 1px solid var(--theme-grey-blue-container);
+  border: 1px solid var(--theme-outline);
   border-radius: 6px;
   background-color: var(--theme-surface);
   opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};

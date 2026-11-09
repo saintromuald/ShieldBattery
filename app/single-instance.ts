@@ -4,6 +4,7 @@ import net from 'net'
 import os from 'os'
 import path from 'path'
 import sanitize from 'sanitize-filename'
+import { APP_DISPLAY_NAME } from './branding'
 
 export interface NewInstanceNotification {
   /** The command-line arguments for the new instance. */
@@ -24,10 +25,13 @@ export default function (
     return
   }
 
+  const instanceName = process.env.SB_SESSION
+    ? `${app.name}-${sanitize(process.env.SB_SESSION)}`
+    : app.name
   const socket =
     process.platform === 'win32'
-      ? `\\\\.\\pipe\\${sanitize(os.userInfo().username ?? 'username')}-${app.name}-singleInstance`
-      : path.join(os.tmpdir(), app.name + '.sock')
+      ? `\\\\.\\pipe\\${sanitize(os.userInfo().username ?? 'username')}-${instanceName}-singleInstance`
+      : path.join(os.tmpdir(), instanceName + '.sock')
 
   const client = net
     .connect(socket, () => {
@@ -57,12 +61,12 @@ export default function (
         // to the elevated token's owner (Administrators), which a filtered token only holds as a
         // deny-only group.
         dialog.showErrorBox(
-          'ShieldBattery is running as an administrator',
-          'ShieldBattery is already open, but it was started as an administrator, so Windows ' +
+          `${APP_DISPLAY_NAME} is running as an administrator`,
+          `${APP_DISPLAY_NAME} is already open, but it was started as an administrator, so Windows ` +
             "won't let it receive requests from here (like opening a replay file).\r\n\r\n" +
-            'To fix this, exit ShieldBattery (including its icon in the system tray) and start ' +
+            `To fix this, exit ${APP_DISPLAY_NAME} (including its icon in the system tray) and start ` +
             'it again normally. If it keeps starting as an administrator, right-click ' +
-            'ShieldBattery or its shortcut, choose Properties, open the Compatibility tab, and ' +
+            `${APP_DISPLAY_NAME} or its shortcut, choose Properties, open the Compatibility tab, and ` +
             'uncheck "Run this program as an administrator".',
         )
         app.quit()

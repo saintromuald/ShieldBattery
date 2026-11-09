@@ -367,7 +367,7 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
 
   background-color: var(--theme-primary);
   color: var(--theme-on-primary);
-  outline-color: var(--theme-grey-blue);
+  outline-color: var(--theme-focus);
 
   &:hover,
   &:focus {
@@ -383,7 +383,7 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
   }
 
   &:focus-visible {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `
@@ -468,15 +468,15 @@ export function FilledButton({
 }
 
 export const FilledTonalButton = styled(FilledButton)`
-  background-color: var(--color-grey-blue50);
-  color: var(--color-grey-blue99);
+  background-color: var(--theme-primary-container);
+  color: var(--theme-on-primary-container);
 `
 
 export const ElevatedButton = styled(FilledButton)`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
 
-  color: var(--color-blue80);
+  color: var(--theme-primary);
 
   &:hover,
   &:focus {
@@ -495,7 +495,7 @@ export const ElevatedButton = styled(FilledButton)`
 
 export const OutlinedButton = styled(FilledButton)`
   background-color: transparent;
-  color: var(--color-blue80);
+  color: var(--theme-primary);
   border: 1px solid var(--theme-outline);
 
   &:hover,
@@ -536,8 +536,8 @@ const TextButtonRoot = styled.button<{ $iconSide?: 'start' | 'end' }>`
   text-align: center;
 
   background-color: transparent;
-  color: var(--theme-amber);
-  outline-color: var(--theme-grey-blue);
+  color: var(--theme-primary);
+  outline-color: var(--theme-focus);
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
@@ -545,7 +545,7 @@ const TextButtonRoot = styled.button<{ $iconSide?: 'start' | 'end' }>`
   }
 
   &:focus-visible {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `
@@ -659,7 +659,7 @@ const IconButtonRoot = styled.button`
   border-radius: 6px;
   color: var(--theme-on-surface-variant);
   contain: content;
-  outline-color: var(--theme-grey-blue);
+  outline-color: var(--theme-focus);
 
   transition:
     color 150ms linear,
@@ -671,7 +671,7 @@ const IconButtonRoot = styled.button`
   }
 
   &:focus-visible {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `

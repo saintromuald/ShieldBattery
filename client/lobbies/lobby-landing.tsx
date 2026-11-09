@@ -288,7 +288,7 @@ function DownloadCta({ showAppHint = false }: { showAppHint?: boolean }) {
         <AppHint>
           {t(
             'lobbies.landing.openInApp',
-            'Already have ShieldBattery? Open this link from inside the app to join the lobby.',
+            'Already have HyperShield? Open this link from inside the app to join the lobby.',
           )}
         </AppHint>
       ) : null}
@@ -303,7 +303,7 @@ function DownloadButton() {
     <LinkButton href='/download'>
       <FilledButton
         styledAs='div'
-        label={t('lobbies.landing.download', 'Download ShieldBattery')}
+        label={t('lobbies.landing.download', 'Download HyperShield')}
         iconStart='download'
       />
     </LinkButton>
@@ -444,7 +444,7 @@ function LoadedState({
         ) : null}
         <AppHint>
           <Trans t={t} i18nKey='lobbies.landing.downloadHint'>
-            Don't have ShieldBattery yet? <Link href='/download'>Download it for free</Link>
+            Don't have HyperShield yet? <Link href='/download'>Download it for free</Link>
           </Trans>
         </AppHint>
       </CtaLayout>
@@ -466,7 +466,7 @@ function OpenInAppPrimaryArea({
     case 'idle':
       return (
         <FilledButton
-          label={t('lobbies.landing.appLaunch.button', 'Open in the ShieldBattery app')}
+          label={t('lobbies.landing.appLaunch.button', 'Open in the HyperShield app')}
           iconStart='open_in_new'
           onClick={onLaunch}
         />
@@ -475,7 +475,7 @@ function OpenInAppPrimaryArea({
       return (
         <StatusLine>
           <OpeningIcon />
-          {t('lobbies.landing.appLaunch.opening', 'Opening in the ShieldBattery app…')}
+          {t('lobbies.landing.appLaunch.opening', 'Opening in the HyperShield app…')}
         </StatusLine>
       )
     case 'failed':
@@ -561,7 +561,7 @@ function CodePanel({ code, afterFailedLaunch }: { code: string; afterFailedLaunc
       <MobileCodeLabel>
         {t(
           'lobbies.landing.joinCode.labelMobile',
-          'On your PC? Open ShieldBattery and enter this code',
+          'On your computer? Open HyperShield and enter this code',
         )}
       </MobileCodeLabel>
       <CodeRow>

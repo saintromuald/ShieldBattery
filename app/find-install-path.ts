@@ -1,4 +1,4 @@
-import { HKCU, Hkey, HKLM, WindowsRegistry } from '@shieldbattery/windows-registry'
+import type { Hkey } from '@shieldbattery/windows-registry'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import logger from './logger'
@@ -18,6 +18,10 @@ import { ProductDb } from './vendor/blizzard/product_db'
  * We also check WOW64 variants for all of the above keys.
  */
 export async function findInstallPath(): Promise<string | undefined> {
+  if (process.platform !== 'win32') {
+    return undefined
+  }
+
   const programDataPath = process.env.ProgramData ?? 'C:\\ProgramData'
   const productDbPath = path.join(programDataPath, 'Battle.net', 'Agent', 'product.db')
   try {
@@ -39,6 +43,7 @@ export async function findInstallPath(): Promise<string | undefined> {
   const _6432RegPath = 'SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Starcraft'
   const regValueName = 'InstallPath'
 
+  const { HKCU, HKLM, WindowsRegistry } = await import('@shieldbattery/windows-registry')
   const attempts: Array<[hive: Hkey, key: string]> = [
     [HKCU, normalRegPath],
     [HKCU, _6432RegPath],

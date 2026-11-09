@@ -3,18 +3,18 @@ import { Locator, Page } from '@playwright/test'
 export abstract class SocialSidebar {
   protected readonly page: Page
 
-  private readonly textShieldBatteryChannel: Locator
+  private readonly textHyperShieldChannel: Locator
 
   protected constructor(page: Page) {
     this.page = page
 
-    this.textShieldBatteryChannel = page.locator(
-      '[data-testid=social-sidebar] a[href="/chat/1/ShieldBattery"]',
+    this.textHyperShieldChannel = page.locator(
+      '[data-testid=social-sidebar] a[href="/chat/1/HyperShield"]',
     )
   }
 
-  async getNameOfShieldBatteryChannel(): Promise<string> {
-    return await this.textShieldBatteryChannel.locator('[data-testid=entry-text]').innerText()
+  async getNameOfHyperShieldChannel(): Promise<string> {
+    return await this.textHyperShieldChannel.locator('[data-testid=entry-text]').innerText()
   }
 
   channelLinkLocator(channelName: string): Locator {

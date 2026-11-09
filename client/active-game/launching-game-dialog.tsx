@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
+import { getMatchmakingModeInfo, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { gameLoadingStatusAtom } from '../games/game-atoms'
 import { launchingMatchmakingTypeAtom } from '../matchmaking/matchmaking-atoms'
@@ -39,6 +39,8 @@ export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
     // Deliberately doesn't say *where* the server is starting — server locations hint at where the
     // other players are, and revealing that pre-game invites prejudging or dodging the match.
     statusLine = t('game.launchingGameDialog.startingGameServer', 'Starting a game server…')
+  } else if (matchmakingType && getMatchmakingModeInfo(matchmakingType).variant === 'hyperion') {
+    statusLine = t('game.launchingGameDialog.preparingHyperion', 'Preparing HyperShield…')
   }
 
   return (

@@ -14,7 +14,7 @@ export const buttonReset = css`
   background-color: transparent;
 
   &:focus-visible {
-    outline: 3px solid var(--theme-grey-blue);
+    outline: 3px solid var(--theme-focus);
     outline-offset: 2px;
   }
 `

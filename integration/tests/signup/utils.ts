@@ -3,7 +3,7 @@ import { emulateElectronClient } from '../../emulate-electron-client'
 
 export async function goToSignup(page: Page): Promise<void> {
   await emulateElectronClient(page)
-  await page.goto('/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway')
+  await page.goto('/signup')
 }
 
 export async function signupWith(
@@ -20,8 +20,6 @@ export async function signupWith(
     signupCode?: string
   },
 ) {
-  await emulateElectronClient(page)
-
   // If signup code is provided, show the signup code input field
   if (signupCode) {
     await page.click('[data-testid=have-signup-code-link]')

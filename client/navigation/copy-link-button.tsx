@@ -11,7 +11,7 @@ const StyledIconButton = styled(IconButton)`
   color: var(--theme-on-surface-variant);
 
   &:hover {
-    color: var(--theme-amber);
+    color: var(--theme-primary);
   }
 `
 

@@ -39,6 +39,27 @@ export function matchmakingPreferencesValidator<
           }),
         })
         .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion1v1Rule1,
+          then: Joi.object<MatchmakingPreferencesData1v1>({
+            useAlternateRace: Joi.bool(),
+            alternateRace: Joi.string().valid('p', 't', 'z'),
+          }),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion1v1Rule2,
+          then: Joi.object<MatchmakingPreferencesData1v1>({
+            useAlternateRace: Joi.bool(),
+            alternateRace: Joi.string().valid('p', 't', 'z'),
+          }),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion1v1Rule3,
+          then: Joi.object<MatchmakingPreferencesData1v1>({
+            useAlternateRace: Joi.bool(),
+            alternateRace: Joi.string().valid('p', 't', 'z'),
+          }),
+        })
+        .conditional('matchmakingType', {
           is: MatchmakingType.Match2v2,
           then: Joi.object<Record<string, never>>(),
         })
@@ -64,6 +85,22 @@ export function matchmakingPreferencesValidator<
         })
         .conditional('matchmakingType', {
           is: MatchmakingType.Match3v3Fastest,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion2v2Rule1,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion2v2Rule2,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion3v3Rule1,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Hyperion3v3Rule2,
           then: Joi.object<Record<string, never>>(),
         }),
     ),

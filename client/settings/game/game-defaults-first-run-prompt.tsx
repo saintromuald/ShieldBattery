@@ -20,7 +20,15 @@ export function GameDefaultsFirstRunPrompt() {
   const dispatch = useAppDispatch()
 
   useEffect(() => {
-    if (pending && selfUser) {
+    if (!pending) {
+      return
+    }
+
+    // These presets configure the SC:R DLL backend, which is only available on Windows. The
+    // native Linux engine does not consume these options and must not show an unrelated choice.
+    if (!navigator.userAgent.includes('Windows')) {
+      setPending(false)
+    } else if (selfUser) {
       dispatch(openDialog({ type: DialogType.GameDefaultsFirstRun }))
       setPending(false)
     }

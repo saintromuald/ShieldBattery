@@ -59,7 +59,14 @@
                 "2v2fastest",
                 "3v3bgh",
                 "3v3hunters",
-                "3v3fastest"
+                "3v3fastest",
+                "hyperion1v1rule1",
+                "hyperion1v1rule2",
+                "hyperion1v1rule3",
+                "hyperion2v2rule1",
+                "hyperion2v2rule2",
+                "hyperion3v3rule1",
+                "hyperion3v3rule2"
               ]
             }
           }

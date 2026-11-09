@@ -1,0 +1,39 @@
+# Hyperion's native Linux vertical-slice package. Windows production/staging use prod.yml/staging.yml.
+appId: net.shieldbattery.client
+productName: ShieldBattery
+publish: []
+afterPack: ./tools/check-hyperion-package.cjs
+extraResources:
+  # Public Hyperion Shield resources only. The afterPack hook rejects wrappers and game data.
+  - from: hyperion
+    to: hyperion
+    filter:
+      - Hyperion.x86_64
+      - libSDL3.so.0
+      - Data/**/*
+      - docs/**/*
+      - README.txt
+      - release.json
+      - EDITION.txt
+files:
+  - 'assets/**/*'
+  - 'dist/**/*'
+  - '!node_modules/**/*'
+  - '!build/**/*'
+  - '!**/*.map'
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+linux:
+  category: Game
+  icon: branding/hypershield-logo.svg
+  description: 'HyperShield ladder client for StarCraft: Brood War'
+  desktop:
+    entry:
+      Name: HyperShield
+  target: AppImage
+  artifactName: 'HyperShield-${version}-${arch}.${ext}'

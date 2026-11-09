@@ -96,7 +96,7 @@ export function ResetPassword() {
   }
 
   return (
-    <AuthLayout title={t('auth.forgot.reset.title', 'Reset password')}>
+    <AuthLayout title={t('auth.forgot.reset.title', 'Reset HyperShield password')}>
       {error ? <UserErrorDisplay error={error} /> : null}
       {completed ? (
         <>

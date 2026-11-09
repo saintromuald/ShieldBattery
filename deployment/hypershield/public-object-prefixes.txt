@@ -1,0 +1,9 @@
+# Only these application-object prefixes may be restored with public-read ACLs.
+# Everything else, including maps/, replays/, and bug-reports/, must remain private.
+public/
+map_images/
+user-avatars/
+news-images/
+news-videos/
+league-images/
+channel-images/

@@ -32,3 +32,6 @@ CLAUDE.local.md
 **/discord_partner_sdk.*
 **/discordpp.h
 **/cdiscord.h
+
+# Native Hyperion Shield resources are staged from a public, game-data-free release archive.
+/hyperion/

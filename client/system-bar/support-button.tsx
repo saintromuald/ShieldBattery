@@ -1,8 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import GithubIcon from '../icons/brands/github.svg?react'
-import KofiIcon from '../icons/brands/kofi-color.svg?react'
-import PatreonIcon from '../icons/brands/patreon.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { buttonReset } from '../material/button-reset'
 import { MenuItem } from '../material/menu/item'
@@ -11,9 +8,8 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { labelLarge } from '../styles/typography'
 
 const SUPPORT_LINKS = [
-  { name: 'GitHub Sponsors', url: 'https://github.com/sponsors/ShieldBattery', Icon: GithubIcon },
-  { name: 'Patreon', url: 'https://patreon.com/tec27', Icon: PatreonIcon },
-  { name: 'Ko-fi', url: 'https://ko-fi.com/tec27', Icon: KofiIcon },
+  { name: 'Matchmaking guide', url: 'http://192.168.40.253:5555/guides/matchmaking', Icon: 'menu_book' },
+  { name: 'Ladder guide', url: 'http://192.168.40.253:5555/guides/ladder', Icon: 'leaderboard' },
 ] as const
 
 const Button = styled.button`
@@ -29,15 +25,15 @@ const Button = styled.button`
 
   border: 1px solid var(--theme-primary);
   border-radius: 12px;
-  color: var(--color-blue80);
+  color: var(--theme-primary);
   -webkit-app-region: no-drag;
 
   &:hover {
-    background-color: rgb(from var(--color-blue80) r g b / 0.08);
+    background-color: rgb(from var(--theme-primary) r g b / 0.08);
   }
 
   &:active {
-    background-color: rgb(from var(--color-blue80) r g b / 0.12);
+    background-color: rgb(from var(--theme-primary) r g b / 0.12);
   }
 `
 
@@ -87,7 +83,7 @@ export function SupportButton() {
               text={name}
               icon={
                 <BrandIcon>
-                  <Icon />
+                  <MaterialIcon icon={Icon} size={20} />
                 </BrandIcon>
               }
               onClick={() => {

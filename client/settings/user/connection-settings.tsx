@@ -134,7 +134,7 @@ export function ConnectionSettings() {
         snackbarController.showSnackbar(
           t(
             'settings.user.connections.twitch.errors.alreadyLinked',
-            'That Twitch account is already linked to another ShieldBattery account.',
+            'That Twitch account is already linked to another HyperShield account.',
           ),
         )
         break
@@ -301,7 +301,7 @@ export function ConnectionSettings() {
         <SectionDescription>
           {t(
             'settings.user.connections.description',
-            'Link external accounts to your ShieldBattery profile.',
+            'Link external accounts to your HyperShield profile.',
           )}
         </SectionDescription>
 
@@ -352,7 +352,7 @@ function DiscordActivitySection() {
       <SectionDescription>
         {t(
           'settings.user.connections.discord.description',
-          'Show what you’re doing on ShieldBattery on your Discord profile.',
+          'Show what you’re doing on HyperShield on your Discord profile.',
         )}
       </SectionDescription>
 
@@ -380,7 +380,7 @@ function DiscordActivitySection() {
             {t(
               'settings.user.connections.discord.note',
               'Shows your lobby, game or replay on the Discord account signed in to the Discord ' +
-                'app on the same computer as the ShieldBattery app.',
+                'app on the same computer as the HyperShield app.',
             )}
           </ServiceNote>
         </ServiceInfo>

@@ -1,10 +1,10 @@
 import { Counter, exponentialBuckets, Gauge, Histogram } from '@prometheus-io/client'
 import { Immutable } from 'immer'
 import { nanoid } from 'nanoid'
+import { randomUUID } from 'node:crypto'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { Result } from 'typescript-result'
-import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
@@ -25,6 +25,8 @@ import { MapInfo } from '../../../common/maps'
 import {
   getDivisionContext,
   getMatchmakingModeInfo,
+  isMatchmakingQueueable,
+  isSoloType,
   MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
@@ -330,7 +332,7 @@ class Match {
    * Runs a race draft for team modes, will return a resolved promise for modes without a draft.
    */
   runDraft(activeClients: Map<SbUserId, ClientSocketsGroup>, map: MapInfo): Promise<void> {
-    if (this.type === MatchmakingType.Match1v1 || this.type === MatchmakingType.Match1v1Fastest) {
+    if (isSoloType(this.type)) {
       return Promise.resolve()
     }
 
@@ -500,6 +502,9 @@ export class MatchmakingService {
   private queueEntries = new Map<SbUserId, QueueEntry>()
   // Maps match ID -> Match
   private matches = new Map<string, Match>()
+  // Claimed before any await so duplicate Redis delivery cannot run acceptance,
+  // draft, or load twice. IDs stay claimed after rejection to suppress retries.
+  private formationIds = new Set<string>()
 
   private lastKnownProcessToken: string | undefined
   private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
@@ -618,7 +623,10 @@ export class MatchmakingService {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     for (const pref of allPreferences) {
-      if (!this.matchmakingStatus.isEnabled(pref.matchmakingType)) {
+      if (
+        !isMatchmakingQueueable(pref.matchmakingType) ||
+        !this.matchmakingStatus.isEnabled(pref.matchmakingType)
+      ) {
         throw new MatchmakingServiceError(
           MatchmakingServiceErrorCode.MatchmakingDisabled,
           'Matchmaking is currently disabled',
@@ -1360,7 +1368,7 @@ export class MatchmakingService {
       )
     }
 
-    if (match.type === MatchmakingType.Match1v1 || match.type === MatchmakingType.Match1v1Fastest) {
+    if (isSoloType(match.type)) {
       const firstPlayer = players[0]
       // NOTE(tec27): alternate race selection is not available for random users. We block this
       // from being set elsewhere, but ignore it here just in case
@@ -1445,57 +1453,17 @@ export class MatchmakingService {
 
     const chosenMap = mapInfo
 
-    let gameSourceExtra: MatchmakingExtra
-    switch (match.type) {
-      case MatchmakingType.Match1v1:
-      case MatchmakingType.Match1v1Fastest:
-        gameSourceExtra = {
-          type: match.type,
-        }
-        break
-      case MatchmakingType.Match2v2:
-        gameSourceExtra = {
-          type: match.type,
-          // Every player queues alone, so each is their own party in this stored game config
-          parties: Array.from(match.players(), p => [p.id]),
-        }
-        break
-      case MatchmakingType.Match2v2Bgh:
-      case MatchmakingType.Match2v2Hunters:
-      case MatchmakingType.Match2v2Fastest:
-      case MatchmakingType.Match3v3Bgh:
-      case MatchmakingType.Match3v3Hunters:
-      case MatchmakingType.Match3v3Fastest:
-        gameSourceExtra = {
-          type: match.type,
-        }
-        break
-      default:
-        gameSourceExtra = assertUnreachable(match.type)
-    }
+    const gameSourceExtra: MatchmakingExtra =
+      match.type === MatchmakingType.Match2v2
+        ? {
+            type: match.type,
+            // Every player queues alone, so each is their own party in this stored game config
+            parties: Array.from(match.players(), p => [p.id]),
+          }
+        : { type: match.type }
 
-    let gameType: GameType
-    let gameSubType: number
-    switch (match.type) {
-      case MatchmakingType.Match1v1:
-      case MatchmakingType.Match1v1Fastest:
-        gameType = GameType.OneVsOne
-        gameSubType = 0
-        break
-      case MatchmakingType.Match2v2:
-      case MatchmakingType.Match2v2Bgh:
-      case MatchmakingType.Match2v2Hunters:
-      case MatchmakingType.Match2v2Fastest:
-      case MatchmakingType.Match3v3Bgh:
-      case MatchmakingType.Match3v3Hunters:
-      case MatchmakingType.Match3v3Fastest:
-        gameType = GameType.TopVsBottom
-        gameSubType = TEAM_SIZES[match.type]
-        break
-      default:
-        gameType = assertUnreachable(match.type)
-        gameSubType = 0
-    }
+    const gameType = isSoloType(match.type) ? GameType.OneVsOne : GameType.TopVsBottom
+    const gameSubType = isSoloType(match.type) ? 0 : TEAM_SIZES[match.type]
 
     const gameConfig: GameConfig = {
       gameType,
@@ -1527,6 +1495,7 @@ export class MatchmakingService {
     }
 
     const loadResult = await this.gameLoader.loadGame({
+      gameId: match.id,
       players: gameLoadPlayers,
       playerInfos,
       mapId: chosenMap.id,
@@ -1575,6 +1544,13 @@ export class MatchmakingService {
   }
 
   private async handleMatchFound(event: MatchFoundMessage): Promise<void> {
+    // Events from an older producer have no stable formation identity. Preserve
+    // compatibility with those events; newer duplicates are claimed before any await.
+    const formationId = event.formationId ?? randomUUID()
+    if (this.formationIds.has(formationId)) {
+      return
+    }
+    this.formationIds.add(formationId)
     const allEntries = [...event.teamA, ...event.teamB]
     const expected = new Map(
       allEntries.map(p => {
@@ -1688,7 +1664,7 @@ export class MatchmakingService {
     }
 
     const matchInfo = new Match(
-      nanoid(),
+      formationId,
       event.mode,
       [teamA, teamB],
       {

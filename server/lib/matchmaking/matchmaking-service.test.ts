@@ -8,6 +8,7 @@ import {
   MatchmakingCompletionType,
   MatchmakingDivision,
   MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
@@ -91,6 +92,12 @@ const GAME_ID = 'game-1'
 const REGION_US_EAST: GameServerRegionId = makeGameServerRegionId('us-east')
 /** A stand-in per-session public key (base64); the service stores it verbatim without validating. */
 const DEFAULT_PUBKEY = Buffer.alloc(32, 7).toString('base64')
+let formationSequence = 0
+
+function nextFormationId(): string {
+  formationSequence += 1
+  return `00000000-0000-4000-8000-${formationSequence.toString(16).padStart(12, '0')}`
+}
 
 function makePreferences(): MatchmakingPreferences {
   return {
@@ -355,6 +362,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode,
         teamA: entries.slice(0, entries.length / 2),
         teamB: entries.slice(entries.length / 2),
@@ -470,6 +478,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -502,6 +511,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -527,6 +537,60 @@ describe('matchmaking/matchmaking-service', () => {
     expect(rsCancelPlayer).not.toHaveBeenCalled()
   })
 
+  test('admits and loads a formation only once across concurrent and late duplicate events', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    let finishBanCheck!: (users: Set<SbUserId>) => void
+    checkUsers.mockReturnValue(
+      new Promise<Set<SbUserId>>(resolve => {
+        finishBanCheck = resolve
+      }),
+    )
+
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    const formationId = nextFormationId()
+    const event = {
+      type: 'matchFound' as const,
+      data: {
+        formationId,
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    }
+    redisHandler(event)
+    redisHandler(event)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(checkUsers).toHaveBeenCalledTimes(1)
+
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: formationId }))
+    finishBanCheck(new Set())
+    await drainMatchmakingTasks()
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    expect(gameLoader.loadGame.mock.calls[0][0].gameId).toBe(formationId)
+    expect(completionsFor(USER_A, MatchmakingCompletionType.Found)).toHaveLength(1)
+    expect(completionsFor(USER_B, MatchmakingCompletionType.Found)).toHaveLength(1)
+
+    redisHandler(event)
+    await drainMatchmakingTasks()
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    expect(completionsFor(USER_A, MatchmakingCompletionType.Found)).toHaveLength(1)
+    expect(completionsFor(USER_B, MatchmakingCompletionType.Found)).toHaveLength(1)
+  })
+
   test('records the match formation telemetry keyed by the loaded game id', async () => {
     asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
     asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
@@ -538,6 +602,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -591,6 +656,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -643,6 +709,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -662,6 +729,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a2' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b2' }],
@@ -705,6 +773,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -752,6 +821,7 @@ describe('matchmaking/matchmaking-service', () => {
       redisHandler({
         type: 'matchFound',
         data: {
+          formationId: nextFormationId(),
           mode: MatchmakingType.Match1v1,
           teamA: [{ id: USER_A, ticket: 'ticket-a' }],
           teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -847,6 +917,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -938,6 +1009,7 @@ describe('matchmaking/matchmaking-service', () => {
       redisHandler({
         type: 'matchFound',
         data: {
+          formationId: nextFormationId(),
           mode: MatchmakingType.Match1v1,
           teamA: [{ id: USER_A, ticket: 'ticket-a' }],
           teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -988,6 +1060,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1035,6 +1108,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1059,20 +1133,51 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.accept(USER_A)).resolves.toBeUndefined()
   })
 
-  test('queues a multiqueue player with per-mode ratings and a request per mode', async () => {
+  test.each([
+    [MatchmakingType.Hyperion1v1Rule3],
+    [MatchmakingType.Hyperion1v1Rule1, MatchmakingType.Hyperion1v1Rule3],
+  ])('rejects Rule 3 without queueing or creating MMR: %s', async (...types) => {
+    const allPrefs = types.map(type => {
+      const prefs = makePreferences()
+      prefs.matchmakingType = type
+      return prefs
+    })
+
+    await expect(
+      service.find(USER_A, CLIENT_A, [], allPrefs, DEFAULT_PUBKEY),
+    ).rejects.toMatchObject({
+      code: MatchmakingServiceErrorCode.MatchmakingDisabled,
+    })
+    expect(rsQueuePlayer).not.toHaveBeenCalled()
+    expect(getMatchmakingRatings).not.toHaveBeenCalled()
+    expect(activityRegistry.getClientForUser(USER_A)).toBeUndefined()
+  })
+
+  test('queues a multiqueue player with independent Hyperion MMR and a request per mode', async () => {
+    const ratings = new Map([
+      [MatchmakingType.Hyperion1v1Rule1, { rating: 1125, uncertainty: 25 }],
+      [MatchmakingType.Hyperion1v1Rule2, { rating: 2175, uncertainty: 75 }],
+    ])
+    asMockedFunction(getMatchmakingRatings).mockImplementation(async (userId, types) =>
+      types.map(type => ({ ...makeMmr(userId, type), ...ratings.get(type)! })),
+    )
     await queueMultiPlayer(USER_A, CLIENT_A, [
-      MatchmakingType.Match1v1,
-      MatchmakingType.Match1v1Fastest,
+      MatchmakingType.Hyperion1v1Rule1,
+      MatchmakingType.Hyperion1v1Rule2,
     ])
 
-    // A single Rust queue call carries one rating entry per queued mode (Rust derives the queued
-    // mode set from these entries).
+    // A single Rust queue call carries one independent rating entry per queued mode.
     expect(rsQueuePlayer).toHaveBeenCalledTimes(1)
     const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
     expect(request.id).toBe(USER_A)
     expect(request.modeRatings.map(r => r.mode).sort()).toEqual(
-      [MatchmakingType.Match1v1, MatchmakingType.Match1v1Fastest].sort(),
+      [MatchmakingType.Hyperion1v1Rule1, MatchmakingType.Hyperion1v1Rule2].sort(),
     )
+    for (const mode of ratings.keys()) {
+      expect(request.modeRatings).toContainEqual(
+        expect.objectContaining({ mode, ...ratings.get(mode) }),
+      )
+    }
 
     // Each queued mode records its own request.
     const metrics = await register.getMetricsAsJSON()
@@ -1080,8 +1185,8 @@ describe('matchmaking/matchmaking-service', () => {
       m => m.name === 'shieldbattery_matchmaker_matches_requested_total',
     )
     const byMode = new Map((requested?.values ?? []).map(v => [v.labels.matchmaking_type, v.value]))
-    expect(byMode.get(MatchmakingType.Match1v1)).toBe(1)
-    expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
+    expect(byMode.get(MatchmakingType.Hyperion1v1Rule1)).toBe(1)
+    expect(byMode.get(MatchmakingType.Hyperion1v1Rule2)).toBe(1)
   })
 
   test("forwards the client's validated region and rtt to the matchmaker", async () => {
@@ -1147,6 +1252,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1215,6 +1321,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1241,6 +1348,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1288,6 +1396,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1333,6 +1442,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1379,6 +1489,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
@@ -1426,6 +1537,7 @@ describe('matchmaking/matchmaking-service', () => {
     redisHandler({
       type: 'matchFound',
       data: {
+        formationId: nextFormationId(),
         mode: MatchmakingType.Match1v1,
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],

@@ -7,30 +7,33 @@ import { isFetchError, isFetchNetworkError } from '../network/fetch-errors'
 export async function createSignupSession(
   fields: SignupFields,
   collection: {
-    collectProof: (nonce: string, requestHash: string) => Promise<ClientProof>
+    collectProof?: (nonce: string, requestHash: string) => Promise<ClientProof>
     collectLegacyIds: () => Promise<{ clientIds: [number, string][] }>
   },
   signal?: AbortSignal,
 ): Promise<ClientSessionInfo> {
   signal?.throwIfAborted()
-  let challenge: SignupChallengeResponse
-  try {
-    challenge = await fetchJson<SignupChallengeResponse>(apiUrl`users/signup-challenge`, {
-      method: 'post',
-      body: JSON.stringify(fields),
-      signal,
-    })
-  } catch (err) {
-    if (!isFetchError(err) || err.status !== 404) throw err
-    challenge = { required: false }
+  const collectProof = collection.collectProof
+  let challenge: SignupChallengeResponse = { required: false }
+  if (collectProof) {
+    try {
+      challenge = await fetchJson<SignupChallengeResponse>(apiUrl`users/signup-challenge`, {
+        method: 'post',
+        body: JSON.stringify(fields),
+        signal,
+      })
+    } catch (err) {
+      if (!isFetchError(err) || err.status !== 404) throw err
+    }
   }
   signal?.throwIfAborted()
-  const extra = challenge.required
-    ? {
-        attemptId: challenge.attemptId,
-        proof: await collection.collectProof(challenge.nonce, challenge.requestHash),
-      }
-    : await collection.collectLegacyIds()
+  const extra =
+    challenge.required && collectProof
+      ? {
+          attemptId: challenge.attemptId,
+          proof: await collectProof(challenge.nonce, challenge.requestHash),
+        }
+      : await collection.collectLegacyIds()
   const body = JSON.stringify({ ...fields, ...extra })
   signal?.throwIfAborted()
   try {

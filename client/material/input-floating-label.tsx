@@ -37,7 +37,7 @@ export const FloatingLabel = styled.label<{
       return 'var(--theme-on-surface)'
     }
     if (props.$focused) {
-      return 'var(--theme-amber)'
+      return 'var(--theme-primary)'
     }
 
     return 'var(--theme-on-surface-variant)'

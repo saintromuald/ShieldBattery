@@ -87,13 +87,14 @@ const EnergyField = styled.div<{ $reverse?: boolean }>`
     height: 176px;
     left: ${props => (props.$reverse ? '54px' : '-136px')};
     top: ${props => (props.$reverse ? '8px' : '-96px')};
-    background:
-      radial-gradient(
-        ellipse closest-side at 35% 50%,
-        rgb(from var(--color-blue95) r g b / 0.5),
-        transparent 100%
-      ),
-      url('${psiFrost}') center / contain no-repeat;
+    background: radial-gradient(
+      ellipse closest-side at 35% 50%,
+      rgb(from var(--color-green80) r g b / 0.5),
+      transparent 100%
+    );
+    /* A luminance mask tints the frost texture with the active theme color. */
+    mask: url('${psiFrost}') center / contain no-repeat;
+    mask-mode: luminance;
     opacity: ${props => (props.$reverse ? 0.45 : 0.65)};
     transform: ${props => (props.$reverse ? 'rotate(180deg)' : 'none')};
     /* Both layers breathe together while their slower currents drift independently. */
@@ -168,7 +169,7 @@ const Root = styled.a<{ $active: boolean }>`
       left: 22px;
       right: 22px;
       bottom: 12px;
-      outline: 3px solid var(--theme-amber);
+      outline: 3px solid var(--theme-focus);
       border-radius: 4px;
       pointer-events: none;
     }
@@ -229,9 +230,9 @@ const PlayButtonBackground = styled.div`
   clip-path: polygon(0% 0%, 100% 0%, 90.83% 100%, 9.17% 100%);
   background: linear-gradient(
     110deg,
-    var(--color-blue70),
-    var(--color-blue95),
-    var(--color-blue70)
+    var(--color-amber70),
+    var(--color-amber95),
+    var(--color-amber70)
   );
 `
 
@@ -246,12 +247,19 @@ const PlayButtonBackgroundFill = styled.div`
   background:
     linear-gradient(
       110deg,
-      rgb(from var(--color-blue95) r g b / 0.16),
+      rgb(from var(--color-green80) r g b / 0.16),
       transparent 24%,
       transparent 78%,
-      rgb(from var(--color-blue80) r g b / 0.12)
+      rgb(from var(--color-green70) r g b / 0.12)
     ),
-    linear-gradient(145deg, var(--color-blue50), 20%, var(--color-blue30), 80%, var(--color-blue50));
+    linear-gradient(
+      145deg,
+      var(--color-green50),
+      20%,
+      var(--color-green30),
+      80%,
+      var(--color-green50)
+    );
 `
 
 function PlayButtonDisplay({
@@ -442,7 +450,7 @@ function FileDrop() {
       <FileDropContents>
         <MaterialIcon icon='file_open' size={24} />
         <BodyMedium>
-          {t('replays.fileDropText', 'Drop replays here to watch them with ShieldBattery.')}
+          {t('replays.fileDropText', 'Drop replays here to watch them with HyperShield.')}
         </BodyMedium>
       </FileDropContents>
     </StyledFileDropZone>

@@ -134,6 +134,17 @@ export interface MatchmakingExtra3v3Fastest {
   type: MatchmakingType.Match3v3Fastest
 }
 
+export interface MatchmakingExtraHyperion {
+  type:
+    | MatchmakingType.Hyperion1v1Rule1
+    | MatchmakingType.Hyperion1v1Rule2
+    | MatchmakingType.Hyperion1v1Rule3
+    | MatchmakingType.Hyperion2v2Rule1
+    | MatchmakingType.Hyperion2v2Rule2
+    | MatchmakingType.Hyperion3v3Rule1
+    | MatchmakingType.Hyperion3v3Rule2
+}
+
 export type MatchmakingExtra =
   | MatchmakingExtra1v1
   | MatchmakingExtra1v1Fastest
@@ -144,6 +155,7 @@ export type MatchmakingExtra =
   | MatchmakingExtra3v3Bgh
   | MatchmakingExtra3v3Hunters
   | MatchmakingExtra3v3Fastest
+  | MatchmakingExtraHyperion
 
 export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 

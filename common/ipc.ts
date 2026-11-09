@@ -17,6 +17,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
+import type { ReleaseCenterState, ReleaseChannel, ReleaseProduct } from './release-center'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -397,6 +398,24 @@ interface IpcInvokeables {
    */
   replayStoreStoreReplay: (id: string, expectedHash: string, data: ArrayBuffer) => Promise<string>
 
+  releaseCenterGetState: () => Promise<ReleaseCenterState>
+  releaseCenterRefresh: (product?: ReleaseProduct) => Promise<ReleaseCenterState>
+  releaseCenterSetChannel: (
+    product: ReleaseProduct,
+    channel: ReleaseChannel,
+  ) => Promise<ReleaseCenterState>
+  releaseCenterSetAutomaticUpdates: (
+    product: ReleaseProduct,
+    enabled: boolean,
+  ) => Promise<ReleaseCenterState>
+  releaseCenterInstall: (product: ReleaseProduct, releaseId: string) => Promise<ReleaseCenterState>
+  releaseCenterActivate: (product: ReleaseProduct, releaseId: string) => Promise<ReleaseCenterState>
+  releaseCenterTrackLatest: (product: ReleaseProduct) => Promise<ReleaseCenterState>
+  releaseCenterUpdateLatest: (product: ReleaseProduct) => Promise<ReleaseCenterState>
+  releaseCenterUseBundledHyperion: () => Promise<ReleaseCenterState>
+  /** Relaunches into the selected staged AppImage. This only runs after an explicit user action. */
+  releaseCenterRestartClient: () => Promise<void>
+
   securityGetClientIds: () => Promise<[number, string][]>
   securityCollectRequest: (nonce: string, requestHash: string) => Promise<ClientProof>
 
@@ -554,6 +573,9 @@ interface IpcMainSendables {
    * status fetch.
    */
   replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
+
+  /** A complete snapshot, emitted for catalog, preference, download, and installation changes. */
+  releaseCenterChanged: (state: ReleaseCenterState) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

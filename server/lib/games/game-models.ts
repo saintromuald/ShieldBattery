@@ -30,7 +30,7 @@ type DbGameRecord = Dbify<GameRecord>
 
 export type CreateGameRecordData = Pick<
   GameRecord,
-  'startTime' | 'mapId' | 'config' | 'selectedMatchup'
+  'id' | 'startTime' | 'mapId' | 'config' | 'selectedMatchup'
 >
 
 function convertFromDb(row: DbGameRecord): GameRecord {
@@ -61,16 +61,16 @@ function convertFromDb(row: DbGameRecord): GameRecord {
  */
 export async function createGameRecord(
   client: DbClient,
-  { startTime, mapId, config, selectedMatchup }: CreateGameRecordData,
+  { id, startTime, mapId, config, selectedMatchup }: CreateGameRecordData,
 ): Promise<string> {
   // TODO(tec27): We could make some type of TransactionClient transformation to enforce this is
   // done in a transaction
   const result = await client.query<{ id: string }>(sql`
     INSERT INTO games (
-      start_time, map_id, config, disputable, dispute_requested, dispute_reviewed, game_length,
+      id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed, game_length,
       selected_matchup
     ) VALUES (
-      ${startTime}, ${mapId}, ${config}, FALSE, FALSE, FALSE, NULL,
+      ${id}, ${startTime}, ${mapId}, ${config}, FALSE, FALSE, FALSE, NULL,
       ${selectedMatchup}
     ) RETURNING id
   `)
