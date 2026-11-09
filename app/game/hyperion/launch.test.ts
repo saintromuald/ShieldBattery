@@ -160,6 +160,7 @@ function allowWindowsAcl(sid = 'S-1-5-21-100-200-300-1001', aclFailure?: Error) 
 
 beforeEach(() => {
   vi.mocked(execFile).mockReset()
+  allowWindowsAcl()
 })
 
 afterEach(() => {

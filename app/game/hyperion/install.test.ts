@@ -117,31 +117,32 @@ async function stageDownloadedExecutable(
 
 describe('embeddedHyperionPaths', () => {
   it('resolves development and packaged resources beside the app tree', () => {
+    const executable = process.platform === 'win32' ? 'Hyperion.exe' : 'Hyperion.x86_64'
     expect(embeddedHyperionPaths('/work/ShieldBattery/app', '/work/user-data')).toEqual({
-      executablePath: '/work/ShieldBattery/hyperion/Hyperion.x86_64',
-      dataPath: '/work/user-data/hyperion',
-      workingDirectory: '/work/ShieldBattery/hyperion',
+      executablePath: path.resolve('/work/ShieldBattery/hyperion', executable),
+      dataPath: path.join('/work/user-data', 'hyperion'),
+      workingDirectory: path.resolve('/work/ShieldBattery/hyperion'),
     })
     expect(
       embeddedHyperionPaths('/opt/ShieldBattery/resources/app.asar', '/home/player/.config/sb')
         .executablePath,
-    ).toBe('/opt/ShieldBattery/resources/hyperion/Hyperion.x86_64')
+    ).toBe(path.resolve('/opt/ShieldBattery/resources/hyperion', executable))
   })
 
   it('uses Hyperion.exe for Windows x64', () => {
     expect(
       embeddedHyperionPaths('/work/app', '/work/user-data', undefined, 'win32', 'x64'),
     ).toEqual({
-      executablePath: '/work/hyperion/Hyperion.exe',
-      dataPath: '/work/user-data/hyperion',
-      workingDirectory: '/work/hyperion',
+      executablePath: path.resolve('/work/hyperion/Hyperion.exe'),
+      dataPath: path.join('/work/user-data', 'hyperion'),
+      workingDirectory: path.resolve('/work/hyperion'),
     })
   })
 
   it('namespaces native data for concurrent development sessions', () => {
     expect(
       embeddedHyperionPaths('/work/app', '/work/user-data', 'seat/one', 'linux', 'x64').dataPath,
-    ).toBe('/work/user-data/hyperion-seat_one')
+    ).toBe(path.join('/work/user-data', 'hyperion-seat_one'))
   })
 
   it('rejects unsupported platforms and processor architectures', () => {

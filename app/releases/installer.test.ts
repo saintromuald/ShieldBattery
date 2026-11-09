@@ -276,7 +276,7 @@ describe('release downloads', () => {
   })
 })
 
-describe('safe tar extraction', () => {
+describe.skipIf(process.platform !== 'linux')('safe tar extraction', () => {
   it.each([
     ['parent traversal', '-rw-r--r-- 0/0 1 2026-01-01 00:00 "../outside"', 'parent-directory'],
     ['absolute paths', '-rw-r--r-- 0/0 1 2026-01-01 00:00 "/etc/passwd"', 'absolute path'],

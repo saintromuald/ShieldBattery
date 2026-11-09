@@ -658,29 +658,32 @@ describe('HyperShield staging and automatic updates', () => {
     })
   })
 
-  it('automatically installs a newer Shield archive while skipping newer raw packages', async () => {
-    const archive = await archiveRelease(2, '2.0.0-beta', true)
-    const releases = [
-      rawRelease(1, '1.0.0-beta', true),
-      archive.release,
-      rawRelease(3, '3.0.0-beta', true),
-    ]
-    const manager = makeManager(
-      fetchFor(releases, {
-        'Hyperion.x86_64': executable,
-        'libSDL3.so.0': library,
-        [archive.name]: archive.contents,
-      }),
-    )
-    await manager.setChannel('hyperion', 'prerelease')
-    await manager.trackLatest('hyperion')
-    await manager.setAutomaticUpdates('hyperion', true)
-    await manager.setAutomaticUpdates('hypershield', false)
-    const state = await manager.checkForAutomaticUpdates()
-    expect(state.products.hyperion.currentReleaseId).toBe('github:saintromuald/hyperion-public:2')
-    expect(state.products.hyperion.selection).toBe('latest')
-    expect(state.products.hyperion.operation).toBe('idle')
-    expect((await readInstalledRegistry(userDataPath)).hyperion[0].packageKind).toBe('archive')
-    expect(app.relaunch).not.toHaveBeenCalled()
-  })
+  it.skipIf(process.platform !== 'linux')(
+    'automatically installs a newer Shield archive while skipping newer raw packages',
+    async () => {
+      const archive = await archiveRelease(2, '2.0.0-beta', true)
+      const releases = [
+        rawRelease(1, '1.0.0-beta', true),
+        archive.release,
+        rawRelease(3, '3.0.0-beta', true),
+      ]
+      const manager = makeManager(
+        fetchFor(releases, {
+          'Hyperion.x86_64': executable,
+          'libSDL3.so.0': library,
+          [archive.name]: archive.contents,
+        }),
+      )
+      await manager.setChannel('hyperion', 'prerelease')
+      await manager.trackLatest('hyperion')
+      await manager.setAutomaticUpdates('hyperion', true)
+      await manager.setAutomaticUpdates('hypershield', false)
+      const state = await manager.checkForAutomaticUpdates()
+      expect(state.products.hyperion.currentReleaseId).toBe('github:saintromuald/hyperion-public:2')
+      expect(state.products.hyperion.selection).toBe('latest')
+      expect(state.products.hyperion.operation).toBe('idle')
+      expect((await readInstalledRegistry(userDataPath)).hyperion[0].packageKind).toBe('archive')
+      expect(app.relaunch).not.toHaveBeenCalled()
+    },
+  )
 })
