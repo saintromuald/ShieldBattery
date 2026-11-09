@@ -1,7 +1,6 @@
 # HyperShield's native Windows x64 package with the public Hyperion Shield engine.
 appId: gg.angelicgaming.hypershield
 productName: HyperShield
-productFilename: HyperShield
 publish: []
 afterPack: ./tools/check-hyperion-package.cjs
 extraResources:
