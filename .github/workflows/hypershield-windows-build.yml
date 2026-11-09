@@ -66,7 +66,7 @@ jobs:
         run: pnpm vitest run app/startup.test.ts app/game/hyperion app/releases
 
       - name: Build HyperShield and its native game integration
-        run: pnpm run build:release
+        run: pnpm run build:hypershield:release
 
       - name: Package the unsigned test installer
         run: pnpm exec electron-builder build --win --x64 -c hypershield-win.yml

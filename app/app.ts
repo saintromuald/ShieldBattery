@@ -33,7 +33,12 @@ import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '.
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
-import { APP_DISPLAY_NAME, APP_MODEL_ID, APP_UPDATE_URL } from './branding'
+import {
+  APP_DISPLAY_NAME,
+  APP_ENABLE_DISCORD_PRESENCE,
+  APP_MODEL_ID,
+  APP_UPDATE_URL,
+} from './branding'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
@@ -1777,7 +1782,7 @@ app.on('ready', () => {
         handleLaunchArgs(process.argv.slice(1))
       }
 
-      if (process.platform === 'win32') {
+      if (APP_ENABLE_DISCORD_PRESENCE && process.platform === 'win32') {
         const { DiscordPresence } = await import('./discord-presence')
         discordPresence = new DiscordPresence({
           sdkPath: discordSdkPath('discord_partner_sdk.dll'),

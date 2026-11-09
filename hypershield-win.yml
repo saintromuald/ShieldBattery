@@ -2,16 +2,10 @@
 appId: gg.angelicgaming.hypershield
 productName: HyperShield
 publish: []
-beforePack: ./tools/check-discord-sdk.cjs
 afterPack: ./tools/check-hyperion-package.cjs
 extraResources:
   - from: game/dist
     to: game/dist
-  - from: discord-sdk
-    to: discord-sdk
-    filter:
-      - discord_partner_sdk.dll
-      - License-Notices.txt
   - from: hyperion
     to: hyperion
     filter:
