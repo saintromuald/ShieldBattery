@@ -3,7 +3,7 @@
   "productName": "ShieldBattery-Local",
   "productFilename": "ShieldBattery-Local",
   "private": true,
-  "version": "12.3.7",
+  "version": "12.3.8",
   "description": "The standalone client for HyperShield",
   "main": "dist/index.js",
   "license": "MIT",
