@@ -45,12 +45,12 @@ Windows Hyperion packages are public Shield ZIPs named `Hyperion-Shield-<version
 
 Run **HyperShield Windows build** to produce an unsigned NSIS installer and `latest.yml` as unpublished workflow artifacts. The workflow deliberately has no release-publication step. Test the exact installer, native engine launch, matchmaking, results, and replays before publishing it.
 
-Windows client updates use HyperShield's own `public/app/` feed in the `angelicgaming-hypershield-files` bucket, configured by `APP_UPDATE_URL` in `app/branding.ts`. They do not use ShieldBattery's CDN, signing identity, or update service. Upload both the tested installer and its matching `latest.yml` to that feed together.
+Windows client updates use HyperShield's own `public/app/` feed in the `angelicgaming-hypershield-files` bucket, configured by `APP_UPDATE_URL` in `app/branding.ts`. They do not use ShieldBattery's CDN, signing identity, or update service. Upload the tested installer and its matching `latest.yml` to both `public/app/` and the bucket's root `app/` prefix. The client checks the first prefix; the website's `/published_artifacts/win/ShieldBattery.latest.exe` redirect reads the second.
 
 ## Platform roadmap
 
 - **Linux x86-64:** shipped and verified.
-- **Windows x64:** native implementation and independent testing are in progress; no public package has been approved yet.
+- **Windows x64:** shipped and independently verified as a prerelease. The NSIS installer and Hyperion ZIP are published with 600-turn, result, replay, per-user install, and live update-feed checks.
 - **macOS Apple Silicon and Intel:** planned. Requires a native Hyperion build and the same end-to-end compatibility checks.
 
 Do not publish Windows or macOS packages as if they were simple repackaging tasks. They must only ship after the corresponding engine and native protocol work has been implemented and tested.
