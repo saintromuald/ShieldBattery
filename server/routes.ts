@@ -90,7 +90,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
 
   // NOTE(tec27): This is where we redirect downloads to, since we don't know what the current
   // exe path is. It maps to where we *used to* upload these files to manually.
-  router.get('/published_artifacts/win/ShieldBattery.latest.exe', async ctx => {
+  const downloadLatestWindowsInstaller = async (ctx: RouterContext) => {
     const curTime = monotonicNow()
     if (!cachedInstallerUrl || curTime - installerUrlTime > MAX_INSTALLER_CACHE_TIME) {
       const updateYaml = await readFile('app/latest.yml')
@@ -110,7 +110,11 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
 
     ctx.set('Location', cachedInstallerUrl)
     ctx.status = 301
-  })
+  }
+
+  router.get('/published_artifacts/win/HyperShield-Setup.exe', downloadLatestWindowsInstaller)
+  // Keep the legacy route as an alias for previously shared download links.
+  router.get('/published_artifacts/win/ShieldBattery.latest.exe', downloadLatestWindowsInstaller)
 
   if (isDev) {
     // The specifier is assembled at runtime so the compiler leaves this require inside the
