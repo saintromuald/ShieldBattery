@@ -1,0 +1,75 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">HyperShield</title>
+  <desc id="desc">The HyperShield winged shield logo and wordmark</desc>
+  <defs>
+    <linearGradient id="background" x1="80" y1="40" x2="1120" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07111f"/>
+      <stop offset="0.55" stop-color="#0c1929"/>
+      <stop offset="1" stop-color="#101d2d"/>
+    </linearGradient>
+    <radialGradient id="green-glow" cx="0" cy="0" r="1" gradientTransform="translate(190 280) rotate(25) scale(500 390)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#39d98a" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#39d98a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gold-glow" cx="0" cy="0" r="1" gradientTransform="translate(1040 120) rotate(140) scale(460 330)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffc400" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#ffc400" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shield" x1="86" y1="78" x2="172" y2="202" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#163454"/>
+      <stop offset="1" stop-color="#07111f"/>
+    </linearGradient>
+    <linearGradient id="wings" x1="30" y1="70" x2="98" y2="178" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f4f7ff"/>
+      <stop offset="0.58" stop-color="#ffe39a"/>
+      <stop offset="1" stop-color="#39d98a"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="100" y1="160" x2="158" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#39d98a"/>
+      <stop offset="1" stop-color="#ffc400"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="474" y1="0" x2="1040" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#39d98a" stop-opacity="0.8"/>
+      <stop offset="0.55" stop-color="#ffc400" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffc400" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" rx="28" fill="url(#background)"/>
+  <rect width="1200" height="630" rx="28" fill="url(#green-glow)"/>
+  <rect width="1200" height="630" rx="28" fill="url(#gold-glow)"/>
+  <rect x="1" y="1" width="1198" height="628" rx="27" fill="none" stroke="#f4f7ff" stroke-opacity="0.07" stroke-width="2"/>
+
+  <g opacity="0.12" fill="none" stroke="#8fa8c4" stroke-width="1">
+    <path d="M-80 526L278 168M-20 630L418 192M878 630L1260 248"/>
+    <path d="M930 -30L1230 270M1010 -30L1230 190"/>
+  </g>
+
+  <g transform="translate(118 150) scale(1.171875)">
+    <ellipse cx="128" cy="34" rx="39" ry="13" fill="none" stroke="#ffc400" stroke-width="10" opacity="0.18"/>
+    <ellipse cx="128" cy="34" rx="39" ry="13" fill="none" stroke="#ffd75e" stroke-width="4"/>
+    <g fill="url(#wings)" stroke="#f4f7ff" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M91 105C72 79 46 64 17 61C24 81 40 103 65 119C48 112 32 110 18 113C34 137 58 151 91 154L108 124Z"/>
+      <path d="M91 145C68 143 48 151 34 165C53 179 75 183 99 174L108 148Z"/>
+      <path d="M165 105C184 79 210 64 239 61C232 81 216 103 191 119C208 112 224 110 238 113C222 137 198 151 165 154L148 124Z"/>
+      <path d="M165 145C188 143 208 151 222 165C203 179 181 183 157 174L148 148Z"/>
+    </g>
+    <g fill="none" stroke="#163454" stroke-width="2.2" stroke-linecap="round" opacity="0.42">
+      <path d="M32 76C47 94 62 111 82 130M34 123C53 133 68 141 88 145M49 163C64 164 78 161 94 155"/>
+      <path d="M224 76C209 94 194 111 174 130M222 123C203 133 188 141 168 145M207 163C192 164 178 161 162 155"/>
+    </g>
+    <path d="M128 72L176 90V128C176 163 156 191 128 208C100 191 80 163 80 128V90Z" fill="url(#shield)" stroke="#ffc400" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M153 101A36 36 0 1 1 103 158" fill="none" stroke="url(#orbit)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M105 105V155M151 105V155M105 130H151" fill="none" stroke="#f4f7ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M161 86L168 89L165 98L160 95Z" fill="#ffc400"/>
+  </g>
+
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="478" y="326" font-size="96" font-weight="700" letter-spacing="-2">
+      <tspan fill="#39d98a">Hyper</tspan><tspan fill="#f4f7ff">Shield</tspan>
+    </text>
+    <rect x="478" y="357" width="566" height="2" fill="url(#rule)"/>
+    <text x="478" y="407" fill="#b7c5d8" font-size="22" font-weight="600" letter-spacing="1.4">THE PREMIER STARCRAFT 1 COMMUNITY PLATFORM</text>
+    <text x="600" y="542" text-anchor="middle" fill="#ffe39a" font-size="20" font-weight="600" letter-spacing="4">PLAY.ANGELICGAMING.GG</text>
+  </g>
+</svg>

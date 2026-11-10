@@ -50,41 +50,41 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
 
   staticRoute(
     '/download',
-    'Download ShieldBattery',
-    'Download ShieldBattery to play StarCraft: Brood War online with modern matchmaking, ladder ' +
+    'Download HyperShield',
+    'Download HyperShield to play StarCraft: Brood War online with modern matchmaking, ladder ' +
       'rankings, leagues, and more.',
   ),
   staticRoute(
     '/faq',
-    'ShieldBattery FAQ',
-    'Answers to frequently asked questions about ShieldBattery.',
+    'HyperShield FAQ',
+    'Answers to frequently asked questions about HyperShield.',
   ),
   staticRoute(
     '/guides/matchmaking',
-    'How matchmaking works in ShieldBattery',
-    'How the ShieldBattery matchmaker picks who plays together, and why a game can start without ' +
+    'How matchmaking works in HyperShield',
+    'How the HyperShield matchmaker picks who plays together, and why a game can start without ' +
       "you while you're in the queue.",
   ),
   staticRoute(
     '/guides/ladder',
-    'How the ladder works in ShieldBattery',
-    'How MMR, points and divisions work on the ShieldBattery ladder, and why ranks use points.',
+    'How the ladder works in HyperShield',
+    'How MMR, points and divisions work on the HyperShield ladder, and why ranks use points.',
   ),
   staticRoute(
     '/ladder/*?',
-    'ShieldBattery Ladder',
-    'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',
+    'HyperShield Ladder',
+    'See the best StarCraft: Brood War players on the HyperShield ladder rankings.',
   ),
   staticRoute(
     '/leagues',
-    'ShieldBattery Leagues',
-    'Compete against other StarCraft: Brood War players in leagues on ShieldBattery.',
+    'HyperShield Leagues',
+    'Compete against other StarCraft: Brood War players in leagues on HyperShield.',
   ),
-  staticRoute('/news', 'ShieldBattery News', 'The latest news and updates from ShieldBattery.'),
+  staticRoute('/news', 'HyperShield News', 'The latest news and updates from HyperShield.'),
   staticRoute(
     '/live',
-    'ShieldBattery Live Streams',
-    'Watch ShieldBattery players streaming StarCraft: Brood War live right now.',
+    'HyperShield Live Streams',
+    'Watch HyperShield players streaming StarCraft: Brood War live right now.',
   ),
 ]
 
@@ -94,14 +94,14 @@ const PARSED_ROUTES = ROUTES.map(({ pattern, resolver }) => ({
   resolver,
 }))
 
-const SITE_NAME = 'ShieldBattery'
+const SITE_NAME = 'HyperShield'
 const TITLE_ATTRIBUTION_SEPARATOR = ' · '
 
 /**
  * Appends the site name to a title for link-preview attribution (Discord, X, etc. show the
  * `og:title` alone, with no other indication of which site it came from). Left unchanged when the
  * title already ends with the site name, which covers both the site-wide default title (exactly
- * `"ShieldBattery"`) and any resolver that already worked the name into the end of its title.
+ * `"HyperShield"`) and any resolver that already worked the name into the end of its title.
  */
 function attributeTitle(metadata: PageMetadata): PageMetadata {
   if (metadata.title.endsWith(SITE_NAME)) {

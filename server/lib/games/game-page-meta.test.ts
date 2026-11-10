@@ -169,7 +169,9 @@ describe('games/game-page-meta', () => {
 
       expect(result?.title).toBe('Alice vs Bob')
       expect(result?.description).toBe('Ranked 1v1 game on Unknown Map, played July 14, 2026.')
-      expect(result?.image).toBe('https://shieldbattery.net/images/logo-and-text-1200x630.png')
+      expect(result?.image).toBe(
+        'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
+      )
     })
   })
 })

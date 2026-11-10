@@ -19,8 +19,8 @@ export const channelInvitePageMetadata: PageMetadataResolver = async (params, co
   return {
     url: context.canonicalHost + urlPath`/chat/invite/${params.token}`,
     type: 'website',
-    title: "You've been invited to a private channel on ShieldBattery",
-    description: 'Join the conversation in a private chat channel on ShieldBattery.',
+    title: "You've been invited to a private channel on HyperShield",
+    description: 'Join the conversation in a private chat channel on HyperShield.',
     image: defaultPageImage(context),
     noindex: true,
   }

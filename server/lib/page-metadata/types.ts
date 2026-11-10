@@ -18,7 +18,7 @@ export interface PageMetadataContext {
 
 /** The site-wide default preview image, used when a page has no more specific image. */
 export function defaultPageImage(context: PageMetadataContext): string {
-  return `${context.canonicalHost}/images/logo-and-text-1200x630.png`
+  return `${context.canonicalHost}/images/hypershield-logo-and-text-1200x630.png`
 }
 
 /** The metadata used for any page that doesn't have a more specific resolver match. */
@@ -26,7 +26,7 @@ export function defaultPageMetadata(context: PageMetadataContext): PageMetadata 
   return {
     url: context.canonicalHost,
     type: 'website',
-    title: 'ShieldBattery',
+    title: 'HyperShield',
     description: 'Play StarCraft 1 on the premier community-run platform.',
     image: defaultPageImage(context),
   }

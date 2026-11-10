@@ -14,7 +14,7 @@ function stockImageUrl(name: string): string {
   return makePublicAssetUrl(`${NEWS_STOCK_IMAGES_PATH_PREFIX}${name}.jpg`)
 }
 
-const defaultLogoUrl = makeServerUrl('/images/logo-and-text-1200x630.png')
+const defaultLogoUrl = makeServerUrl('/images/hypershield-logo-and-text-1200x630.png')
 
 interface Preset {
   id: string
@@ -31,7 +31,7 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net',
       type: 'website',
-      title: 'ShieldBattery',
+      title: 'HyperShield',
       description: 'Play StarCraft 1 on the premier community-run platform.',
       image: defaultLogoUrl,
     },
@@ -42,9 +42,9 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/download',
       type: 'website',
-      title: 'Download ShieldBattery',
+      title: 'Download HyperShield',
       description:
-        'Download ShieldBattery to play StarCraft: Brood War online with modern matchmaking, ' +
+        'Download HyperShield to play StarCraft: Brood War online with modern matchmaking, ' +
         'ladder rankings, leagues, and more.',
       image: defaultLogoUrl,
     },
@@ -55,7 +55,7 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/news/Vk92cQ/shieldbattery-9-2-party-voice-chat',
       type: 'article',
-      title: 'ShieldBattery 9.2: Party Voice Chat and Replay Improvements · ShieldBattery',
+      title: 'HyperShield 9.2: Party Voice Chat and Replay Improvements · HyperShield',
       description:
         'Talk to your party over voice chat without leaving the app, plus a faster replay ' +
         'browser and a handful of matchmaking fixes.',
@@ -71,7 +71,7 @@ const PRESETS: Preset[] = [
       type: 'article',
       title:
         'Season 12 Ladder Reset, New Fastest Maps Rotation, Replay Auto-Upload Fixes, and a ' +
-        'Whole Lot More Coming to ShieldBattery This Month · ShieldBattery',
+        'Whole Lot More Coming to HyperShield This Month · HyperShield',
       description:
         'The Season 12 ladder reset lands next week alongside a refreshed Fastest maps ' +
         "rotation. We've also shipped a fix for replays that failed to auto-upload after a " +
@@ -87,9 +87,9 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/users/1234/Flash',
       type: 'website',
-      title: 'Flash · ShieldBattery',
+      title: 'Flash · HyperShield',
       description:
-        "View Flash's match history, rankings, and stats on ShieldBattery. Playing since " +
+        "View Flash's match history, rankings, and stats on HyperShield. Playing since " +
         'March 2024.',
       image: stockImageUrl('ashworld0'),
       cardType: 'summary',
@@ -101,9 +101,9 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/users/5678/SmallFoot',
       type: 'website',
-      title: 'SmallFoot · ShieldBattery',
+      title: 'SmallFoot · HyperShield',
       description:
-        "View SmallFoot's match history, rankings, and stats on ShieldBattery. Playing since " +
+        "View SmallFoot's match history, rankings, and stats on HyperShield. Playing since " +
         'January 2025.',
       image: defaultLogoUrl,
     },
@@ -114,7 +114,7 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/games/8pQ2rT',
       type: 'website',
-      title: 'PlayerOne, PlayerTwo vs PlayerThree, PlayerFour · ShieldBattery',
+      title: 'PlayerOne, PlayerTwo vs PlayerThree, PlayerFour · HyperShield',
       description: 'Ranked 2v2 game on Fighting Spirit, played July 14, 2026.',
       image: stockImageUrl('jungle0'),
     },
@@ -125,9 +125,9 @@ const PRESETS: Preset[] = [
     metadata: {
       url: 'https://shieldbattery.net/leagues/N3vKp1/shieldbattery-winter-championship',
       type: 'website',
-      title: 'ShieldBattery Winter Championship · ShieldBattery',
+      title: 'HyperShield Winter Championship · HyperShield',
       description:
-        'A 6-week Bo3 round robin for the top 32 players on the ShieldBattery ladder, ' +
+        'A 6-week Bo3 round robin for the top 32 players on the HyperShield ladder, ' +
         'culminating in a single-elimination playoff bracket.',
       image: stockImageUrl('space1'),
     },
@@ -142,6 +142,7 @@ function renderMetaTags(metadata: PageMetadata): string {
   const lines = [
     `<meta property="og:url" content="${attr(metadata.url)}">`,
     `<meta property="og:type" content="${attr(metadata.type)}">`,
+    `<meta property="og:site_name" content="HyperShield">`,
     `<meta property="og:title" content="${attr(metadata.title)}">`,
     `<meta property="og:description" content="${attr(metadata.description)}">`,
     `<meta property="og:image" content="${attr(metadata.image)}">`,
@@ -152,7 +153,6 @@ function renderMetaTags(metadata: PageMetadata): string {
   lines.push(
     `<meta name="twitter:card" content="${attr(metadata.cardType || 'summary_large_image')}">`,
     `<meta name="twitter:title" content="${attr(metadata.title)}">`,
-    `<meta name="twitter:site" content="@ShieldBatteryBW">`,
     `<meta name="twitter:description" content="${attr(metadata.description)}">`,
     `<meta name="twitter:image" content="${attr(metadata.image)}">`,
   )
@@ -259,7 +259,7 @@ const MetaPre = styled.pre`
 `
 
 // The following replicate Discord/X's own visual styles (colors, fonts, layout), not
-// ShieldBattery's — hardcoded to match those products rather than composing our design tokens.
+// HyperShield's — hardcoded to match those products rather than composing our design tokens.
 
 const DiscordContainer = styled.div`
   max-width: 432px;

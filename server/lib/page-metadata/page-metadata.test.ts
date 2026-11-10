@@ -41,9 +41,9 @@ const CONTEXT: PageMetadataContext = {
 const DEFAULT_METADATA: PageMetadata = {
   url: 'https://shieldbattery.net',
   type: 'website',
-  title: 'ShieldBattery',
+  title: 'HyperShield',
   description: 'Play StarCraft 1 on the premier community-run platform.',
-  image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+  image: 'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
 }
 
 describe('page-metadata/page-metadata', () => {
@@ -87,14 +87,14 @@ describe('page-metadata/page-metadata', () => {
 
     const result = await resolvePageMetadata('/news/abc123', CONTEXT)
 
-    expect(result).toEqual({ ...metadata, title: 'A post · ShieldBattery' })
+    expect(result).toEqual({ ...metadata, title: 'A post · HyperShield' })
   })
 
   test('leaves a title that already ends with the site name unattributed', async () => {
     const metadata: PageMetadata = {
       url: 'https://shieldbattery.net/news/abc123',
       type: 'article',
-      title: 'ShieldBattery 9.2 Release Notes ShieldBattery',
+      title: 'HyperShield 9.2 Release Notes HyperShield',
       description: 'A description',
       image: 'https://cdn.example.com/image.jpg',
     }
@@ -141,9 +141,9 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual({
       url: 'https://staging.example.com',
       type: 'website',
-      title: 'ShieldBattery',
+      title: 'HyperShield',
       description: 'Play StarCraft 1 on the premier community-run platform.',
-      image: 'https://staging.example.com/images/logo-and-text-1200x630.png',
+      image: 'https://staging.example.com/images/hypershield-logo-and-text-1200x630.png',
     })
   })
 
@@ -191,11 +191,11 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual({
       url: 'https://shieldbattery.net/download',
       type: 'website',
-      title: 'Download ShieldBattery',
+      title: 'Download HyperShield',
       description:
-        'Download ShieldBattery to play StarCraft: Brood War online with modern matchmaking, ' +
+        'Download HyperShield to play StarCraft: Brood War online with modern matchmaking, ' +
         'ladder rankings, leagues, and more.',
-      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+      image: 'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
     })
   })
 
@@ -205,9 +205,9 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual({
       url: 'https://shieldbattery.net/chat/invite/Xu0AAAAAQACAAAAAAAAAAQ',
       type: 'website',
-      title: "You've been invited to a private channel on ShieldBattery",
-      description: 'Join the conversation in a private chat channel on ShieldBattery.',
-      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+      title: "You've been invited to a private channel on HyperShield",
+      description: 'Join the conversation in a private chat channel on HyperShield.',
+      image: 'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
       noindex: true,
     })
   })
@@ -223,9 +223,9 @@ describe('page-metadata/page-metadata', () => {
     const ladder = await resolvePageMetadata('/guides/ladder', CONTEXT)
 
     expect(matchmaking.url).toBe('https://shieldbattery.net/guides/matchmaking')
-    expect(matchmaking.title).toBe('How matchmaking works in ShieldBattery')
+    expect(matchmaking.title).toBe('How matchmaking works in HyperShield')
     expect(ladder.url).toBe('https://shieldbattery.net/guides/ladder')
-    expect(ladder.title).toBe('How the ladder works in ShieldBattery')
+    expect(ladder.title).toBe('How the ladder works in HyperShield')
   })
 
   test('matches a static route registered with a trailing wildcard', async () => {
@@ -234,10 +234,9 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual({
       url: 'https://shieldbattery.net/ladder',
       type: 'website',
-      title: 'ShieldBattery Ladder · ShieldBattery',
-      description:
-        'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',
-      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+      title: 'HyperShield Ladder · HyperShield',
+      description: 'See the best StarCraft: Brood War players on the HyperShield ladder rankings.',
+      image: 'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
     })
   })
 })

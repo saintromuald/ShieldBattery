@@ -44,7 +44,7 @@ export const userPageMetadata: PageMetadataResolver = async (params, context) =>
     url: `${context.canonicalHost}/users/${user.id}/${encodeURIComponent(user.name)}`,
     type: 'website',
     title: user.name,
-    description: `View ${user.name}'s match history, rankings, and stats on ShieldBattery. Playing since ${since}.`,
+    description: `View ${user.name}'s match history, rankings, and stats on HyperShield. Playing since ${since}.`,
     image: user.avatarUrl ?? defaultPageImage(context),
     // The default logo is a 1200x630 landscape image, better suited to a large card; an avatar is
     // square, so use the small thumbnail layout instead.

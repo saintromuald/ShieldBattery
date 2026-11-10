@@ -179,7 +179,9 @@ describe('lobbies/lobby-page-meta', () => {
 
       const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
 
-      expect(result?.image).toBe('https://shieldbattery.net/images/logo-and-text-1200x630.png')
+      expect(result?.image).toBe(
+        'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
+      )
     })
   })
 })

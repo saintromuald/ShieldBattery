@@ -69,8 +69,8 @@ describe('users/user-page-meta', () => {
         type: 'website',
         title: 'tec27',
         description:
-          "View tec27's match history, rankings, and stats on ShieldBattery. Playing since July 2026.",
-        image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+          "View tec27's match history, rankings, and stats on HyperShield. Playing since July 2026.",
+        image: 'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
         cardType: undefined,
       })
     })

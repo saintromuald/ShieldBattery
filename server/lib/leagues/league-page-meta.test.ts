@@ -89,7 +89,9 @@ describe('leagues/league-page-meta', () => {
 
       const result = await leaguePageMetadata({ id: PRETTY_ID }, CONTEXT)
 
-      expect(result?.image).toBe('https://shieldbattery.net/images/logo-and-text-1200x630.png')
+      expect(result?.image).toBe(
+        'https://shieldbattery.net/images/hypershield-logo-and-text-1200x630.png',
+      )
     })
 
     test('collapses a multi-line description to a single line', async () => {
