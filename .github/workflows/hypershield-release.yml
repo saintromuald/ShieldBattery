@@ -6,7 +6,7 @@ on:
       tag:
         description: 'Release tag; its version must match package.json'
         required: true
-        default: 'hypershield-v12.3.8'
+        default: 'hypershield-v12.3.10'
       hyperionTag:
         description: 'Public Hyperion Shield release to bundle'
         required: true
