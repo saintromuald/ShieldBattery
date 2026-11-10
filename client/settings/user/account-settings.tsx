@@ -182,6 +182,8 @@ export function UserAccountSettings() {
   const { emailText, revealed, toggleRevealed } = useRevealableEmail(currentUser?.email)
   const selfUser = useSelfUser()
   const reduxEmailVerified = selfUser?.emailVerified
+  // Successful verification updates Redux immediately, while this query may still hold older data.
+  const emailVerified = reduxEmailVerified ?? currentUser?.emailVerified
 
   const snackbarController = useSnackbarController()
   const avatarFileInputRef = useRef<HTMLInputElement>(null)
@@ -191,7 +193,7 @@ export function UserAccountSettings() {
   )
 
   useEffect(() => {
-    if (currentUser && reduxEmailVerified !== currentUser.emailVerified) {
+    if (reduxEmailVerified && currentUser && !currentUser.emailVerified) {
       // Refresh the user information from gql since it's out of date from what the redux store has
       refreshQuery({ requestPolicy: 'network-only' })
     }
@@ -396,7 +398,7 @@ export function UserAccountSettings() {
               <EditableOverline>{t('settings.user.account.email', 'Email')}</EditableOverline>
 
               <EmailItemAndIcon>
-                {currentUser.emailVerified ? (
+                {emailVerified ? (
                   <Tooltip
                     text={t('settings.user.account.emailVerified', 'Verified')}
                     position='bottom'>
@@ -418,7 +420,7 @@ export function UserAccountSettings() {
               </EmailItemAndIcon>
             </EditableContent>
             <MultiButtons>
-              {!currentUser.emailVerified ? (
+              {!emailVerified ? (
                 <FilledButton
                   label={t('auth.emailVerification.verify', 'Verify')}
                   testName='verify-email-button'
