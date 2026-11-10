@@ -80,6 +80,8 @@ jobs:
           $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $($installer.Name)" | Set-Content -Path "$($installer.FullName).sha256" -Encoding ascii
           if (-not (Test-Path 'dist/latest.yml')) { throw 'The NSIS update metadata is missing.' }
+          $blockmap = Get-ChildItem dist -Filter 'HyperShield-Setup-*.exe.blockmap' | Select-Object -First 1
+          if (-not $blockmap) { throw 'The NSIS differential-update blockmap is missing.' }
 
       - name: Upload the unpublished test artifacts
         uses: actions/upload-artifact@v4
@@ -88,5 +90,6 @@ jobs:
           path: |
             dist/HyperShield-Setup-*.exe
             dist/HyperShield-Setup-*.exe.sha256
+            dist/HyperShield-Setup-*.exe.blockmap
             dist/latest.yml
           if-no-files-found: error
