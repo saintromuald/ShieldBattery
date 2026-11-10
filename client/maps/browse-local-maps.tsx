@@ -5,16 +5,14 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SbMapId } from '../../common/maps'
 import { FileBrowser } from '../file-browser/file-browser'
-import {
-  FileBrowserFileEntry,
-  FileBrowserRootFolderId,
-  FileBrowserType,
-} from '../file-browser/file-browser-types'
+import { FileBrowserFileEntry, FileBrowserType } from '../file-browser/file-browser-types'
+import { joinFilePath } from '../file-browser/file-paths'
 import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { uploadLocalMap } from './action-creators'
 import { forgetServerMapsWindows } from './browse-server-maps'
+import { buildLocalMapRootFolders } from './local-map-folders'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -27,13 +25,14 @@ const LoadingArea = styled.div`
 const ipcRenderer = new TypedIpcRenderer()
 
 async function getDocumentsMapsPath() {
-  return [await ipcRenderer.invoke('pathsGetDocumentsPath'), 'Starcraft', 'maps'].join('\\')
+  return joinFilePath(await ipcRenderer.invoke('pathsGetDocumentsPath')!, 'Starcraft', 'maps')
 }
 
 export function BrowseLocalMaps({ onMapUpload }: { onMapUpload: (mapId: SbMapId) => void }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localStarcraftPath = useAppSelector(s => s.settings.local.starcraftPath)
+  const mapLibraryFolders = useAppSelector(s => s.settings.local.mapLibraryFolders) ?? []
 
   const [documentsPath, setDocumentsPath] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
@@ -44,7 +43,7 @@ export function BrowseLocalMaps({ onMapUpload }: { onMapUpload: (mapId: SbMapId)
       .catch(swallowNonBuiltins)
   }, [])
 
-  if (!localStarcraftPath || !documentsPath) {
+  if (!documentsPath) {
     return null
   }
 
@@ -56,23 +55,21 @@ export function BrowseLocalMaps({ onMapUpload }: { onMapUpload: (mapId: SbMapId)
     )
   }
 
+  const rootFolders = buildLocalMapRootFolders({
+    starcraftPath: localStarcraftPath,
+    documentsPath,
+    mapLibraryFolders,
+    programFolderName: t('maps.local.programFolder', 'Program folder'),
+    documentsFolderName: t('maps.local.documentsFolder', 'Documents folder'),
+  })
+
   // TODO(tec27): add back button if needed (always?)
   return (
     <FileBrowser
+      key={mapLibraryFolders.join('\0')}
       browserType={FileBrowserType.Maps}
       title={t('maps.local.title', 'Local Maps')}
-      rootFolders={{
-        default: {
-          id: FileBrowserRootFolderId.Default,
-          name: t('maps.local.programFolder', 'Program folder'),
-          path: [localStarcraftPath, 'Maps'].join('\\'),
-        },
-        documents: {
-          id: FileBrowserRootFolderId.Documents,
-          name: t('maps.local.documentsFolder', 'Documents folder'),
-          path: documentsPath,
-        },
-      }}
+      rootFolders={rootFolders}
       fileEntryConfig={{
         icon: <MaterialIcon icon='map' />,
         allowedExtensions: ['scm', 'scx'],

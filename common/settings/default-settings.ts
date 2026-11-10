@@ -65,6 +65,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   launch32Bit: false,
   keepReplaysAlongsideGames: false,
   replayLibraryFolders: undefined,
+  mapLibraryFolders: undefined,
 }
 
 export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {

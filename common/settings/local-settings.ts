@@ -408,6 +408,12 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    */
   replayLibraryFolders?: ReadonlyArray<string>
 
+  /**
+   * Absolute paths of additional folders exposed as roots in the Local Maps browser. Maps stay in
+   * their original location; selecting one uploads that file to the server as usual.
+   */
+  mapLibraryFolders?: ReadonlyArray<string>
+
   // Dev-only settings. These are stripped from non-dev clients when read, so they can only ever
   // be turned on by running a dev client.
   visualizeNetworkStalls?: boolean

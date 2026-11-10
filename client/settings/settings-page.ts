@@ -9,6 +9,7 @@ export enum UserSettingsPage {
 
 export enum AppSettingsPage {
   Sound = 'AppSound',
+  Maps = 'AppMaps',
   Replays = 'AppReplays',
   System = 'AppSystem',
 }

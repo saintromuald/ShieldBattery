@@ -25,10 +25,10 @@ import {
   FileBrowserFileEntryConfig,
   FileBrowserFolderEntry,
   FileBrowserRootFolder,
-  FileBrowserRootFolderId,
   FileBrowserType,
   FileBrowserUpEntry,
 } from './file-browser-types'
+import { getFileDirectory, isPathWithin, joinFilePath } from './file-paths'
 import readFolder from './get-files'
 
 const FOCUSED_KEY = 'FocusedPath'
@@ -115,23 +115,12 @@ const EmptyText = styled.div`
   text-align: center;
 `
 
-function getDir(filePath: string) {
-  const lastSlash = filePath.lastIndexOf('\\')
-  if (lastSlash !== -1) {
-    return filePath.substring(0, lastSlash)
-  } else {
-    return ''
-  }
-}
-
 const sortByName = (a: FileBrowserEntry, b: FileBrowserEntry) => a.name.localeCompare(b.name)
 
 interface FileBrowserProps {
   browserType: FileBrowserType
-  rootFolders: {
+  rootFolders: Readonly<Record<string, FileBrowserRootFolder>> & {
     default: FileBrowserRootFolder
-  } & {
-    [key in Exclude<FileBrowserRootFolderId, 'default'>]?: FileBrowserRootFolder
   }
   title: string
   titleButton?: React.ReactElement
@@ -167,13 +156,13 @@ export function FileBrowser({
   const [initialFocusedPath, initialRootFolderId] = useMemo(
     () => [
       new JsonLocalStorageValue<string>(browserType + FOCUSED_KEY),
-      new JsonLocalStorageValue<FileBrowserRootFolderId>(browserType + ROOT_ID),
+      new JsonLocalStorageValue<string>(browserType + ROOT_ID),
     ],
     [browserType],
   )
   const [focusedPath, setFocusedPath] = useState(initialFocusedPath.getValue())
   const [rootFolder, setRootFolder] = useState(
-    rootFolders[initialRootFolderId.getValue() || 'default']!,
+    rootFolders[initialRootFolderId.getValue() || 'default'] ?? rootFolders.default,
   )
 
   // Focus *something* when file browser is opened, because if we don't, whatever was focused before
@@ -211,8 +200,8 @@ export function FileBrowser({
     }
 
     const initialPath =
-      focusedPath && focusedPath.toLowerCase().startsWith(rootFolderPath.toLowerCase())
-        ? getDir(focusedPath)
+      focusedPath && isPathWithin(rootFolderPath, focusedPath)
+        ? getFileDirectory(focusedPath)
         : rootFolderPath
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time initialization of the browser path
@@ -253,7 +242,7 @@ export function FileBrowser({
             upOneDir = {
               type: FileBrowserEntryType.Up,
               name: t('fileBrowser.upOneDirectory', 'Up one directory'),
-              path: `${fileBrowserPath}\\..`,
+              path: joinFilePath(fileBrowserPath, '..'),
             }
           }
 
@@ -292,17 +281,17 @@ export function FileBrowser({
     initialRootFolderId.setValue(rootFolder.id)
   }, [initialRootFolderId, rootFolder.id])
 
-  const onRootFolderChange = useStableCallback((rootId: FileBrowserRootFolderId) => {
-    const rootFolder = rootFolders[rootId]!
+  const onRootFolderChange = useStableCallback((rootId: string) => {
+    const rootFolder = rootFolders[rootId] ?? rootFolders.default
     setRootFolder(rootFolder)
-    setFileBrowserPath(path =>
-      path.toLowerCase().startsWith(rootFolder.path.toLowerCase()) ? path : rootFolder.path,
-    )
+    setFileBrowserPath(path => (isPathWithin(rootFolder.path, path) ? path : rootFolder.path))
   })
 
   const onBreadcrumbNavigate = useStableCallback((path: string) => {
     const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
-    setFileBrowserPath(pathWithoutRoot ? rootFolder.path + '\\' + pathWithoutRoot : rootFolder.path)
+    setFileBrowserPath(
+      pathWithoutRoot ? joinFilePath(rootFolder.path, pathWithoutRoot) : rootFolder.path,
+    )
   })
 
   const onUpLevelClick = useStableCallback(() => {
@@ -310,7 +299,7 @@ export function FileBrowser({
       return
     }
 
-    const prevPath = getDir(fileBrowserPath)
+    const prevPath = getFileDirectory(fileBrowserPath)
     setFileBrowserPath(prevPath)
   })
 
@@ -369,7 +358,7 @@ export function FileBrowser({
 
       switch (event.code) {
         case ENTER || ENTER_NUMPAD: {
-          if (focusedPath === `${fileBrowserPath}\\..`) {
+          if (focusedPath === joinFilePath(fileBrowserPath, '..')) {
             onUpLevelClick()
             return true
           }

@@ -3,7 +3,7 @@
   "productName": "HyperShield",
   "productFilename": "HyperShield",
   "private": true,
-  "version": "12.3.8",
+  "version": "12.3.9",
   "description": "The standalone client for HyperShield",
   "main": "dist/index.js",
   "license": "MIT",

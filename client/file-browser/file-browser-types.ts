@@ -39,7 +39,8 @@ export enum FileBrowserRootFolderId {
 }
 
 export interface FileBrowserRootFolder {
-  id: FileBrowserRootFolderId
+  /** Built-in roots use {@link FileBrowserRootFolderId}; custom roots use unique string IDs. */
+  id: string
   name: string
   path: string
 }

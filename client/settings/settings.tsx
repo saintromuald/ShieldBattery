@@ -14,6 +14,7 @@ import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { starcraftHealthy } from '../starcraft/health-state'
 import { closeSettings, SETTINGS_PAGE_KEY, useIsSettingsOpen } from './action-creators'
+import { AppMapSettings } from './app/map-settings'
 import { AppReplaySettings } from './app/replay-settings'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
@@ -165,9 +166,12 @@ function Settings({
             <NavSectionSeparator />
 
             <NavSectionTitle>{t('settings.app.title', 'App')}</NavSectionTitle>
-            {[AppSettingsPage.Sound, AppSettingsPage.Replays, AppSettingsPage.System].map(
-              getNavEntriesMapper(),
-            )}
+            {[
+              AppSettingsPage.Sound,
+              AppSettingsPage.Maps,
+              AppSettingsPage.Replays,
+              AppSettingsPage.System,
+            ].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
@@ -252,6 +256,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
     switch (page) {
       case AppSettingsPage.Sound:
         return <AppSoundSettings />
+      case AppSettingsPage.Maps:
+        return <AppMapSettings />
       case AppSettingsPage.Replays:
         return <AppReplaySettings />
       case AppSettingsPage.System:
@@ -301,6 +307,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case AppSettingsPage.Sound:
       title = t('settings.app.sound.title', 'Sound')
+      break
+    case AppSettingsPage.Maps:
+      title = t('settings.app.maps.title', 'Maps')
       break
     case AppSettingsPage.Replays:
       title = t('settings.app.replays.title', 'Replays')

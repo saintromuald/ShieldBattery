@@ -2806,6 +2806,14 @@
       "title": "Settings (Alt + S)"
     },
     "app": {
+      "maps": {
+        "addFolder": "Add folder",
+        "addFolderTitle": "Select a map folder",
+        "foldersDescription": "Folders linked into the Local Maps browser. Add a Hyperion ladder or ASL folder to use its maps in place without copying them. Selecting a map uploads it to HyperShield.",
+        "foldersTitle": "Map folders",
+        "removeFolder": "Remove folder",
+        "title": "Maps"
+      },
       "replays": {
         "addFolder": "Add folder",
         "addFolderTitle": "Select a replay folder",
