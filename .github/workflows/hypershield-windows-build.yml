@@ -36,7 +36,7 @@ jobs:
       - name: Install the native Rust toolchain
         shell: pwsh
         run: |
-          rustup toolchain install 1.95 --profile minimal
+          rustup toolchain install 1.95 --profile minimal --target x86_64-pc-windows-msvc --target i686-pc-windows-msvc
           rustup default 1.95
 
       - name: Install dependencies
