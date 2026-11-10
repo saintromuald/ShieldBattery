@@ -1,0 +1,95 @@
+name: HyperShield Windows build
+
+on:
+  workflow_dispatch:
+    inputs:
+      hyperionTag:
+        description: 'Public Hyperion Shield release to bundle'
+        required: true
+        default: 'v0.7.1-remastered'
+      serverUrl:
+        description: 'HyperShield server URL embedded in this client build'
+        required: true
+        default: 'https://play.angelicgaming.gg'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HYPERION_TAG: ${{ inputs.hyperionTag }}
+      SB_SERVER: ${{ inputs.serverUrl }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install the native Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.95 --profile minimal
+          rustup default 1.95
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install app dependencies
+        working-directory: ./app
+        run: pnpm install --frozen-lockfile
+
+      - name: Download the public Windows Hyperion Shield package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packageDir = Join-Path $env:RUNNER_TEMP 'hyperion-package'
+          New-Item -ItemType Directory -Force -Path $packageDir, 'hyperion' | Out-Null
+          gh release download "$env:HYPERION_TAG" --repo saintromuald/hyperion-public --pattern 'Hyperion-Shield-*-windows-x64.zip' --dir $packageDir
+          if ($LASTEXITCODE -ne 0) { throw 'Hyperion package download failed.' }
+          $archive = Get-ChildItem $packageDir -Filter 'Hyperion-Shield-*-windows-x64.zip' | Select-Object -First 1
+          if (-not $archive) { throw 'The Hyperion release has no public Windows x64 Shield package.' }
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath 'hyperion' -Force
+          if (-not (Test-Path 'hyperion/Hyperion.exe')) { throw 'Hyperion.exe is missing.' }
+          if (-not (Test-Path 'hyperion/SDL3.dll')) { throw 'SDL3.dll is missing.' }
+          if (-not (Test-Path 'hyperion/release.json')) { throw 'release.json is missing.' }
+          if (Test-Path 'hyperion/Game') { throw 'StarCraft game files must not be bundled.' }
+
+      - name: Check the Windows integration
+        run: pnpm vitest run app/startup.test.ts app/game/hyperion app/releases
+
+      - name: Build HyperShield and its native game integration
+        run: pnpm run build:hypershield:release
+
+      - name: Package the unsigned test installer
+        run: pnpm exec electron-builder build --win --x64 -c hypershield-win.yml
+
+      - name: Check the test artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem dist -Filter 'HyperShield-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'The NSIS installer is missing.' }
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -Path "$($installer.FullName).sha256" -Encoding ascii
+          if (-not (Test-Path 'dist/latest.yml')) { throw 'The NSIS update metadata is missing.' }
+          $blockmap = Get-ChildItem dist -Filter 'HyperShield-Setup-*.exe.blockmap' | Select-Object -First 1
+          if (-not $blockmap) { throw 'The NSIS differential-update blockmap is missing.' }
+
+      - name: Upload the unpublished test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hypershield-windows-x64
+          path: |
+            dist/HyperShield-Setup-*.exe
+            dist/HyperShield-Setup-*.exe.sha256
+            dist/HyperShield-Setup-*.exe.blockmap
+            dist/latest.yml
+          if-no-files-found: error
