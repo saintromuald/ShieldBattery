@@ -2,12 +2,15 @@ import * as React from 'react'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
+import { MapVisibility } from '../../common/maps'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { getExtension } from '../maps/upload'
 import { FilledButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
+import { SelectOption } from '../material/select/option'
+import { Select } from '../material/select/select'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState } from '../react/state-hooks'
@@ -40,6 +43,7 @@ enum UploadStatus {
 
 interface UploadMapsModel {
   maps: File[]
+  visibility: MapVisibility
 }
 
 function UploadMaps() {
@@ -55,6 +59,7 @@ function UploadMaps() {
   } = useForm<UploadMapsModel>(
     {
       maps: [],
+      visibility: MapVisibility.Unofficial,
     },
     {},
   )
@@ -66,6 +71,7 @@ function UploadMaps() {
       for (const map of model.maps) {
         const formData = new FormData()
         formData.append('extension', getExtension(map.name))
+        formData.append('visibility', model.visibility)
         formData.append('file', map)
 
         const fetchParams = {
@@ -102,6 +108,11 @@ function UploadMaps() {
       <SectionTitle>Select maps to upload</SectionTitle>
 
       <form noValidate={true} onSubmit={onSubmit}>
+        <Select {...bindCustom('visibility')} label='Destination' tabIndex={0}>
+          <SelectOption text='Official' value={MapVisibility.Official} />
+          <SelectOption text='Unofficial' value={MapVisibility.Unofficial} />
+          <SelectOption text='Community' value={MapVisibility.Public} />
+        </Select>
         <MultiFileInput {...bindCustom('maps')} inputProps={{ accept: '.scm,.scx' }} />
       </form>
 

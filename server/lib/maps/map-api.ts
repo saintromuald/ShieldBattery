@@ -122,6 +122,12 @@ type ServerGetFavoritedMapsQueryParams = SetRequired<
   'sort' | 'numPlayers' | 'tilesets'
 >
 
+const MANAGE_MAPS_UPLOAD_VISIBILITIES: ReadonlyArray<MapVisibility> = [
+  MapVisibility.Official,
+  MapVisibility.Unofficial,
+  MapVisibility.Public,
+]
+
 @httpApi('/maps')
 export class MapsApi {
   @httpGet('/')
@@ -186,9 +192,15 @@ export class MapsApi {
   @httpBefore(ensureLoggedIn, throttleMiddleware(mapsListThrottle, throttleByUser))
   async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
     const {
-      query: { sort, numPlayers, tilesets, q: searchQuery },
+      query: { visibility, uploadedBy, sort, numPlayers, tilesets, q: searchQuery },
     } = validateRequest(ctx, {
       query: Joi.object<ServerGetFavoritedMapsQueryParams>({
+        visibility: Joi.string()
+          // TODO(2Pac): Remove once app versions that still request `PRIVATE` have aged out.
+          // That value was renamed to `UNLISTED` and has the same meaning.
+          .replace(/^PRIVATE$/, MapVisibility.Unlisted)
+          .valid(...ALL_MAP_VISIBILITIES),
+        uploadedBy: Joi.number().integer().min(1),
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .default(MapSortType.Name),
@@ -205,7 +217,17 @@ export class MapsApi {
     })
 
     const favoritedBy = ctx.session!.user.id
+    if (
+      visibility === MapVisibility.Unlisted &&
+      uploadedBy !== undefined &&
+      uploadedBy !== favoritedBy
+    ) {
+      throw new httpErrors.BadRequest('Unlisted favorites can only be filtered to the current user')
+    }
+
     const mapResult = await getFavoritedMaps({
+      visibility,
+      uploadedBy: visibility === MapVisibility.Unlisted ? favoritedBy : uploadedBy,
       sort,
       numPlayers,
       tilesets,
@@ -260,18 +282,22 @@ export class MapsApi {
     checkAllPermissions('manageMaps'),
     handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
-  async uploadOfficial(ctx: RouterContext): Promise<UploadMapResponse> {
+  async uploadManaged(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
       throw new httpErrors.BadRequest('A single map file must be provided')
     }
 
     const { filepath } = ctx.request.files!.file
-    const { extension } = (ctx.request.body ?? { extension: undefined }) as JsonObject
+    const { extension, visibility } = (ctx.request.body ?? {}) as JsonObject
+    const uploadVisibility =
+      typeof visibility === 'string' ? (visibility as MapVisibility) : undefined
 
     if (!filepath) {
       throw new httpErrors.BadRequest('map file must be specified')
     } else if (!extension || typeof extension !== 'string') {
       throw new httpErrors.BadRequest('extension must be specified')
+    } else if (!uploadVisibility || !MANAGE_MAPS_UPLOAD_VISIBILITIES.includes(uploadVisibility)) {
+      throw new httpErrors.BadRequest('visibility must be OFFICIAL, UNOFFICIAL, or PUBLIC')
     }
 
     const lowerCaseExtension = extension.toLowerCase() as MapExtension
@@ -280,7 +306,7 @@ export class MapsApi {
     }
 
     const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Official),
+      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, uploadVisibility),
       findUserById(ctx.session!.user.id),
     ])
     return {
@@ -348,7 +374,9 @@ export class MapsApi {
     // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
     // public
     if (
-      [MapVisibility.Official, MapVisibility.Public].includes(map.visibility) &&
+      [MapVisibility.Official, MapVisibility.Unofficial, MapVisibility.Public].includes(
+        map.visibility,
+      ) &&
       !ctx.session!.permissions!.manageMaps
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
@@ -380,7 +408,9 @@ export class MapsApi {
     // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
     // public
     if (
-      (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) &&
+      [MapVisibility.Official, MapVisibility.Unofficial, MapVisibility.Public].includes(
+        map.visibility,
+      ) &&
       !ctx.session!.permissions!.manageMaps
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')

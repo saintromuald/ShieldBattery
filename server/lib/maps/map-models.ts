@@ -486,18 +486,30 @@ export async function getMaps({
  */
 export async function getFavoritedMaps({
   favoritedBy,
+  visibility,
+  uploadedBy,
   sort,
   numPlayers,
   tilesets,
   searchStr,
 }: {
   favoritedBy: SbUserId
+  visibility?: MapVisibility
+  uploadedBy?: SbUserId
   sort: MapSortType
   numPlayers: NumPlayers[]
   tilesets: Tileset[]
   searchStr?: string
 }): Promise<MapInfo[]> {
   const conditions = [sql`WHERE favorited_by = ${favoritedBy}`]
+  if (visibility) {
+    // Filtered favorite lists mirror the corresponding map listing, which only contains active
+    // maps. Unfiltered queries retain removed maps for compatibility with existing clients.
+    conditions.push(sql`um.visibility = ${visibility}`, sql`um.removed_at IS NULL`)
+  }
+  if (uploadedBy !== undefined) {
+    conditions.push(sql`um.uploaded_by = ${uploadedBy}`)
+  }
 
   const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
   const orderByStatement = getOrderByStatement(sort)

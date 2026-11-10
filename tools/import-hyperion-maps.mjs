@@ -5,18 +5,38 @@ import { createReadStream } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import {
+  classifyMapHash,
+  MapImportVisibility,
+  orderedOfficialHashes,
+} from './import-hyperion-maps-helpers.mjs'
 
 const serverRoot = process.env.SB_SERVER_ROOT ?? process.cwd()
 const require = createRequire(path.join(serverRoot, 'package.json'))
 const MAP_EXTENSIONS = new Set(['.scm', '.scx'])
+const MANAGED_VISIBILITIES = Object.values(MapImportVisibility)
 
 function usage() {
   console.error(
     `Usage: node tools/import-hyperion-maps.mjs --manifest <manifest.json> [--apply] [--import-only]\n\n` +
-      `The manifest contains sourceRoots, ladderFiles, and matchmakingTypes arrays. ` +
-      `Without --apply, only the inventory and ranked selection are printed. ` +
-      `Use --import-only with --apply to leave all map pools unchanged.`,
+      `The manifest contains sourceRoots, battleNetFiles, aslFiles, optional communityFiles, and ` +
+      `matchmakingTypes arrays. Official maps are the ordered, content-deduplicated union of ` +
+      `battleNetFiles and aslFiles. Other imported maps are UNOFFICIAL unless their content is ` +
+      `listed in communityFiles, which makes them PUBLIC. Existing active rows owned by the ` +
+      `selected importer are reclassified in place by the same rules. Without --apply, only the ` +
+      `inventory and classification are printed. Use --import-only with --apply to leave all map ` +
+      `pools unchanged; matchmakingTypes may then be omitted.`,
   )
+}
+
+function manifestPaths(manifest, name, optional = false) {
+  if (optional && manifest[name] === undefined) {
+    return []
+  }
+  if (!Array.isArray(manifest[name])) {
+    throw new Error(`The manifest must specify ${name} as an array`)
+  }
+  return manifest[name].map(file => path.resolve(file))
 }
 
 async function main() {
@@ -32,11 +52,20 @@ async function main() {
 
   const manifestPath = path.resolve(args[manifestFlag + 1])
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-  const sourceRoots = manifest.sourceRoots.map(root => path.resolve(root))
-  const ladderFiles = manifest.ladderFiles.map(file => path.resolve(file))
-  const matchmakingTypes = manifest.matchmakingTypes
-  if (!sourceRoots.length || !ladderFiles.length || !matchmakingTypes?.length) {
-    throw new Error('The manifest must specify sourceRoots, ladderFiles, and matchmakingTypes')
+  if (manifest.ladderFiles !== undefined) {
+    throw new Error('Replace ladderFiles with explicit battleNetFiles and aslFiles arrays')
+  }
+
+  const sourceRoots = manifestPaths(manifest, 'sourceRoots').map(root => path.resolve(root))
+  const battleNetFiles = manifestPaths(manifest, 'battleNetFiles')
+  const aslFiles = manifestPaths(manifest, 'aslFiles')
+  const communityFiles = manifestPaths(manifest, 'communityFiles', true)
+  const matchmakingTypes = manifest.matchmakingTypes ?? []
+  if (!sourceRoots.length || (!battleNetFiles.length && !aslFiles.length)) {
+    throw new Error('The manifest must specify sourceRoots and at least one official map file')
+  }
+  if (!Array.isArray(matchmakingTypes) || (!importOnly && !matchmakingTypes.length)) {
+    throw new Error('The manifest must specify matchmakingTypes unless --import-only is used')
   }
 
   async function collectMapFiles(root) {
@@ -58,12 +87,15 @@ async function main() {
 
   const sourceFiles = (await Promise.all(sourceRoots.map(collectMapFiles))).flat()
   const uniqueSourceFiles = [...new Set(sourceFiles)]
-  const filesToHash = [...new Set([...uniqueSourceFiles, ...ladderFiles])]
+  const sourceFileSet = new Set(uniqueSourceFiles)
+  const filesToHash = [
+    ...new Set([...uniqueSourceFiles, ...battleNetFiles, ...aslFiles, ...communityFiles]),
+  ]
 
   async function hashMap(filePath) {
     const extension = path.extname(filePath).slice(1).toLowerCase()
     if (!MAP_EXTENSIONS.has(`.${extension}`)) {
-      throw new Error(`Unsupported ranked map format: ${filePath}`)
+      throw new Error(`Unsupported official or community map format: ${filePath}`)
     }
     const hash = createHash('sha256')
     hash.update(extension)
@@ -80,7 +112,7 @@ async function main() {
   }
 
   const byContent = new Map()
-  for (const filePath of uniqueSourceFiles) {
+  for (const filePath of filesToHash) {
     const identity = hashes.get(filePath)
     const existing = byContent.get(identity.hash)
     if (existing) {
@@ -90,26 +122,40 @@ async function main() {
     }
   }
 
-  const ladderHashes = []
-  const seenLadderHashes = new Set()
-  for (const filePath of ladderFiles) {
-    const { hash } = hashes.get(filePath)
-    if (!seenLadderHashes.has(hash)) {
-      seenLadderHashes.add(hash)
-      ladderHashes.push(hash)
-    }
+  const battleNetHashes = battleNetFiles.map(filePath => hashes.get(filePath).hash)
+  const aslHashes = aslFiles.map(filePath => hashes.get(filePath).hash)
+  const officialHashes = orderedOfficialHashes(battleNetHashes, aslHashes)
+  const officialHashSet = new Set(officialHashes)
+  const communityHashSet = new Set(communityFiles.map(filePath => hashes.get(filePath).hash))
+
+  console.log(`Source-root map files found: ${uniqueSourceFiles.length}`)
+  console.log(
+    `Explicit map files outside source roots: ${filesToHash.filter(file => !sourceFileSet.has(file)).length}`,
+  )
+  console.log(`Unique map contents to reconcile: ${byContent.size}`)
+  console.log(`Duplicate copies skipped: ${filesToHash.length - byContent.size}`)
+  console.log(`Official maps after ordered content deduplication: ${officialHashes.length}`)
+  console.log(`Explicit community map contents: ${communityHashSet.size}`)
+  for (const filePath of battleNetFiles) {
+    console.log(`  Battle.net: ${filePath} [${hashes.get(filePath).hash}]`)
+  }
+  for (const filePath of aslFiles) {
+    console.log(`  ASL: ${filePath} [${hashes.get(filePath).hash}]`)
+  }
+  for (const filePath of communityFiles) {
+    console.log(`  Community: ${filePath} [${hashes.get(filePath).hash}]`)
   }
 
-  console.log(`Standard map files found: ${uniqueSourceFiles.length}`)
-  console.log(`Unique map contents: ${byContent.size}`)
-  console.log(`Duplicate copies skipped: ${uniqueSourceFiles.length - byContent.size}`)
-  console.log(`Ranked maps after content deduplication: ${ladderHashes.length}`)
-  for (const filePath of ladderFiles) {
-    console.log(`  ranked: ${filePath}`)
+  const plannedVisibilities = new Map()
+  for (const [hash, entry] of byContent) {
+    const visibility = classifyMapHash(hash, officialHashSet, communityHashSet)
+    plannedVisibilities.set(hash, visibility)
+    const aliases = entry.paths.length > 1 ? ` (+ ${entry.paths.length - 1} copies)` : ''
+    console.log(`  ${visibility}: ${entry.paths[0]} [${hash}]${aliases}`)
   }
 
   if (!apply) {
-    console.log('Dry run only. Pass --apply to import maps and create the ranked pools.')
+    console.log('Dry run only. Pass --apply to import and reclassify maps.')
     return
   }
 
@@ -120,7 +166,6 @@ async function main() {
   const { default: LocalFileStore } = require('./server-dist/server/lib/files/local-filesystem.js')
   const { setStore } = require('./server-dist/server/lib/files/index.js')
   const { storeMap } = require('./server-dist/server/lib/maps/store.js')
-  const { MapVisibility } = require('./server-dist/common/maps.js')
   const {
     addMapPool,
   } = require('./server-dist/server/lib/matchmaking/matchmaking-map-pools-models.js')
@@ -149,39 +194,126 @@ async function main() {
     }
     const uploadedBy = adminResult.rows[0].user_id
 
+    // UNLISTED rows are deliberately absent: ordinary user uploads are never importer state.
     const existingResult = await client.query(
-      `SELECT m.hash, um.id FROM maps m
-       INNER JOIN uploaded_maps um ON um.map_hash = m.hash
-       WHERE um.visibility = $1 AND um.removed_at IS NULL`,
-      [MapVisibility.Official],
+      `SELECT um.id, um.map_hash AS hash, um.visibility, um.removed_at
+       FROM uploaded_maps um
+       WHERE um.uploaded_by = $1 AND um.visibility = ANY($2::map_visibility[])
+       ORDER BY um.map_hash, um.id`,
+      [uploadedBy, MANAGED_VISIBILITIES],
     )
-    const mapIds = new Map()
-    for (const row of existingResult.rows) {
-      if (!mapIds.has(row.hash.toString('hex'))) {
-        mapIds.set(row.hash.toString('hex'), row.id)
+    const existingRows = existingResult.rows.map(row => ({
+      ...row,
+      hash: row.hash.toString('hex'),
+    }))
+    const activeRows = existingRows.filter(row => row.removed_at === null)
+    const activeByHash = new Map()
+    for (const row of activeRows) {
+      const rows = activeByHash.get(row.hash) ?? []
+      rows.push(row)
+      activeByHash.set(row.hash, rows)
+    }
+    const duplicateHashes = [...activeByHash.entries()].filter(([, rows]) => rows.length > 1)
+    if (duplicateHashes.length) {
+      const details = duplicateHashes
+        .map(
+          ([hash, rows]) =>
+            `${hash}: ${rows.map(row => `${row.id} (${row.visibility})`).join(', ')}`,
+        )
+        .join('\n')
+      throw new Error(
+        `Unexpected duplicate active map rows for importer ${uploadedBy}; aborting without writes:\n${details}`,
+      )
+    }
+
+    const rowByHashAndVisibility = new Map()
+    for (const row of existingRows) {
+      rowByHashAndVisibility.set(`${row.hash}:${row.visibility}`, row)
+    }
+
+    // Preflight every update before the first write. A removed row in the destination category
+    // participates in the table's uniqueness constraint and must not be revived or overwritten.
+    for (const row of activeRows) {
+      const visibility = classifyMapHash(row.hash, officialHashSet, communityHashSet)
+      if (visibility === row.visibility) {
+        continue
+      }
+      const conflictingRow = rowByHashAndVisibility.get(`${row.hash}:${visibility}`)
+      if (conflictingRow && conflictingRow.id !== row.id) {
+        throw new Error(
+          `Cannot reclassify ${row.id} (${row.hash}) to ${visibility}: row ${conflictingRow.id} ` +
+            `already occupies that category${conflictingRow.removed_at === null ? '' : ' and is removed'}. ` +
+            `Aborting without writes rather than modifying another row.`,
+        )
       }
     }
-    console.log(`Official maps already present: ${mapIds.size}`)
+
+    const mapIds = new Map()
+    let reclassifiedCount = 0
+    let unchangedCount = 0
+    for (const row of activeRows) {
+      const visibility = classifyMapHash(row.hash, officialHashSet, communityHashSet)
+      if (visibility !== row.visibility) {
+        const updateResult = await client.query(
+          `UPDATE uploaded_maps
+           SET visibility = $1
+           WHERE id = $2 AND uploaded_by = $3 AND removed_at IS NULL AND visibility = $4
+           RETURNING id`,
+          [visibility, row.id, uploadedBy, row.visibility],
+        )
+        if (updateResult.rowCount !== 1) {
+          throw new Error(
+            `Map ${row.id} changed during import; aborting rather than overwriting it`,
+          )
+        }
+        reclassifiedCount += 1
+        console.log(`Reclassified ${row.id}: ${row.visibility} -> ${visibility} [${row.hash}]`)
+      } else {
+        unchangedCount += 1
+      }
+      mapIds.set(row.hash, row.id)
+    }
+    console.log(
+      `Existing importer rows: ${reclassifiedCount} reclassified in place, ${unchangedCount} already categorized`,
+    )
 
     let index = 0
+    let skippedRemovedCount = 0
     for (const [hash, entry] of byContent) {
       index += 1
+      const visibility = plannedVisibilities.get(hash)
       if (mapIds.has(hash)) {
-        console.log(`[${index}/${byContent.size}] already imported: ${entry.paths[0]}`)
+        console.log(
+          `[${index}/${byContent.size}] already active as ${visibility}: ${entry.paths[0]}`,
+        )
+        continue
+      }
+
+      const removedTarget = rowByHashAndVisibility.get(`${hash}:${visibility}`)
+      if (removedTarget) {
+        skippedRemovedCount += 1
+        console.log(
+          `[${index}/${byContent.size}] skipped removed ${visibility} row ${removedTarget.id}: ${entry.paths[0]}`,
+        )
         continue
       }
 
       const sourcePath = entry.paths[0]
       try {
-        const map = await storeMap(sourcePath, entry.extension, uploadedBy, MapVisibility.Official)
+        const map = await storeMap(sourcePath, entry.extension, uploadedBy, visibility)
         mapIds.set(hash, map.id)
-        console.log(`[${index}/${byContent.size}] imported ${map.name}: ${sourcePath}`)
+        console.log(
+          `[${index}/${byContent.size}] imported ${map.name} as ${visibility}: ${sourcePath}`,
+        )
       } catch (error) {
         failures.push({ path: sourcePath, error: error?.message ?? String(error) })
         console.error(
           `[${index}/${byContent.size}] FAILED ${sourcePath}: ${error?.message ?? error}`,
         )
       }
+    }
+    if (skippedRemovedCount) {
+      console.log(`Removed map rows left untouched: ${skippedRemovedCount}`)
     }
 
     if (importOnly) {
@@ -195,14 +327,15 @@ async function main() {
       return
     }
 
-    const missingRankedMaps = ladderHashes.filter(hash => !mapIds.has(hash))
-    if (missingRankedMaps.length) {
+    const missingOfficialMaps = officialHashes.filter(hash => !mapIds.has(hash))
+    if (missingOfficialMaps.length) {
       throw new Error(
-        `${missingRankedMaps.length} ranked maps could not be imported; no map pools were changed`,
+        `${missingOfficialMaps.length} official maps could not be imported; no map pools were changed. ` +
+          `Missing hashes: ${missingOfficialMaps.join(', ')}`,
       )
     }
 
-    const rankedMapIds = ladderHashes.map(hash => mapIds.get(hash))
+    const officialMapIds = officialHashes.map(hash => mapIds.get(hash))
     const startDate = new Date(Date.now() + 15_000)
     for (const matchmakingType of matchmakingTypes) {
       const previousPool = await client.query(
@@ -214,12 +347,12 @@ async function main() {
       const maxVetoCount = previousPool.rows[0]?.max_veto_count ?? 3
       const pool = await addMapPool({
         matchmakingType,
-        maps: rankedMapIds,
+        maps: officialMapIds,
         maxVetoCount,
         startDate,
       })
       console.log(
-        `Created ${matchmakingType} map pool ${pool.id} with ${rankedMapIds.length} maps ` +
+        `Created ${matchmakingType} map pool ${pool.id} with ${officialMapIds.length} maps ` +
           `(max vetoes: ${maxVetoCount}, starts: ${startDate.toISOString()})`,
       )
     }
@@ -231,7 +364,7 @@ async function main() {
       }
       process.exitCode = 1
     } else {
-      console.log(`Imported every unique standard map successfully.`)
+      console.log(`Imported and classified every unique map successfully.`)
     }
   } finally {
     await client.end()

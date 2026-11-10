@@ -139,9 +139,15 @@ export function getFavorites(
   spec: RequestHandlingSpec<GetFavoritesResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const { sort, numPlayers, tilesets, q } = params
+    const { visibility, uploadedBy, sort, numPlayers, tilesets, q } = params
 
     const queryParams = new URLSearchParams()
+    if (visibility) {
+      queryParams.set('visibility', visibility)
+    }
+    if (uploadedBy !== undefined) {
+      queryParams.set('uploadedBy', uploadedBy.toString())
+    }
     if (sort !== undefined) {
       queryParams.set('sort', sort.toString())
     }

@@ -118,6 +118,7 @@ const ScrollDivider = styled.div<{ $position: 'top' | 'bottom' }>`
 
 enum MapTab {
   OfficialMaps = 'Official',
+  UnofficialMaps = 'Unofficial',
   MyMaps = 'MyMaps',
   CommunityMaps = 'Community',
 }
@@ -126,6 +127,8 @@ function tabToVisibility(tab: MapTab): MapVisibility {
   switch (tab) {
     case MapTab.OfficialMaps:
       return MapVisibility.Official
+    case MapTab.UnofficialMaps:
+      return MapVisibility.Unofficial
     case MapTab.MyMaps:
       return MapVisibility.Unlisted
     case MapTab.CommunityMaps:
@@ -298,10 +301,7 @@ export function BrowseServerMaps({
   //
   // Even though the first approach is more declarative in nature and the second approach more
   // imperative, I went with the second approach for now because it seems more straightforward.
-  const reset = ({
-    query,
-    clearFavorites = true,
-  }: { query?: string; clearFavorites?: boolean } = {}) => {
+  const reset = ({ query }: { query?: string } = {}) => {
     // Just need to clear the search results here and let the infinite scroll list initiate the
     // network request.
     setSearchQuery(query ?? '')
@@ -311,11 +311,7 @@ export function BrowseServerMaps({
     setGetMapsError(undefined)
     setGetFavoritedMapsError(undefined)
     setMapIds(undefined)
-    // Since favorited maps are shared across tabs, we don't need to clear them when switching tabs,
-    // but we do need to clear them when the user changes the search query or other filters.
-    if (clearFavorites) {
-      setFavoritedMapIds([])
-    }
+    setFavoritedMapIds([])
     setHasMoreMaps(true)
     triggerRefresh()
   }
@@ -343,6 +339,8 @@ export function BrowseServerMaps({
     dispatch(
       getFavoritedMaps(
         {
+          visibility: tabToVisibility(activeTab),
+          uploadedBy: activeTab === MapTab.MyMaps ? selfUser.id : undefined,
           sort: sortOption,
           numPlayers: numPlayersFilter,
           tilesets: tilesetFilter,
@@ -359,7 +357,7 @@ export function BrowseServerMaps({
         },
       ),
     )
-  }, [selfUser, dispatch, sortOption, numPlayersFilter, tilesetFilter, searchQuery])
+  }, [selfUser, dispatch, activeTab, sortOption, numPlayersFilter, tilesetFilter, searchQuery])
 
   const onLoadMoreMaps = () => {
     setIsLoadingMoreMaps(true)
@@ -450,6 +448,8 @@ export function BrowseServerMaps({
       noMapsText = t('maps.server.noResults', 'No results.')
     } else if (activeTab === MapTab.OfficialMaps) {
       noMapsText = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
+    } else if (activeTab === MapTab.UnofficialMaps) {
+      noMapsText = t('maps.server.noUnofficialMaps', 'No unofficial maps have been uploaded yet.')
     } else if (activeTab === MapTab.MyMaps) {
       if (IS_ELECTRON) {
         noMapsText = t(
@@ -481,9 +481,13 @@ export function BrowseServerMaps({
           activeTab={activeTab}
           onChange={(value: MapTab) => {
             setActiveTab(value)
-            reset({ clearFavorites: false })
+            reset()
           }}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
+          <TabItem
+            text={t('maps.server.tab.unofficial', 'Unofficial')}
+            value={MapTab.UnofficialMaps}
+          />
           {selfUser ? (
             <TabItem text={t('maps.server.tab.myMaps', 'My maps')} value={MapTab.MyMaps} />
           ) : undefined}

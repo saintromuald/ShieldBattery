@@ -112,10 +112,18 @@ export interface UrgentMessage {
 export enum MapVisibility {
   /** Listed only for its uploader, the only user who can edit or remove it. */
   Unlisted = 'UNLISTED',
-  /** Listed for everyone in the community maps. */
+  /** Listed for everyone in the community maps, for public and custom maps. */
   Public = 'PUBLIC',
-  /** Listed for everyone in the official maps. */
+  /**
+   * Listed for everyone in the official maps. Reserved for current Battle.net ladder and
+   * current ASL maps.
+   */
   Official = 'OFFICIAL',
+  /**
+   * Listed for everyone in the unofficial maps, for imported maps outside the current
+   * Battle.net ladder and ASL selections.
+   */
+  Unofficial = 'UNOFFICIAL',
 }
 
 /**

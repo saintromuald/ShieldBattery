@@ -333,7 +333,9 @@ export interface GetMapsQueryParams {
   offset?: number
 }
 
-export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
+export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'offset'> & {
+  uploadedBy?: SbUserId
+}
 
 export interface UploadMapResponse {
   map: MapInfoJson
