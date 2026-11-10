@@ -3,6 +3,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { dispatch } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
 import { shieldBatteryHealthy, starcraftHealthy } from './health-state'
+import { isScrBackendSupported } from './scr-backend'
 
 export interface HealthCheckOptions {
   /** Whether this action can launch the SC:R/DLL backend. */
@@ -19,7 +20,9 @@ export function healthChecked<T extends unknown[]>(
 ): (...args: T) => void {
   return (...args: T) => {
     const requiresScrBackend = options.requiresScrBackend?.() ?? true
-    if (requiresScrBackend && !jotaiStore.get(starcraftHealthy)) {
+    if (requiresScrBackend && !isScrBackendSupported()) {
+      dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
+    } else if (requiresScrBackend && !jotaiStore.get(starcraftHealthy)) {
       dispatch(openDialog({ type: DialogType.StarcraftHealth }))
     } else if (requiresScrBackend && !jotaiStore.get(shieldBatteryHealthy)) {
       dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))

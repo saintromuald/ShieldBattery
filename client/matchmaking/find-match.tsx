@@ -40,6 +40,7 @@ import { push } from '../navigation/routing'
 import { useCurrentMinuteMs, useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
+import { isScrBackendSupported } from '../starcraft/scr-backend'
 import {
   bodyMedium,
   bodySmall,
@@ -59,6 +60,7 @@ import {
   foundMatchAtom,
   isMatchmakingAtom,
 } from './matchmaking-atoms'
+import { isMatchmakingTypeSupported } from './matchmaking-platform'
 import { DivisionIcon } from './rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from './season-end-date'
 
@@ -1343,8 +1345,11 @@ export function FindMatch() {
     ? getDivisionContext(new Date(currentMinuteMs), season)
     : { bonusPool: 0 }
 
+  const scrBackendSupported = isScrBackendSupported()
   const isTypeEnabled = (type: MatchmakingType): boolean =>
     matchmakingStatus.get(type)?.enabled ?? false
+  const isTypeSupported = (type: MatchmakingType): boolean =>
+    isMatchmakingTypeSupported(type, scrBackendSupported)
 
   // The persisted selection: the types flagged `selected` in the preferences pushed on connect (the
   // user's most recent search). Deriving it from the store each render — rather than copying it into
@@ -1360,12 +1365,14 @@ export function FindMatch() {
   const selectedTypes: ReadonlySet<MatchmakingType> = sessionSelectedTypes ?? persistedSelectedTypes
 
   // While searching, the effective selected types come from Jotai (server-authoritative). When not
-  // searching, we filter out any types that are currently disabled: their rows can't be deselected
-  // (the checkbox is replaced by a "blocked" placeholder) and the server rejects the entire request
-  // if any selected type is disabled, so leaving them in would make every queue attempt error out.
+  // searching, we filter out types that are currently disabled or lack a backend on this platform:
+  // their rows can't be selected, and the server rejects the entire request if any selected type is
+  // disabled, so leaving them in would make every queue attempt error out.
   const effectiveSelectedTypes: ReadonlySet<MatchmakingType> = isSearching
     ? new Set(searchInfo?.searchedTypes.keys() ?? [])
-    : new Set(Array.from(selectedTypes).filter(isTypeEnabled))
+    : new Set(
+        Array.from(selectedTypes).filter(type => isTypeEnabled(type) && isTypeSupported(type)),
+      )
 
   const getStatsForType = (type: MatchmakingType): RowStats => {
     const player = selfRankByType.get(type)
@@ -1575,6 +1582,14 @@ export function FindMatch() {
                   'Choose one or more matchmaking types and we\u2019ll queue for them all at once.',
                 )}
               </PageSubtitle>
+              {!scrBackendSupported ? (
+                <PageSubtitle>
+                  {t(
+                    'matchmaking.findMatch.scrPlatformNotice',
+                    'HyperShield modes run natively on Linux. SC:R modes require the Windows client.',
+                  )}
+                </PageSubtitle>
+              ) : null}
             </div>
             {season ? (
               <SeasonLabel>
@@ -1603,7 +1618,7 @@ export function FindMatch() {
 
         <GroupsContainer>
           {MODE_GROUPS.map(group => {
-            const modes = REAL_MODES.filter(m => m.group === group.id)
+            const modes = REAL_MODES.filter(m => m.group === group.id && isTypeSupported(m.type))
             return (
               <ModeGroup key={group.id}>
                 <GroupHead>

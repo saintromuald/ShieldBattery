@@ -7,6 +7,7 @@ import { manualGameServerRegionAtom } from '../game-server-regions/game-server-r
 import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
 import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
+import { isScrBackendSupported } from '../starcraft/scr-backend'
 import { gameDefaultsChoicePendingAtom } from './settings-atoms'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
@@ -84,5 +85,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     })
     .catch(swallowNonBuiltins)
 
-  checkShieldBatteryFiles()
+  if (isScrBackendSupported()) {
+    checkShieldBatteryFiles()
+  }
 }
