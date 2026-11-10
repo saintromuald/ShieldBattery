@@ -54,6 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#hypershield-v}"
+          export VERSION
           if [ "$VERSION" = "$TAG" ] || [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
             echo "Tag must look like hypershield-v12.4.0 or hypershield-v12.4.0-rc.1" >&2
             exit 1
