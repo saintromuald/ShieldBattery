@@ -80,8 +80,9 @@ jobs:
           gh release download "$HYPERION_TAG" \
             --repo saintromuald/hyperion-public \
             --pattern 'Hyperion-Shield-*-linux-x64.tar.gz' \
+            --pattern 'HyperShield-Shield-*-linux-x64.tar.gz' \
             --dir "$RUNNER_TEMP/hyperion-package"
-          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f -name 'Hyperion-Shield-*-linux-x64.tar.gz' -print -quit)
+          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f \( -name 'Hyperion-Shield-*-linux-x64.tar.gz' -o -name 'HyperShield-Shield-*-linux-x64.tar.gz' \) -print -quit)
           if [ -z "$archive" ]; then
             echo "The Hyperion release has no public Linux x64 Shield package." >&2
             exit 1
