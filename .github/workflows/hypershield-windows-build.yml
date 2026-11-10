@@ -39,6 +39,9 @@ jobs:
           rustup toolchain install 1.95 --profile minimal --target x86_64-pc-windows-msvc --target i686-pc-windows-msvc
           rustup default 1.95
 
+      - name: Install the native license tooling
+        run: cargo install --locked cargo-about --features cli
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
