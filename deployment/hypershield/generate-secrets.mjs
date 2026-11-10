@@ -6,11 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const domain = (process.argv[2] ?? '').toLowerCase().replace(/\.$/, '')
-if (
-  !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(
-    domain,
-  )
-) {
+if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) {
   console.error(`Usage: node ${process.argv[1]} your-domain.example`)
   console.error('Run on the deployment host. Existing .env files are never overwritten.')
   process.exit(2)
@@ -88,8 +84,8 @@ const tenants = JSON.parse(readFileSync(tenantsPath, 'utf8'))
 if (tenants.tenants?.length !== 1 || tenants.tenants[0].id !== 'hypershield') {
   throw new Error('Expected exactly one HyperShield tenant in config/tenants.json')
 }
-tenants.tenants[0].client_pubkeys = [clientPublicKey.toString('hex')]
-tenants.tenants[0].notify_url = `https://play.${domain}/webhooks/netcode-v2/game-events`
+tenants.tenants[0]['client_pubkeys'] = [clientPublicKey.toString('hex')]
+tenants.tenants[0]['notify_url'] = `https://play.${domain}/webhooks/netcode-v2/game-events`
 
 writeFileSync(appEnvPath, appEnv, { mode: 0o600, flag: 'wx' })
 writeFileSync(coordinatorEnvPath, coordinatorEnv, { mode: 0o600, flag: 'wx' })

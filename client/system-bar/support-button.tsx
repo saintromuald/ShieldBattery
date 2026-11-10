@@ -8,7 +8,11 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { labelLarge } from '../styles/typography'
 
 const SUPPORT_LINKS = [
-  { name: 'Matchmaking guide', url: 'http://192.168.40.253:5555/guides/matchmaking', Icon: 'menu_book' },
+  {
+    name: 'Matchmaking guide',
+    url: 'http://192.168.40.253:5555/guides/matchmaking',
+    Icon: 'menu_book',
+  },
   { name: 'Ladder guide', url: 'http://192.168.40.253:5555/guides/ladder', Icon: 'leaderboard' },
 ] as const
 

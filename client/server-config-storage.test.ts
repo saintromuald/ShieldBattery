@@ -45,7 +45,9 @@ describe('custom Electron server config', () => {
   })
 
   it('replaces unsafe fresh configs instead of caching them', async () => {
-    const { getServerConfig, setServerConfig } = await loadServerConfig('http://192.168.40.253:5555')
+    const { getServerConfig, setServerConfig } = await loadServerConfig(
+      'http://192.168.40.253:5555',
+    )
 
     setServerConfig(UPSTREAM_CONFIG)
 
@@ -66,7 +68,9 @@ describe('custom Electron server config', () => {
       'http://192.168.40.253:5555~serverConfig',
       JSON.stringify({ publicAssetsUrl: '', graphqlOrigin: 'not a URL' }),
     )
-    const { getServerConfig, setServerConfig } = await loadServerConfig('http://192.168.40.253:5555')
+    const { getServerConfig, setServerConfig } = await loadServerConfig(
+      'http://192.168.40.253:5555',
+    )
 
     expect(getServerConfig()).toEqual(CUSTOM_SAFE_CONFIG)
     const { makePublicAssetUrl } = await import('./network/server-url')
