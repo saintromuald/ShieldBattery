@@ -65,8 +65,8 @@ function archiveRelease(contents: Uint8Array): ReleaseInfo {
     packageKind: 'archive',
     assets: [
       {
-        name: 'Hyperion-Shield-1.0.0-linux-x64.tar.gz',
-        url: 'https://github.com/download/Hyperion-Shield-1.0.0-linux-x64.tar.gz',
+        name: 'Hyperion-Shield-Zero-1.0.0-linux-x64.tar.gz',
+        url: 'https://github.com/download/Hyperion-Shield-Zero-1.0.0-linux-x64.tar.gz',
         size: contents.byteLength,
         sha256: digest(contents),
       },
@@ -76,7 +76,7 @@ function archiveRelease(contents: Uint8Array): ReleaseInfo {
 
 function windowsArchiveRelease(
   contents: Uint8Array,
-  name = 'Hyperion-Shield-1.0.0-windows-x64.zip',
+  name = 'Hyperion-Shield-Zero-1.0.0-windows-x64.zip',
 ): ReleaseInfo {
   const release = archiveRelease(contents)
   release.assets[0].name = name
@@ -439,6 +439,22 @@ describe('secure Windows Hyperion ZIP installation', () => {
       validateInstalledRelease(userDataPath, 'hyperion', record, 'linux', 'x64'),
     ).resolves.toBe(false)
   })
+
+  it.each(['Hyperion Shield', 'HyperShield Shield'])(
+    'continues to install legacy %s metadata',
+    async product => {
+      const entries = publicHyperionZipEntries().map(entry =>
+        entry.name === 'release.json'
+          ? {
+              ...entry,
+              contents: JSON.stringify({ product, version: '1.0.0', gameFilesBundled: false }),
+            }
+          : entry,
+      )
+      const { record } = await installWindows(makeHyperionZip(entries))
+      expect(record.executablePath).toBe('Hyperion.exe')
+    },
+  )
 
   it('requires a published SHA-256 before downloading a Windows ZIP', async () => {
     const contents = makeHyperionZip()

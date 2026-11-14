@@ -20,16 +20,16 @@ No mirror is configured at present. The catalog code accepts multiple release so
 - HyperShield AppImages are staged side-by-side and require an explicit **Restart & switch**. The app never restarts itself for an update.
 - Releases without a package for the current Linux architecture remain visible with an explanation. Older Hyperion versions can also fail the compatibility probe for current matchmaking.
 
-Downloads are checked against GitHub's published SHA-256 digest when present. Hyperion archives reject links, path traversal, Zero packages, and bundled game data. Preferences, catalogs, and installations live under the client's user-data directory in `release-center/`; cached catalogs remain browsable offline.
+Downloads are checked against GitHub's published SHA-256 digest when present. Hyperion archives reject links, path traversal, Hyperion Zero Private packages, and bundled game data. Current `Hyperion-Shield-Zero-*` packages and earlier public `Hyperion-Shield-*`/`HyperShield-Shield-*` packages are all recognized. Preferences, catalogs, and installations live under the client's user-data directory in `release-center/`; cached catalogs remain browsable offline.
 
 ## Publish Hyperion
 
-Run **Hyperion Shield release** in `saintromuald/hyperion-public` with a unique `hyperion-shield-vX.Y.Z...` tag and either channel. Attach only public Shield packages. Do not attach Hyperion Zero or any `Game/` directory.
+Run **Hyperion Shield Zero release** in `saintromuald/hyperion-public` with a unique `hyperion-shield-zero-vX.Y.Z...` tag and either channel. Attach only public Shield packages. Do not attach Hyperion Zero Private or any `Game/` directory.
 
 ## Publish HyperShield
 
 1. Set the same new version in `package.json` and `app/package.json`.
-2. Publish the Hyperion Shield release that the client should bundle.
+2. Publish the Hyperion Shield Zero release that the client should bundle.
 3. Run **HyperShield Linux release** in `saintromuald/ShieldBattery` with:
    - a unique `hypershield-vX.Y.Z...` tag matching both package versions;
    - the Hyperion tag;
@@ -41,7 +41,7 @@ The workflow refuses to replace an existing tag and uploads the AppImage plus a 
 
 ## Windows builds and updates
 
-Windows Hyperion packages are public Shield ZIPs named `Hyperion-Shield-<version>-windows-x64.zip`, containing `Hyperion.exe`, `SDL3.dll`, public engine data, and release metadata without StarCraft game files. The release center validates their SHA-256 digest and PE32+ AMD64 executables before installation.
+Windows Hyperion packages are public Shield ZIPs named `Hyperion-Shield-Zero-<version>-windows-x64.zip`, containing `Hyperion.exe`, `SDL3.dll`, public engine data, and release metadata without StarCraft game files. The release center validates their SHA-256 digest and PE32+ AMD64 executables before installation.
 
 Run **HyperShield Windows build** to produce an unsigned NSIS installer and `latest.yml` as unpublished workflow artifacts. The workflow deliberately has no release-publication step. Test the exact installer, native engine launch, matchmaking, results, and replays before publishing it.
 

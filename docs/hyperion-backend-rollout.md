@@ -138,15 +138,15 @@ and loopback tests alone are not sufficient evidence.
 
 ## Acceptance and release evidence
 
-Use authorized player-owned game data only in private/manual test infrastructure. Do not publish Zero,
+Use authorized player-owned game data only in private/manual test infrastructure. Do not publish Hyperion Zero Private,
 launch files, tokens, private keys, result codes, credentials, or acceptance artifacts. Exact commands
 and hashes belong in a private evidence record; public reports should contain only versions, digests,
 and outcomes.
 
 The release checks require published SHA-256 digests on every asset, native `Data` on Linux and
 Windows, immutable release identities, and digest verification before extraction in build workflows.
-Both historical `HyperShield-Shield-*` and current `Hyperion-Shield-*` names are accepted without
-rewriting old releases.
+Current `Hyperion-Shield-Zero-*`, former `Hyperion-Shield-*`, and historical
+`HyperShield-Shield-*` names are accepted without rewriting old releases.
 
 ### Acceptance evidence recorded on 2026-11-14
 
@@ -188,7 +188,7 @@ Before enabling `default`, record:
   reconnect, and a real multi-relay rehome;
 - per-seat replay files and playback validation before any upload consideration;
 - SC:R compatibility categories on Windows, including both DLL architectures;
-- exact public Hyperion Shield and HyperShield installer/AppImage versions/hashes, with no proprietary
+- exact public Hyperion Shield Zero and HyperShield installer/AppImage versions/hashes, with no proprietary
   game data or secrets in logs/packages.
 
 The production rollout must remain at `canonical` while any of those checks is missing or failing.

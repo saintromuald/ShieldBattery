@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       hyperionTag:
-        description: 'Public Hyperion Shield release to bundle'
+        description: 'Public Hyperion Shield Zero release to bundle'
         required: true
-        default: 'hyperion-shield-v0.7.1-beta'
+        default: 'hyperion-shield-zero-v0.7.2-beta'
       serverUrl:
         description: 'HyperShield server URL embedded in this client build'
         required: true
@@ -49,15 +49,15 @@ jobs:
         working-directory: ./app
         run: pnpm install --frozen-lockfile
 
-      - name: Download the public Windows Hyperion Shield package
+      - name: Download the public Windows Hyperion Shield Zero package
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $packageDir = Join-Path $env:RUNNER_TEMP 'hyperion-package'
           New-Item -ItemType Directory -Force -Path $packageDir, 'hyperion' | Out-Null
-          gh release download "$env:HYPERION_TAG" --repo saintromuald/hyperion-public --pattern 'Hyperion-Shield-*-windows-x64.zip' --pattern 'HyperShield-Shield-*-windows-x64.zip' --dir $packageDir
+          gh release download "$env:HYPERION_TAG" --repo saintromuald/hyperion-public --pattern 'Hyperion-Shield-Zero-*-windows-x64.zip' --pattern 'Hyperion-Shield-*-windows-x64.zip' --pattern 'HyperShield-Shield-*-windows-x64.zip' --dir $packageDir
           if ($LASTEXITCODE -ne 0) { throw 'Hyperion package download failed.' }
-          $archive = Get-ChildItem $packageDir | Where-Object { $_.Name -match '^(?:Hyperion|HyperShield)-Shield-.*-windows-x64\.zip$' } | Select-Object -First 1
+          $archive = Get-ChildItem $packageDir | Where-Object { $_.Name -match '^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-.*-windows-x64\.zip$' } | Select-Object -First 1
           if (-not $archive) { throw 'The Hyperion release has no public Windows x64 Shield package.' }
           $release = gh api "repos/saintromuald/hyperion-public/releases/tags/$env:HYPERION_TAG" | ConvertFrom-Json
           $asset = $release.assets | Where-Object { $_.name -eq $archive.Name } | Select-Object -First 1
@@ -70,9 +70,9 @@ jobs:
           if (-not (Test-Path 'hyperion/release.json')) { throw 'release.json is missing.' }
           if (Test-Path 'hyperion/Game') { throw 'StarCraft game files must not be bundled.' }
           $metadata = Get-Content 'hyperion/release.json' -Raw | ConvertFrom-Json
-          $expectedVersion = ($env:HYPERION_TAG -replace '^(?:hyperion|hypershield)-shield-v', '') -replace '^v', ''
+          $expectedVersion = ($env:HYPERION_TAG -replace '^(?:hyperion|hypershield)-shield(?:-zero)?-v', '') -replace '^v', ''
           $actualVersion = $metadata.version -replace '^v', ''
-          if (@('Hyperion Shield', 'HyperShield Shield') -notcontains $metadata.product -or $metadata.gameFilesBundled -ne $false -or $actualVersion -ne $expectedVersion) {
+          if (@('Hyperion Shield Zero', 'Hyperion Shield', 'HyperShield Shield') -notcontains $metadata.product -or $metadata.gameFilesBundled -ne $false -or $actualVersion -ne $expectedVersion) {
             throw 'The public Hyperion release metadata does not match the requested package.'
           }
 

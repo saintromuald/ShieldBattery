@@ -1,6 +1,6 @@
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">HyperShield</title>
-  <desc id="desc">The Hyperion Zero H shield with angelic wings and a gold halo</desc>
+  <desc id="desc">The Hyperion Zero Private H shield with angelic wings and a gold halo</desc>
   <defs>
     <linearGradient id="shield" x1="86" y1="78" x2="172" y2="202" gradientUnits="userSpaceOnUse">
       <stop stop-color="#163454"/>

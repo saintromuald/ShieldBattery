@@ -24,12 +24,12 @@ async function writeMetadata(): Promise<void> {
   await fs.writeFile(
     path.join(resourceDirectory, 'release.json'),
     JSON.stringify({
-      product: 'Hyperion Shield',
+      product: 'Hyperion Shield Zero',
       version: '1.0.0',
       gameFilesBundled: false,
     }),
   )
-  await fs.writeFile(path.join(resourceDirectory, 'EDITION.txt'), 'Public Hyperion Shield\n')
+  await fs.writeFile(path.join(resourceDirectory, 'EDITION.txt'), 'Public Hyperion Shield Zero\n')
 }
 
 async function writeWindowsPackage(): Promise<void> {
@@ -66,6 +66,18 @@ describe('Hyperion package native validation', () => {
     await writeWindowsPackage()
     expect(() => checkHyperionPackage(appOutDir, 'win32')).not.toThrow()
   })
+
+  it.each(['Hyperion Shield', 'HyperShield Shield'])(
+    'continues to accept legacy %s metadata',
+    async product => {
+      await writeWindowsPackage()
+      const metadataPath = path.join(resourceDirectory, 'release.json')
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'))
+      metadata.product = product
+      await fs.writeFile(metadataPath, JSON.stringify(metadata))
+      expect(() => checkHyperionPackage(appOutDir, 'win32')).not.toThrow()
+    },
+  )
 
   it('rejects invalid PE binaries and every additional executable or library', async () => {
     await writeWindowsPackage()

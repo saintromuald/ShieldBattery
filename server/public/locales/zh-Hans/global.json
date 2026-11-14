@@ -3289,6 +3289,16 @@
     }
   },
   "starcraft": {
+    "hyperionHealth": {
+      "checking": "正在检查所选 Hyperion 安装…",
+      "contents": "Hyperion 需要兼容的公开 Hyperion Shield Zero 版本，以及可读取的 StarCraft: Remastered CASC 或经典 Brood War MPQ 数据。请在版本中心修复固定版本，或在设置中选择游戏数据文件夹。",
+      "gameSettings": "游戏数据设置",
+      "noScrFallback": "目前无法将 SC:R 兼容性作为备用引擎。",
+      "ready": "Hyperion 已准备好运行支持的游戏。",
+      "rescan": "重新检查 Hyperion",
+      "scrAvailable": "支持的配置可以使用 SC:R 兼容性，但无法复现 Hyperion 专属规则。",
+      "title": "需要设置 Hyperion"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "如果可以的话，向您的杀毒软件供应商报告这些误报可以避免其他用户遭遇同样的问题！",
       "middleContents": "这通常是由于杀毒软件误报导致的。您可能需要将这些文件添加到信任区，或者让软件将它们移出隔离区。您也可以尝试重新安装ShieldBattery。",

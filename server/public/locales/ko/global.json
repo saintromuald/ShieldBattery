@@ -3289,6 +3289,16 @@
     }
   },
   "starcraft": {
+    "hyperionHealth": {
+      "checking": "선택한 Hyperion 설치를 확인하는 중…",
+      "contents": "Hyperion을 사용하려면 호환되는 공개 Hyperion Shield Zero 릴리스와 읽을 수 있는 StarCraft: Remastered CASC 또는 클래식 Brood War MPQ 데이터가 필요합니다. 릴리스 센터에서 고정된 릴리스를 복구하거나 설정에서 게임 데이터 폴더를 선택해 주세요.",
+      "gameSettings": "게임 데이터 설정",
+      "noScrFallback": "현재 SC:R 호환성은 대체 백엔드로 사용할 수 없습니다.",
+      "ready": "Hyperion이 지원되는 게임을 실행할 준비가 되었습니다.",
+      "rescan": "Hyperion 다시 확인",
+      "scrAvailable": "지원되는 구성에서는 SC:R 호환성을 사용할 수 있지만, Hyperion 전용 규칙은 재현할 수 없습니다.",
+      "title": "Hyperion 설정 필요"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "가능하다면 이 파일들이 오탐(false positive)이라고 백신 업체에 신고해 주세요. 그래야 다른 사용자들에게도 이런 문제가 생기지 않을 거예요!",
       "middleContents": "이런 문제는 보통 설치된 백신 프로그램이 오탐(false positive)으로 잘못 판단해 파일에 조치를 취했을 때 발생합니다. 예외 목록에 해당 파일들을 추가하거나, 격리 해제 처리해야 할 수도 있어요. 또는 ShieldBattery를 다시 설치해 보는 것도 방법입니다.",

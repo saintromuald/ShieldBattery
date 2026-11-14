@@ -3375,6 +3375,16 @@
     }
   },
   "starcraft": {
+    "hyperionHealth": {
+      "checking": "Comprobando la instalación de Hyperion seleccionada…",
+      "contents": "Hyperion necesita una versión pública compatible de Hyperion Shield Zero y datos legibles de StarCraft: Remastered CASC o del Brood War clásico en formato MPQ. Repara la versión fijada en el centro de versiones o elige la carpeta de datos del juego en Ajustes.",
+      "gameSettings": "Ajustes de datos del juego",
+      "noScrFallback": "La compatibilidad con SC:R no está disponible actualmente como motor alternativo.",
+      "ready": "Hyperion está listo para las partidas compatibles.",
+      "rescan": "Comprobar Hyperion de nuevo",
+      "scrAvailable": "La compatibilidad con SC:R está disponible en las configuraciones compatibles, pero no puede reproducir las reglas exclusivas de Hyperion.",
+      "title": "Se necesita configurar Hyperion"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
       "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",

@@ -169,6 +169,7 @@ export async function fetchGitHubReleasePages(
 
 export function normalizeReleaseVersion(tag: string): string {
   return tag
+    .replace(/^Hyperion-Shield-Zero-v?(?=\d)/i, '')
     .replace(/^Hyperion-Shield-v?(?=\d)/i, '')
     .replace(/^HyperShield-v?(?=\d)/i, '')
     .replace(/^Hyperion-v?(?=\d)/i, '')
@@ -246,18 +247,20 @@ interface PackageSelection {
 }
 
 function selectWindowsHyperionPackage(assets: GitHubReleaseAsset[]): PackageSelection {
-  const excludedName = /(?:zero|mac|darwin|osx)/i
   const platformSpecific = assets.find(
     asset =>
       typeof asset.name === 'string' &&
-      /^(?:Hyperion|HyperShield)-Shield-[^/]+-windows-x64\.zip$/i.test(asset.name) &&
-      !excludedName.test(asset.name),
+      /^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-[^/]+-windows-x64\.zip$/i.test(
+        asset.name,
+      ),
   )
   const generic = assets.find(
     asset =>
       typeof asset.name === 'string' &&
-      /^(?:Hyperion|HyperShield)-Shield-[^/]+\.zip$/i.test(asset.name) &&
-      !/(?:zero|mac|darwin|osx|windows|linux|arm64|aarch64|x86_64)/i.test(asset.name),
+      /^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-[^/]+\.zip$/i.test(
+        asset.name,
+      ) &&
+      !/(?:mac|darwin|osx|windows|linux|arm64|aarch64|x86_64)/i.test(asset.name),
   )
   const archive = platformSpecific ?? generic
   if (!archive) {
@@ -265,7 +268,7 @@ function selectWindowsHyperionPackage(assets: GitHubReleaseAsset[]): PackageSele
       assets: [],
       packageKind: 'none',
       unavailableReason:
-        'No public Hyperion Shield ZIP package for Windows x64 is attached to this release.',
+        'No public Hyperion Shield Zero ZIP package for Windows x64 is attached to this release.',
     }
   }
   try {
@@ -288,14 +291,11 @@ function selectHyperionPackage(
     return selectWindowsHyperionPackage(assets)
   }
   const archivePattern = new RegExp(
-    `^(?:Hyperion|HyperShield)-Shield-.*linux.*${architecturePattern(architecture)}.*\\.tar\\.gz$`,
+    `^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-.*linux.*${architecturePattern(architecture)}.*\\.tar\\.gz$`,
     'i',
   )
   const archive = assets.find(
-    asset =>
-      typeof asset.name === 'string' &&
-      archivePattern.test(asset.name) &&
-      !/zero/i.test(asset.name),
+    asset => typeof asset.name === 'string' && archivePattern.test(asset.name),
   )
   try {
     if (archive) {
@@ -314,7 +314,7 @@ function selectHyperionPackage(
     return {
       assets: [],
       packageKind: 'none',
-      unavailableReason: `No public Hyperion Shield package for Linux ${architecture} is attached to this release.`,
+      unavailableReason: `No public Hyperion Shield Zero package for Linux ${architecture} is attached to this release.`,
     }
   } catch (error) {
     return { assets: [], packageKind: 'none', unavailableReason: errorMessage(error) }
@@ -401,11 +401,13 @@ export function toReleaseInfo(
     return unavailable(base, reason)
   }
   if (
-    /\bzero\b/i.test(`${release.tag_name} ${typeof release.name === 'string' ? release.name : ''}`)
+    /\bHyperion[ -]Zero(?:[ -]Private)?\b/i.test(
+      `${release.tag_name} ${typeof release.name === 'string' ? release.name : ''}`,
+    )
   ) {
     return unavailable(
       base,
-      'Hyperion Zero packages are not supported by the Shield release center.',
+      'Hyperion Zero Private packages are not supported by the Shield release center.',
     )
   }
   if (!Array.isArray(release.assets)) {

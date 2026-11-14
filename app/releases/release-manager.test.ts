@@ -150,7 +150,7 @@ async function archiveRelease(id: number, version: string, prerelease = false) {
   const archivePath = path.join(temporaryDirectory, `archive-${id}.tar.gz`)
   await execFileAsync('tar', ['-czf', archivePath, '-C', input, '.'])
   const contents = await fs.readFile(archivePath)
-  const name = `Hyperion-Shield-${version}-linux-x64.tar.gz`
+  const name = `Hyperion-Shield-Zero-${version}-linux-x64.tar.gz`
   return {
     release: githubRelease('hyperion', id, version, [githubAsset(name, contents)], prerelease),
     name,
@@ -210,7 +210,7 @@ describe('ReleaseManager local state and catalogs', () => {
   })
 
   it('supports Windows Hyperion ZIPs but not Windows AppImage staging or raw engine files', async () => {
-    const zipName = 'Hyperion-Shield-1.0.0-windows-x64.zip'
+    const zipName = 'Hyperion-Shield-Zero-1.0.0-windows-x64.zip'
     const manager = new ReleaseManager({
       appPath,
       userDataPath,
@@ -280,7 +280,7 @@ describe('ReleaseManager installation and selection', () => {
 
   it('updates, persists, and selects a Windows Hyperion installation', async () => {
     const contents = makeHyperionZip()
-    const name = 'Hyperion-Shield-2.0.0-windows-x64.zip'
+    const name = 'Hyperion-Shield-Zero-2.0.0-windows-x64.zip'
     const release = githubRelease('hyperion', 2, '2.0.0', [githubAsset(name, contents)])
     const options = {
       appPath,

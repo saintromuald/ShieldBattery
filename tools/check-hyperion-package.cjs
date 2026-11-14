@@ -4,7 +4,11 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const PUBLIC_PRODUCT_NAMES = new Set(['HyperShield Shield', 'Hyperion Shield'])
+const PUBLIC_PRODUCT_NAMES = new Set([
+  'Hyperion Shield Zero',
+  'Hyperion Shield',
+  'HyperShield Shield',
+])
 const FORBIDDEN_SUFFIXES = new Set([
   '.mpq',
   '.dll',
@@ -156,7 +160,7 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
       typeof release.version !== 'string' ||
       !release.version
     ) {
-      problems.push('release.json is not for public HyperShield Shield without game files')
+      problems.push('release.json is not for public Hyperion Shield Zero without game files')
     }
   }
 

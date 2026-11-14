@@ -1765,6 +1765,7 @@
       "oneFriendInside": "A friend is in this lobby",
       "railPlaceholder": "Select a lobby to preview it",
       "returnToLobby": "Return to lobby",
+      "scrCompatibility": "SC:R compatibility",
       "showFullLobbies": "Show full lobbies",
       "slotClosed": "Closed",
       "slotComputer": "Computer",
@@ -1947,6 +1948,7 @@
       "banner": {
         "alliancesLocked": "Locked",
         "hyperionFirst": "Hyperion first",
+        "scrCompatibility": "SC:R compatibility",
         "shuffle": "Shuffle",
         "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "statAlliances": "Alliances",
@@ -3512,6 +3514,16 @@
     }
   },
   "starcraft": {
+    "hyperionHealth": {
+      "checking": "Checking the selected Hyperion installation…",
+      "contents": "Hyperion needs a compatible public Hyperion Shield Zero release and readable StarCraft: Remastered CASC or classic Brood War MPQ data. Repair the pinned release in Release Center or choose the game-data folder in Settings.",
+      "gameSettings": "Game-data settings",
+      "noScrFallback": "SC:R compatibility is not currently available as an alternative backend.",
+      "ready": "Hyperion is ready for supported games.",
+      "rescan": "Check Hyperion again",
+      "scrAvailable": "SC:R compatibility is available for configurations that support it, but it cannot reproduce Hyperion-only rules.",
+      "title": "Hyperion setup needed"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!",
       "middleContents": "This can happen when anti-virus software quarantines these files or when the installation is incomplete. You may need to add exceptions for these files, restore them from quarantine, or reinstall HyperShield.",

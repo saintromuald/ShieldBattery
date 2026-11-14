@@ -525,13 +525,15 @@ async function validateWindowsReleaseMetadata(workingDirectory: string): Promise
     version?: unknown
   }
   if (
-    (product !== 'HyperShield Shield' && product !== 'Hyperion Shield') ||
+    (product !== 'Hyperion Shield Zero' &&
+      product !== 'Hyperion Shield' &&
+      product !== 'HyperShield Shield') ||
     gameFilesBundled !== false ||
     typeof version !== 'string' ||
     !version
   ) {
     throw new Error(
-      'Hyperion ZIP release.json is not for public Hyperion Shield without game files.',
+      'Hyperion ZIP release.json is not for public Hyperion Shield Zero without game files.',
     )
   }
 }

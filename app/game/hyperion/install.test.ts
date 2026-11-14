@@ -104,7 +104,7 @@ async function stageDownloadedExecutable(
         channel: 'stable',
         installedAt: '2026-01-01T00:00:00Z',
         packageKind: 'archive',
-        assetSha256: { 'Hyperion-Shield-1.0.0.tar.gz': DOWNLOADED_EXECUTABLE_SHA256 },
+        assetSha256: { 'Hyperion-Shield-Zero-1.0.0.tar.gz': DOWNLOADED_EXECUTABLE_SHA256 },
         executableSha256: DOWNLOADED_EXECUTABLE_SHA256,
         directoryName: 'downloaded-1.0.0',
         executablePath: executableName,

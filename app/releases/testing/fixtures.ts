@@ -117,12 +117,12 @@ export function publicHyperionZipEntries(
     {
       name: 'release.json',
       contents: JSON.stringify({
-        product: 'Hyperion Shield',
+        product: 'Hyperion Shield Zero',
         version: '1.0.0',
         gameFilesBundled: false,
       }),
     },
-    { name: 'EDITION.txt', contents: 'Public Hyperion Shield\n' },
+    { name: 'EDITION.txt', contents: 'Public Hyperion Shield Zero\n' },
   ]
 }
 

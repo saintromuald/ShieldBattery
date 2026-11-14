@@ -4,7 +4,7 @@ productName: ShieldBattery
 publish: []
 afterPack: ./tools/check-hyperion-package.cjs
 extraResources:
-  # Public Hyperion Shield resources only. The afterPack hook rejects wrappers and game data.
+  # Public Hyperion Shield Zero resources only. The afterPack hook rejects wrappers and game data.
   - from: hyperion
     to: hyperion
     filter:

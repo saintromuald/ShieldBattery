@@ -61,7 +61,7 @@ export function HyperionHealthDialog({ onCancel, close }: CommonDialogProps) {
       <Text>
         {t(
           'starcraft.hyperionHealth.contents',
-          'Hyperion needs a compatible public Hyperion Shield release and readable StarCraft: Remastered CASC or classic Brood War MPQ data. Repair the pinned release in Release Center or choose the game-data folder in Settings.',
+          'Hyperion needs a compatible public Hyperion Shield Zero release and readable StarCraft: Remastered CASC or classic Brood War MPQ data. Repair the pinned release in Release Center or choose the game-data folder in Settings.',
         )}
       </Text>
       <Text>

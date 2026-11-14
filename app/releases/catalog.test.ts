@@ -132,6 +132,7 @@ describe('GitHub release catalogs', () => {
 
 describe('Linux package selection', () => {
   it('normalizes product-specific tags into readable versions', () => {
+    expect(normalizeReleaseVersion('hyperion-shield-zero-v0.7.2-beta')).toBe('0.7.2-beta')
     expect(normalizeReleaseVersion('hyperion-shield-v0.7.1-beta')).toBe('0.7.1-beta')
     expect(normalizeReleaseVersion('HyperShield-v12.4.0-rc.1')).toBe('12.4.0-rc.1')
     expect(normalizeReleaseVersion('Hyperion-v0.8.0')).toBe('0.8.0')
@@ -171,8 +172,8 @@ describe('Linux package selection', () => {
       RELEASE_SOURCES.hyperion[0],
       release(2, {
         assets: [
-          asset('Hyperion-Shield-2.0-linux-arm64.tar.gz'),
-          asset('Hyperion-Shield-2.0-linux-x64.tar.gz'),
+          asset('Hyperion-Shield-Zero-2.0-linux-arm64.tar.gz'),
+          asset('Hyperion-Shield-Zero-2.0-linux-x64.tar.gz'),
         ],
       }),
       'linux',
@@ -180,30 +181,38 @@ describe('Linux package selection', () => {
     )
     expect(archive?.packageKind).toBe('archive')
     expect(archive?.assets.map(item => item.name)).toEqual([
-      'Hyperion-Shield-2.0-linux-arm64.tar.gz',
+      'Hyperion-Shield-Zero-2.0-linux-arm64.tar.gz',
     ])
   })
 
-  it('never selects Zero packages and prefers a public Shield archive over raw files', () => {
-    const zeroOnly = toReleaseInfo(
+  it('never selects private Zero packages and prefers a public Shield archive over raw files', () => {
+    for (const name of ['Hyperion-Zero', 'Hyperion-Zero-Private']) {
+      const zeroOnly = toReleaseInfo(
+        'hyperion',
+        RELEASE_SOURCES.hyperion[0],
+        release(1, {
+          name,
+          assets: [asset('Hyperion.x86_64'), asset('libSDL3.so.0')],
+        }),
+        'linux',
+        'x64',
+      )
+      expect(zeroOnly?.packageKind).toBe('none')
+      expect(zeroOnly?.unavailableReason).toContain('Hyperion Zero Private')
+    }
+
+    const publicZero = toReleaseInfo(
       'hyperion',
       RELEASE_SOURCES.hyperion[0],
       release(1, {
-        assets: [asset('Hyperion-Zero-1.0-linux-x64.tar.gz')],
+        name: 'Hyperion Shield Zero',
+        tag_name: 'hyperion-shield-zero-v1.0',
+        assets: [asset('Hyperion-Shield-Zero-1.0-linux-x64.tar.gz')],
       }),
       'linux',
       'x64',
     )
-    expect(zeroOnly?.packageKind).toBe('none')
-
-    const zeroRaw = toReleaseInfo(
-      'hyperion',
-      RELEASE_SOURCES.hyperion[0],
-      release(1, { name: 'Hyperion Zero' }),
-      'linux',
-      'x64',
-    )
-    expect(zeroRaw?.packageKind).toBe('none')
+    expect(publicZero?.packageKind).toBe('archive')
 
     const archive = toReleaseInfo(
       'hyperion',
@@ -277,7 +286,7 @@ describe('Linux package selection', () => {
 
 describe('Windows package selection', () => {
   it('prefers the Windows x64 Shield ZIP and tolerates the generic Shield ZIP', () => {
-    const specific = 'Hyperion-Shield-1.0.0-windows-x64.zip'
+    const specific = 'Hyperion-Shield-Zero-1.0.0-windows-x64.zip'
     const generic = 'Hyperion-Shield-1.0.0.zip'
     const result = toReleaseInfo(
       'hyperion',
@@ -286,7 +295,7 @@ describe('Windows package selection', () => {
         assets: [
           asset(generic, `sha256:${'a'.repeat(64)}`),
           asset('Hyperion-Shield-1.0.0-mac.zip', `sha256:${'c'.repeat(64)}`),
-          asset('Hyperion-Shield-Zero-1.0.0.zip', `sha256:${'d'.repeat(64)}`),
+          asset('Hyperion-Zero-Private-1.0.0.zip', `sha256:${'d'.repeat(64)}`),
           asset(specific, `sha256:${'b'.repeat(64)}`),
         ],
       }),

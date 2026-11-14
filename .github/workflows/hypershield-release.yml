@@ -6,11 +6,11 @@ on:
       tag:
         description: 'Release tag; its version must match package.json'
         required: true
-        default: 'hypershield-v12.3.11'
+        default: 'hypershield-v12.3.12'
       hyperionTag:
-        description: 'Public Hyperion Shield release to bundle'
+        description: 'Public Hyperion Shield Zero release to bundle'
         required: true
-        default: 'hyperion-shield-v0.7.1-beta'
+        default: 'hyperion-shield-zero-v0.7.2-beta'
       serverUrl:
         description: 'HyperShield server URL embedded in this client build'
         required: true
@@ -73,16 +73,17 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: ./app
 
-      - name: Download the public Hyperion Shield package
+      - name: Download the public Hyperion Shield Zero package
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/hyperion-package" hyperion
           gh release download "$HYPERION_TAG" \
             --repo saintromuald/hyperion-public \
+            --pattern 'Hyperion-Shield-Zero-*-linux-x64.tar.gz' \
             --pattern 'Hyperion-Shield-*-linux-x64.tar.gz' \
             --pattern 'HyperShield-Shield-*-linux-x64.tar.gz' \
             --dir "$RUNNER_TEMP/hyperion-package"
-          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f \( -name 'Hyperion-Shield-*-linux-x64.tar.gz' -o -name 'HyperShield-Shield-*-linux-x64.tar.gz' \) -print -quit)
+          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f \( -name 'Hyperion-Shield-Zero-*-linux-x64.tar.gz' -o -name 'Hyperion-Shield-*-linux-x64.tar.gz' -o -name 'HyperShield-Shield-*-linux-x64.tar.gz' \) -print -quit)
           if [ -z "$archive" ]; then
             echo "The Hyperion release has no public Linux x64 Shield package." >&2
             exit 1
@@ -109,9 +110,9 @@ jobs:
           EXPECTED_TAG="$HYPERION_TAG" node - <<'NODE'
           const fs = require('node:fs')
           const release = JSON.parse(fs.readFileSync('hyperion/release.json', 'utf8'))
-          const version = process.env.EXPECTED_TAG.replace(/^(?:hyperion|hypershield)-shield-v/, '').replace(/^v/, '')
+          const version = process.env.EXPECTED_TAG.replace(/^(?:hyperion|hypershield)-shield(?:-zero)?-v/, '').replace(/^v/, '')
           const actualVersion = release.version.replace(/^v/, '')
-          if (!['Hyperion Shield', 'HyperShield Shield'].includes(release.product) || release.gameFilesBundled !== false || actualVersion !== version) {
+          if (!['Hyperion Shield Zero', 'Hyperion Shield', 'HyperShield Shield'].includes(release.product) || release.gameFilesBundled !== false || actualVersion !== version) {
             throw new Error('The public Hyperion release metadata does not match the requested package')
           }
           NODE
