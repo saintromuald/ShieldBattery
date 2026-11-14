@@ -126,6 +126,11 @@ type Game {
 	rating in that mode and season is left out.
 	"""
 	currentRanks: [GamePlayerRank!]!
+	"""
+	The backend that actually launched, with historical records interpreted by their legacy
+	matchmaking identity rather than by the new default policy.
+	"""
+	effectiveBackend: GameplayBackend!
 }
 
 union GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
@@ -135,6 +140,7 @@ type GameConfigDataLobby {
 	gameSubType: Int!
 	teams: [[GamePlayer!]!]!
 	gameSourceExtra: LobbyExtra!
+	gameplay: ResolvedGameplayRoutingData
 }
 
 type GameConfigDataMatchmaking {
@@ -142,6 +148,7 @@ type GameConfigDataMatchmaking {
 	gameSubType: Int!
 	teams: [[GamePlayer!]!]!
 	gameSourceExtra: MatchmakingExtra!
+	gameplay: ResolvedGameplayRoutingData
 }
 
 """
@@ -379,6 +386,50 @@ type GameReportUserStats {
 The preset game ruleset that was selected (or UMS).
 """
 scalar GameType
+
+enum GameplayBackend {
+	HYPERION
+	SCR
+}
+
+enum GameplayBackendPolicy {
+	HYPERION_FIRST
+	SCR_COMPATIBILITY
+}
+
+enum GameplayBackendSelectionReason {
+	PREFERRED
+	EXPLICIT_COMPATIBILITY
+	MISSING_NATIVE_FEATURE
+	INCOMPATIBLE_NATIVE_PROFILE
+	HYPERION_ONLY
+	OPERATOR_POLICY
+	SCR_UNAVAILABLE
+}
+
+type GameplayMutatorsData {
+	antiMeta: Int
+}
+
+enum GameplayRuleSet {
+	CLASSIC
+	HYPERION
+}
+
+type GameplayRulesData {
+	ruleSet: GameplayRuleSet!
+	mutators: GameplayMutatorsData
+}
+
+enum GameplaySimulationMode {
+	LOCKSTEP
+	ROLLBACK
+}
+
+enum GameplayTransport {
+	LOCAL_ONLY
+	NETCODE_V2
+}
 
 """
 Something the current user has already given another player in a game.
@@ -1022,6 +1073,16 @@ enum ReconciledResult {
 	UNKNOWN
 }
 
+enum ReplayFormat {
+	SCR
+	HX_RS
+}
+
+type ReplayIdentityData {
+	format: ReplayFormat!
+	playbackBackend: GameplayBackend!
+}
+
 input ReportGameInput {
 	gameId: UUID!
 	reportedUserId: SbUserId!
@@ -1032,6 +1093,29 @@ input ReportGameInput {
 	reports filed while the game is being played.
 	"""
 	gameTimeSeconds: Int
+}
+
+type ResolvedGameplayRoutingData {
+	version: Int!
+	requestedPolicy: GameplayBackendPolicy!
+	backend: GameplayBackend!
+	reason: GameplayBackendSelectionReason!
+	rules: GameplayRulesData!
+	nativeProfile: ResolvedHyperionProfileData
+	shadowBackend: GameplayBackend
+	transport: GameplayTransport!
+	simulation: GameplaySimulationMode!
+	replay: ReplayIdentityData!
+}
+
+type ResolvedHyperionProfileData {
+	adapterProtocol: Int!
+	engineBuild: String!
+	simRevision: Int!
+	modId: String!
+	modFingerprint: String!
+	dataFingerprint: String!
+	features: [String!]!
 }
 
 enum RestrictedNameKind {

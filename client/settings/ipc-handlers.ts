@@ -7,6 +7,7 @@ import { manualGameServerRegionAtom } from '../game-server-regions/game-server-r
 import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
 import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
+import { refreshGameplayCapabilities } from '../starcraft/hyperion-health'
 import { isScrBackendSupported } from '../starcraft/scr-backend'
 import { gameDefaultsChoicePendingAtom } from './settings-atoms'
 
@@ -28,6 +29,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
 
     lastPath = settings.starcraftPath ?? ''
     lastPathWasValid = false
+    refreshGameplayCapabilities().catch(() => undefined)
     ipcRenderer
       .invoke('settingsCheckStarcraftPath', lastPath)
       ?.then(result => {

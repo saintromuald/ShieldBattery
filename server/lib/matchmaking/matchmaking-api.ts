@@ -25,6 +25,7 @@ import { withDbClient } from '../db'
 import transact from '../db/transaction'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
+import { gameplayCapabilitiesSchema } from '../games/gameplay-capabilities-schema'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import logger from '../logging/logger'
@@ -161,9 +162,19 @@ export class MatchmakingApi {
             Buffer.from(value, 'base64').length === 32 ? value : helpers.error('any.invalid'),
           )
           .required(),
+        capabilities: gameplayCapabilitiesSchema.optional(),
       }),
     })
-    const { clientId, preferences, identifiers, region, rttMs, regionManual, clientPubkey } = body
+    const {
+      clientId,
+      preferences,
+      identifiers,
+      region,
+      rttMs,
+      regionManual,
+      clientPubkey,
+      capabilities,
+    } = body
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
@@ -238,7 +249,7 @@ export class MatchmakingApi {
       // Non-null: `clientPubkey` is `.required()` in the schema above, so validation already rejected
       // a request without it. It's optional only in the shared `FindMatchRequest` type.
       clientPubkey!,
-      { region, rttMs, regionManual },
+      { region, rttMs, regionManual, capabilities },
     )
 
     // Persist the preferences used for this search so they're pre-filled next session and usable for

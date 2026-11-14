@@ -6,11 +6,11 @@ on:
       tag:
         description: 'Release tag; its version must match package.json'
         required: true
-        default: 'hypershield-v12.3.10'
+        default: 'hypershield-v12.3.11'
       hyperionTag:
         description: 'Public Hyperion Shield release to bundle'
         required: true
-        default: 'v0.7.1-remastered'
+        default: 'hyperion-shield-v0.7.1-beta'
       serverUrl:
         description: 'HyperShield server URL embedded in this client build'
         required: true
@@ -87,11 +87,34 @@ jobs:
             echo "The Hyperion release has no public Linux x64 Shield package." >&2
             exit 1
           fi
+          gh api "repos/saintromuald/hyperion-public/releases/tags/$HYPERION_TAG" > "$RUNNER_TEMP/hyperion-release.json"
+          ARCHIVE="$archive" RELEASE_JSON="$RUNNER_TEMP/hyperion-release.json" node - <<'NODE'
+          const crypto = require('node:crypto')
+          const fs = require('node:fs')
+          const archive = process.env.ARCHIVE
+          const metadata = JSON.parse(fs.readFileSync(process.env.RELEASE_JSON, 'utf8'))
+          const name = require('node:path').basename(archive)
+          const asset = metadata.assets.find(candidate => candidate.name === name)
+          const actual = crypto.createHash('sha256').update(fs.readFileSync(archive)).digest('hex')
+          if (!asset || asset.digest !== `sha256:${actual}`) {
+            throw new Error(`${name} failed SHA-256 verification: ${asset?.digest ?? 'missing digest'} versus sha256:${actual}`)
+          }
+          NODE
           tar -xzf "$archive" -C hyperion --no-same-owner
           test -x hyperion/Hyperion.x86_64
           test -f hyperion/libSDL3.so.0
+          test -d hyperion/Data
           test -f hyperion/release.json
           test ! -e hyperion/Game
+          EXPECTED_TAG="$HYPERION_TAG" node - <<'NODE'
+          const fs = require('node:fs')
+          const release = JSON.parse(fs.readFileSync('hyperion/release.json', 'utf8'))
+          const version = process.env.EXPECTED_TAG.replace(/^(?:hyperion|hypershield)-shield-v/, '').replace(/^v/, '')
+          const actualVersion = release.version.replace(/^v/, '')
+          if (!['Hyperion Shield', 'HyperShield Shield'].includes(release.product) || release.gameFilesBundled !== false || actualVersion !== version) {
+            throw new Error('The public Hyperion release metadata does not match the requested package')
+          }
+          NODE
 
       - name: Build the HyperShield AppImage
         run: |

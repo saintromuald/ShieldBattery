@@ -63,6 +63,13 @@ export function releaseRequestHeaders(
   }
 }
 
+function assertGithubUrl(value: string, hostname: 'api.github.com' | 'github.com'): void {
+  const url = new URL(value)
+  if (url.protocol !== 'https:' || url.hostname !== hostname) {
+    throw new Error(`Release metadata contains an untrusted URL: ${url.origin}`)
+  }
+}
+
 function nextLink(linkHeader: string | null): string | undefined {
   if (!linkHeader) {
     return undefined
@@ -74,6 +81,7 @@ function nextLink(linkHeader: string | null): string | undefined {
     }
     const parameters = match[2]
     if (/(?:^|;)\s*rel\s*=\s*"?next"?(?:\s*;|\s*$)/i.test(parameters)) {
+      assertGithubUrl(match[1], 'api.github.com')
       return match[1]
     }
   }
@@ -208,12 +216,20 @@ function makeAsset(asset: GitHubReleaseAsset): ReleaseAsset {
   ) {
     throw new Error('GitHub returned incomplete release asset metadata.')
   }
+  assertGithubUrl(asset.browser_download_url, 'github.com')
   return {
     name: asset.name,
     url: asset.browser_download_url,
     size: asset.size,
     sha256: digestSha256(asset.digest),
   }
+}
+
+function requireAssetDigests(assets: ReleaseAsset[]): ReleaseAsset[] {
+  if (assets.some(asset => !asset.sha256)) {
+    throw new Error('Every downloadable release asset requires a published SHA-256 digest.')
+  }
+  return assets
 }
 
 function unavailable(
@@ -234,13 +250,13 @@ function selectWindowsHyperionPackage(assets: GitHubReleaseAsset[]): PackageSele
   const platformSpecific = assets.find(
     asset =>
       typeof asset.name === 'string' &&
-      /^Hyperion-Shield-[^/]+-windows-x64\.zip$/i.test(asset.name) &&
+      /^(?:Hyperion|HyperShield)-Shield-[^/]+-windows-x64\.zip$/i.test(asset.name) &&
       !excludedName.test(asset.name),
   )
   const generic = assets.find(
     asset =>
       typeof asset.name === 'string' &&
-      /^Hyperion-Shield-[^/]+\.zip$/i.test(asset.name) &&
+      /^(?:Hyperion|HyperShield)-Shield-[^/]+\.zip$/i.test(asset.name) &&
       !/(?:zero|mac|darwin|osx|windows|linux|arm64|aarch64|x86_64)/i.test(asset.name),
   )
   const archive = platformSpecific ?? generic
@@ -272,7 +288,7 @@ function selectHyperionPackage(
     return selectWindowsHyperionPackage(assets)
   }
   const archivePattern = new RegExp(
-    `^Hyperion-Shield-.*linux.*${architecturePattern(architecture)}.*\\.tar\\.gz$`,
+    `^(?:Hyperion|HyperShield)-Shield-.*linux.*${architecturePattern(architecture)}.*\\.tar\\.gz$`,
     'i',
   )
   const archive = assets.find(
@@ -283,14 +299,17 @@ function selectHyperionPackage(
   )
   try {
     if (archive) {
-      return { assets: [makeAsset(archive)], packageKind: 'archive' }
+      return { assets: requireAssetDigests([makeAsset(archive)]), packageKind: 'archive' }
     }
 
     const executableName = architecture === 'x64' ? 'Hyperion.x86_64' : 'Hyperion.aarch64'
     const executable = assets.find(asset => asset.name === executableName)
     const library = assets.find(asset => asset.name === 'libSDL3.so.0')
     if (executable && library) {
-      return { assets: [makeAsset(executable), makeAsset(library)], packageKind: 'raw' }
+      return {
+        assets: requireAssetDigests([makeAsset(executable), makeAsset(library)]),
+        packageKind: 'raw',
+      }
     }
     return {
       assets: [],
@@ -324,7 +343,7 @@ function selectHyperShieldPackage(
     }
   }
   try {
-    return { assets: [makeAsset(appImage)], packageKind: 'appImage' }
+    return { assets: requireAssetDigests([makeAsset(appImage)]), packageKind: 'appImage' }
   } catch {
     return {
       assets: [],

@@ -168,6 +168,9 @@ const ChangeLoginNameDialog = React.lazy(async () => ({
 const ChangePasswordDialog = React.lazy(async () => ({
   default: (await import('../settings/user/account-settings')).ChangePasswordDialog,
 }))
+const HyperionHealthDialog = React.lazy(async () => ({
+  default: (await import('../starcraft/hyperion-health-dialog')).HyperionHealthDialog,
+}))
 const ShieldBatteryHealthDialog = React.lazy(async () => ({
   default: (await import('../starcraft/shieldbattery-health')).ShieldBatteryHealthDialog,
 }))
@@ -306,6 +309,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ResolveGameResultsDialog }
     case DialogType.Simple:
       return { component: SimpleDialog }
+    case DialogType.HyperionHealth:
+      return { component: HyperionHealthDialog }
     case DialogType.ShieldBatteryHealth:
       return { component: ShieldBatteryHealthDialog }
     case DialogType.StarcraftHealth:

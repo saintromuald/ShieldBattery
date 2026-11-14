@@ -4,14 +4,21 @@ import path from 'node:path'
  * Path-containment and index-pruning decisions for the replay watcher, factored out as pure
  * functions (no filesystem access) so they can be unit-tested directly.
  *
- * All comparisons use `path.win32` unconditionally: replay paths are always Windows paths (the app
- * only runs on Windows), so this keeps behavior identical on a Linux CI runner, where the default
- * `path` would treat backslashes as ordinary characters.
+ * Windows paths compare case-insensitively; POSIX paths retain their case-sensitive semantics.
  */
 
-/** Lower-cases and canonicalizes a Windows path so containment can compare case-insensitively. */
-function normalizeForContainment(p: string): string {
-  return path.win32.normalize(p).toLowerCase()
+function isWindowsPath(filePath: string, root: string): boolean {
+  return (
+    filePath.includes('\\') ||
+    root.includes('\\') ||
+    /^[A-Za-z]:[\\/]/.test(filePath) ||
+    /^[A-Za-z]:[\\/]/.test(root)
+  )
+}
+
+function normalizeForContainment(p: string, windows: boolean): string {
+  const normalized = windows ? path.win32.normalize(p) : path.posix.normalize(p)
+  return windows ? normalized.toLowerCase() : normalized
 }
 
 /**
@@ -20,12 +27,14 @@ function normalizeForContainment(p: string): string {
  * and normalizes separators (`/` vs `\`) and `.`/`..` segments.
  */
 export function isPathUnderRoot(filePath: string, root: string): boolean {
-  const normFile = normalizeForContainment(filePath)
-  const normRoot = normalizeForContainment(root)
+  const windows = isWindowsPath(filePath, root)
+  const normFile = normalizeForContainment(filePath, windows)
+  const normRoot = normalizeForContainment(root, windows)
   if (normFile === normRoot) {
     return true
   }
-  const rootWithSep = normRoot.endsWith(path.win32.sep) ? normRoot : normRoot + path.win32.sep
+  const separator = windows ? path.win32.sep : path.posix.sep
+  const rootWithSep = normRoot.endsWith(separator) ? normRoot : normRoot + separator
   return normFile.startsWith(rootWithSep)
 }
 
@@ -43,6 +52,14 @@ const LAST_REPLAY_FILENAME = 'lastreplay.rep'
 export function isIndexableReplayFilename(filename: string): boolean {
   const lower = filename.toLowerCase()
   return lower.endsWith('.rep') && lower !== LAST_REPLAY_FILENAME
+}
+
+/** Keeps the native engine's replay root configured across startup and settings changes. */
+export function includeNativeReplayFolder(
+  folders: ReadonlyArray<string>,
+  nativeDataPath: string,
+): string[] {
+  return [...new Set([...folders, path.join(nativeDataPath, 'maps', 'replays')])]
 }
 
 /**

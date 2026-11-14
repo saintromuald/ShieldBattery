@@ -11,6 +11,7 @@ import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { subtract } from '../../../common/data-structures/sets'
 import { GameServerRegionId } from '../../../common/game-server-regions'
+import { ClientGameplayCapabilities } from '../../../common/games/backend'
 import {
   GameConfig,
   GameConfigPlayer,
@@ -116,6 +117,13 @@ interface PlayerTypeData {
  * A queued player's chosen home region and their measured round-trip time to it. Forwarded to the
  * Rust matchmaker as a latency input and later read at session create to home the player's slot.
  */
+export interface MatchmakingClientMetadata {
+  region?: GameServerRegionId
+  rttMs?: number
+  regionManual?: boolean
+  capabilities?: ClientGameplayCapabilities
+}
+
 interface QueuedPlayerRegion {
   region: GameServerRegionId
   /**
@@ -149,6 +157,8 @@ interface PlayerQueueData {
    * reset). Kept off the wire-visible `Slot` (like rtt) since no peer needs it.
    */
   clientPubkey: string
+  /** Native/SC:R capabilities captured for this queue entry and retained through requeue. */
+  capabilities?: ClientGameplayCapabilities
 }
 
 /**
@@ -618,7 +628,7 @@ export class MatchmakingService {
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
     clientPubkey: string,
-    desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
+    desiredRegion?: MatchmakingClientMetadata,
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
@@ -675,7 +685,7 @@ export class MatchmakingService {
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
     clientPubkey: string,
-    desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
+    desiredRegion?: MatchmakingClientMetadata,
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
@@ -722,6 +732,7 @@ export class MatchmakingService {
       queuedAt: monotonicNow(),
       region,
       clientPubkey,
+      capabilities: desiredRegion?.capabilities,
     })
     this.queueEntries.set(userId, {
       types: new Set(typeDataEntries.map(d => d.type)),
@@ -1449,6 +1460,7 @@ export class MatchmakingService {
       rttMs: this.playerQueueData.get(p.userId)?.region?.rttMs,
       regionManual: this.playerQueueData.get(p.userId)?.region?.manual,
       netcodeV2Pubkey: this.playerQueueData.get(p.userId)?.clientPubkey,
+      capabilities: this.playerQueueData.get(p.userId)?.capabilities,
     }))
 
     const chosenMap = mapInfo

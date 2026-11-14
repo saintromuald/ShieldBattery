@@ -25,6 +25,10 @@ vi.mock('electron', () => ({
 }))
 vi.mock('node:child_process', () => ({ execFile: vi.fn() }))
 
+const BUNDLED_EXECUTABLE_SHA256 = '48929954db9540d1fd5ca13575ec122628d0812cafb21628a5c73e8e88a73846'
+const DOWNLOADED_EXECUTABLE_SHA256 =
+  'b7ea96e0cc86d0ccceb33a5a938f7723d278388563e1063877554c3dc9f088c1'
+
 const COMPATIBILITY: HyperionCompatibility = {
   adapterProtocol: 1,
   engineBuild: 'Hyperion-v0.7.1-beta',
@@ -100,6 +104,8 @@ async function stageDownloadedExecutable(
         channel: 'stable',
         installedAt: '2026-01-01T00:00:00Z',
         packageKind: 'archive',
+        assetSha256: { 'Hyperion-Shield-1.0.0.tar.gz': DOWNLOADED_EXECUTABLE_SHA256 },
+        executableSha256: DOWNLOADED_EXECUTABLE_SHA256,
         directoryName: 'downloaded-1.0.0',
         executablePath: executableName,
         platform,
@@ -173,6 +179,7 @@ describe('readEmbeddedHyperionInstall', () => {
     expect(install).toEqual({
       ...paths,
       gameDataPath: '/games/StarCraft',
+      executableSha256: BUNDLED_EXECUTABLE_SHA256,
       compatibility: COMPATIBILITY,
     })
     expect(probe).toHaveBeenCalledExactlyOnceWith(
@@ -202,6 +209,7 @@ describe('readEmbeddedHyperionInstall', () => {
     expect(install).toEqual({
       ...paths,
       gameDataPath: 'C:\\Games\\StarCraft',
+      executableSha256: BUNDLED_EXECUTABLE_SHA256,
       compatibility: COMPATIBILITY,
     })
     expect(paths.executablePath).toMatch(/Hyperion\.exe$/)
@@ -232,6 +240,7 @@ describe('readEmbeddedHyperionInstall', () => {
       executablePath: path.join(downloadedDirectory, 'Hyperion.x86_64'),
       workingDirectory: downloadedDirectory,
       dataPath: paths.dataPath,
+      executableSha256: DOWNLOADED_EXECUTABLE_SHA256,
       compatibility: COMPATIBILITY,
     })
     expect(probe).toHaveBeenCalledExactlyOnceWith(
@@ -268,6 +277,7 @@ describe('readEmbeddedHyperionInstall', () => {
       executablePath: downloaded.executablePath,
       workingDirectory: downloaded.downloadedDirectory,
       dataPath: paths.dataPath,
+      executableSha256: DOWNLOADED_EXECUTABLE_SHA256,
       compatibility: COMPATIBILITY,
     })
     expect(probe).toHaveBeenCalledExactlyOnceWith(
@@ -298,7 +308,11 @@ describe('readEmbeddedHyperionInstall', () => {
       probe,
     })
 
-    expect(install).toEqual({ ...paths, compatibility: COMPATIBILITY })
+    expect(install).toEqual({
+      ...paths,
+      executableSha256: BUNDLED_EXECUTABLE_SHA256,
+      compatibility: COMPATIBILITY,
+    })
     expect(probe).toHaveBeenCalledTimes(2)
     expect(probe.mock.calls.map(call => call[0])).toEqual([
       downloaded.executablePath,
@@ -326,6 +340,25 @@ describe('readEmbeddedHyperionInstall', () => {
     ).rejects.toThrow('pinned engine is incompatible')
     expect(probe).toHaveBeenCalledOnce()
     expect(probe.mock.calls[0][0]).toBe(downloaded.executablePath)
+  })
+
+  it('rejects a tampered pinned install without probing or using the bundled engine', async () => {
+    const { appPath } = await stageExecutable()
+    const userDataPath = path.join(temporaryDirectory, 'user-data')
+    const downloaded = await stageDownloadedExecutable(userDataPath, 'pinned')
+    await fs.writeFile(downloaded.executablePath, 'tampered engine')
+    const probe = vi.fn(async () => COMPATIBILITY)
+
+    await expect(
+      readEmbeddedHyperionInstall({
+        appPath,
+        userDataPath,
+        platform: 'linux',
+        architecture: 'x64',
+        probe,
+      }),
+    ).rejects.toThrow('pinned Hyperion installation is damaged')
+    expect(probe).not.toHaveBeenCalled()
   })
 
   it('surfaces a bundled probe failure after a latest-tracked download also fails', async () => {

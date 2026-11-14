@@ -35,6 +35,19 @@ export function makePe32PlusAmd64(): Buffer {
   return contents
 }
 
+export function makeElf64(machine: 'x64' | 'arm64' = 'x64'): Buffer {
+  const contents = Buffer.alloc(64)
+  contents.set([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0], 0)
+  contents.writeUInt16LE(machine === 'x64' ? 62 : 183, 18)
+  return contents
+}
+
+export function makeAppImage(): Buffer {
+  const contents = makeElf64()
+  contents.write('AI\x02', 8, 'ascii')
+  return contents
+}
+
 export function makeZip(entries: readonly ZipFixtureEntry[]): Buffer {
   const localParts: Buffer[] = []
   const centralParts: Buffer[] = []

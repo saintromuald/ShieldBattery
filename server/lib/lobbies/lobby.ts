@@ -2,6 +2,7 @@ import { produce } from 'immer'
 import { randomUUID } from 'node:crypto'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameServerRegionId } from '../../../common/game-server-regions'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   BenchedUser,
@@ -199,6 +200,7 @@ export function toSummaryJson(
     useLegacyLimits: lobby.useLegacyLimits,
     starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
+    backendPolicy: lobby.backendPolicy ?? GameplayBackendPolicy.HyperionFirst,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
     lifecycle,
@@ -364,6 +366,7 @@ export function createLobby({
   useLegacyLimits = false,
   starcraftCompatibleReplays = true,
   lockedAlliances = false,
+  backendPolicy = GameplayBackendPolicy.HyperionFirst,
   visibility = 'listed',
 }: {
   name: string
@@ -379,6 +382,7 @@ export function createLobby({
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
+  backendPolicy?: GameplayBackendPolicy
   visibility?: LobbyVisibility
 }) {
   const teams = createInitialTeams(map, gameType, gameSubType, numSlots)
@@ -413,6 +417,7 @@ export function createLobby({
     useLegacyLimits,
     starcraftCompatibleReplays,
     lockedAlliances,
+    backendPolicy,
     visibility,
     createdAt: Date.now(),
   }

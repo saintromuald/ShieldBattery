@@ -20,6 +20,7 @@ import {
   NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
+import { canUseHyperionForOrdinaryMatchmaking } from '../../common/server-config'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
@@ -39,7 +40,9 @@ import { zIndexSettings } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { useCurrentMinuteMs, useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { getServerConfig } from '../server-config-storage'
 import { healthChecked } from '../starcraft/health-checked'
+import { hyperionHealthy } from '../starcraft/hyperion-health'
 import { isScrBackendSupported } from '../starcraft/scr-backend'
 import {
   bodyMedium,
@@ -60,7 +63,7 @@ import {
   foundMatchAtom,
   isMatchmakingAtom,
 } from './matchmaking-atoms'
-import { isMatchmakingTypeSupported } from './matchmaking-platform'
+import { isMatchmakingTypeSupported, matchmakingHealthCheckOptions } from './matchmaking-platform'
 import { DivisionIcon } from './rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from './season-end-date'
 
@@ -1346,10 +1349,17 @@ export function FindMatch() {
     : { bonusPool: 0 }
 
   const scrBackendSupported = isScrBackendSupported()
+  const nativeBackendSupported = useAtomValue(hyperionHealthy)
+  const ordinaryHyperionEnabled = canUseHyperionForOrdinaryMatchmaking(getServerConfig())
   const isTypeEnabled = (type: MatchmakingType): boolean =>
     matchmakingStatus.get(type)?.enabled ?? false
   const isTypeSupported = (type: MatchmakingType): boolean =>
-    isMatchmakingTypeSupported(type, scrBackendSupported)
+    isMatchmakingTypeSupported(
+      type,
+      scrBackendSupported,
+      nativeBackendSupported,
+      ordinaryHyperionEnabled,
+    )
 
   // The persisted selection: the types flagged `selected` in the preferences pushed on connect (the
   // user's most recent search). Deriving it from the store each render — rather than copying it into
@@ -1479,12 +1489,12 @@ export function FindMatch() {
         }),
       )
     },
-    {
-      requiresScrBackend: () =>
-        Array.from(effectiveSelectedTypes).some(
-          type => getMatchmakingModeInfo(type).variant !== 'hyperion',
-        ),
-    },
+    matchmakingHealthCheckOptions(
+      effectiveSelectedTypes,
+      scrBackendSupported,
+      nativeBackendSupported,
+      ordinaryHyperionEnabled,
+    ),
   )
 
   const handleCancel = () => {

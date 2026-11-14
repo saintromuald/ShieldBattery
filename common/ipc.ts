@@ -10,6 +10,7 @@ import { Promisable } from 'type-fest'
 import { GameDeepLink } from './deep-links'
 import { DiscordActivity } from './discord-presence'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
+import type { ClientGameplayCapabilities, ReplayIdentity } from './games/backend'
 import { GameDebugInputEvent, GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
@@ -227,6 +228,8 @@ interface IpcInvokeables {
    * process except in the game-process handoff at launch.
    */
   activeGameGenNetcodeV2SessionKeys: () => string
+  /** Probes the selected native install and independent SC:R availability before queue/join. */
+  activeGameGetGameplayCapabilities: () => Promise<ClientGameplayCapabilities>
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   /**
    * Delivers the server's netcode v2 session handoff (token/relays/roster); the main process
@@ -288,6 +291,7 @@ interface IpcInvokeables {
   pathsShowItemInFolder: (path: string) => Promise<void>
 
   replayParseMetadata: (replayPath: string) => Promise<{
+    identity: ReplayIdentity
     headerData: ReplayHeader
     players: Player[]
     shieldBatteryData?: ShieldBatteryData
@@ -297,6 +301,9 @@ interface IpcInvokeables {
    * Reads the chat and leaves recorded in a replay file, along with the players needed to
    * attribute them.
    */
+  /** Reads recording magic independently of BroodRep's native-section support. */
+  replayDetectIdentity: (replayPath: string) => Promise<ReplayIdentity>
+
   replayParseChat: (replayPath: string) => Promise<ReplayChat>
 
   /**

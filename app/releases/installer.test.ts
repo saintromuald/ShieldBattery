@@ -127,13 +127,13 @@ describe('release downloads', () => {
       assets: [
         {
           name: 'Hyperion.x86_64',
-          url: 'https://example.test/executable',
+          url: 'https://github.com/download/executable',
           size: first.length,
           sha256: digest(first),
         },
         {
           name: 'libSDL3.so.0',
-          url: 'https://example.test/library',
+          url: 'https://github.com/download/library',
           size: second.length,
           sha256: digest(second),
         },
@@ -153,6 +153,22 @@ describe('release downloads', () => {
     )
     expect(downloaded).toHaveLength(2)
     expect(progress).toHaveBeenLastCalledWith({ bytesTransferred: 8, totalBytes: 8 })
+  })
+
+  it('rejects an untrusted asset origin before fetching', async () => {
+    const release = archiveRelease(new Uint8Array([1, 2, 3]))
+    release.assets[0].url = 'https://example.test/asset'
+    const fetchImpl = vi.fn<typeof globalThis.fetch>()
+    await expect(
+      downloadReleaseAssets(
+        release,
+        path.join(temporaryDirectory, 'downloads'),
+        '1.0.0',
+        fetchImpl,
+        () => {},
+      ),
+    ).rejects.toThrow('untrusted origin')
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it.each([

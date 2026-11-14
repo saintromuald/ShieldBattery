@@ -15,6 +15,7 @@ import { getClientShellTemplate, renderClientShell } from './lib/client-shell/cl
 import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/files'
 import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-config'
+import { gameplaySelectionPolicyFromEnvironment } from './lib/games/game-backend-selection'
 import { GameCommendNotificationService } from './lib/games/game-commend-notification-service'
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
@@ -65,9 +66,12 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
     .get('/favicon.ico', send404)
 
   const publicAssetsConfig = container.resolve(PublicAssetsConfig)
+  const gameplayPolicy = gameplaySelectionPolicyFromEnvironment()
   const serverConfig: ServerConfig = {
     publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
     graphqlOrigin,
+    hyperionRollout: gameplayPolicy.stage,
+    hyperionFirstEnabled: gameplayPolicy.hyperionFirstEnabled,
   }
   const pageMetadataContext: PageMetadataContext = {
     canonicalHost: process.env.SB_CANONICAL_HOST!.replace(/\/$/, ''),

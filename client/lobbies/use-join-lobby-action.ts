@@ -1,11 +1,14 @@
 import { useAtomValue } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { GameplayBackendPolicy } from '../../common/games/backend'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { canUseHyperionForOrdinaryLobbies } from '../../common/server-config'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { getServerConfig } from '../server-config-storage'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { healthChecked } from '../starcraft/health-checked'
 import { joinLobby } from './action-creators'
@@ -18,6 +21,8 @@ export interface JoinLobbyActionOptions {
   name?: string
   /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
   asObserver?: boolean
+  /** The advertised whole-lobby policy, when the joining surface knows it. */
+  backendPolicy?: GameplayBackendPolicy
   /**
    * Called with a user-facing message and the underlying error when the join fails. Providing it
    * also holds the navigation back until the join succeeds, so a surface that can show the
@@ -98,36 +103,48 @@ export function useJoinLobbyAction(): [
 
     const onJoinFailed = options?.onJoinFailed
 
-    healthChecked(() => {
-      setIsPending(true)
-      dispatch(
-        joinLobby(
-          lobbyId,
-          { asObserver: options?.asObserver },
-          {
-            onSuccess: () => {
-              setIsPending(false)
-              if (onJoinFailed && !isAtLobbyRoute(lobbyId)) {
-                navigateToLobby(lobbyId, options?.name)
-              }
+    healthChecked(
+      () => {
+        setIsPending(true)
+        dispatch(
+          joinLobby(
+            lobbyId,
+            { asObserver: options?.asObserver },
+            {
+              onSuccess: () => {
+                setIsPending(false)
+                if (onJoinFailed && !isAtLobbyRoute(lobbyId)) {
+                  navigateToLobby(lobbyId, options?.name)
+                }
+              },
+              onError: (err: unknown) => {
+                setIsPending(false)
+                const message = lobbyJoinErrorMessage(err, t)
+                if (onJoinFailed) {
+                  onJoinFailed(message, err)
+                } else {
+                  snackbarController.showSnackbar(message)
+                }
+              },
             },
-            onError: (err: unknown) => {
-              setIsPending(false)
-              const message = lobbyJoinErrorMessage(err, t)
-              if (onJoinFailed) {
-                onJoinFailed(message, err)
-              } else {
-                snackbarController.showSnackbar(message)
-              }
-            },
-          },
-        ),
-      )
+          ),
+        )
 
-      if (!onJoinFailed) {
-        navigateToLobby(lobbyId, options?.name)
-      }
-    })()
+        if (!onJoinFailed) {
+          navigateToLobby(lobbyId, options?.name)
+        }
+      },
+      {
+        requiresScrBackend: () =>
+          options?.asObserver === true ||
+          options?.backendPolicy === GameplayBackendPolicy.ScrCompatibility ||
+          !canUseHyperionForOrdinaryLobbies(getServerConfig()),
+        requiresAnyBackend: () =>
+          options?.asObserver !== true &&
+          options?.backendPolicy !== GameplayBackendPolicy.ScrCompatibility &&
+          canUseHyperionForOrdinaryLobbies(getServerConfig()),
+      },
+    )()
   }
 
   return [join, isPending]

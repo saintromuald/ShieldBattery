@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { checkHyperionPackage, validatePe32PlusAmd64 } from '../../tools/check-hyperion-package.cjs'
-import { makePe32PlusAmd64 } from './testing/fixtures'
+import { makeElf64, makePe32PlusAmd64 } from './testing/fixtures'
 
 let temporaryDirectory: string
 let appOutDir: string
@@ -79,14 +79,10 @@ describe('Hyperion package native validation', () => {
 
   it('retains ELF validation for Linux packages', async () => {
     await fs.mkdir(path.join(resourceDirectory, 'Data'))
-    await fs.writeFile(
-      path.join(resourceDirectory, 'Hyperion.x86_64'),
-      new Uint8Array([127, 69, 76, 70]),
-      {
-        mode: 0o755,
-      },
-    )
-    await fs.writeFile(path.join(resourceDirectory, 'libSDL3.so.0'), 'ELF library')
+    await fs.writeFile(path.join(resourceDirectory, 'Hyperion.x86_64'), makeElf64(), {
+      mode: 0o755,
+    })
+    await fs.writeFile(path.join(resourceDirectory, 'libSDL3.so.0'), makeElf64())
     await writeMetadata()
     expect(() => checkHyperionPackage(appOutDir, 'linux')).not.toThrow()
 
@@ -94,5 +90,20 @@ describe('Hyperion package native validation', () => {
       mode: 0o755,
     })
     expect(() => checkHyperionPackage(appOutDir, 'linux')).toThrow('not a native ELF executable')
+  })
+
+  it('requires Data and a valid native SDL library on Linux', async () => {
+    await fs.writeFile(path.join(resourceDirectory, 'Hyperion.x86_64'), makeElf64(), {
+      mode: 0o755,
+    })
+    await fs.writeFile(path.join(resourceDirectory, 'libSDL3.so.0'), makeElf64())
+    await writeMetadata()
+    expect(() => checkHyperionPackage(appOutDir, 'linux')).toThrow('Data is missing')
+
+    await fs.mkdir(path.join(resourceDirectory, 'Data'))
+    await fs.writeFile(path.join(resourceDirectory, 'libSDL3.so.0'), 'not an ELF library')
+    expect(() => checkHyperionPackage(appOutDir, 'linux')).toThrow(
+      'libSDL3.so.0 is not a native ELF library',
+    )
   })
 })

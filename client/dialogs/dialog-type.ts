@@ -44,6 +44,7 @@ export enum DialogType {
   GameDefaultsApply = 'gameDefaultsApply',
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
   JoinCode = 'joinCode',
+  HyperionHealth = 'hyperionHealth',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   LeaveLeague = 'leaveLeague',
@@ -441,6 +442,7 @@ type SimpleDialogPayload = BaseDialogPayload<
     hasButton: boolean
   }
 >
+type HyperionHealthDialogPayload = BaseDialogPayload<typeof DialogType.HyperionHealth>
 type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
 type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
 type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
@@ -507,6 +509,7 @@ export type DialogPayload =
   | ReportGameDialogPayload
   | ResolveGameResultsDialogPayload
   | SimpleDialogPayload
+  | HyperionHealthDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload
   | TermsOfServiceDialogPayload

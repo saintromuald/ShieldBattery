@@ -23,12 +23,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function asset(name: string, digest?: string): GitHubReleaseAsset {
+function asset(name: string, digest?: string | null): GitHubReleaseAsset {
   return {
     name,
     browser_download_url: `https://github.com/saintromuald/hyperion-public/releases/download/test/${name}`,
     size: 123,
-    digest,
+    digest: digest === undefined ? `sha256:${'a'.repeat(64)}` : digest,
   }
 }
 
@@ -251,6 +251,16 @@ describe('Linux package selection', () => {
     expect(windows?.packageKind).toBe('none')
     expect(windows?.unavailableReason).toContain('Windows x64')
 
+    const missingDigest = toReleaseInfo(
+      'hyperion',
+      RELEASE_SOURCES.hyperion[0],
+      release(1, { assets: [asset('Hyperion-Shield-1.0-linux-x64.tar.gz', null)] }),
+      'linux',
+      'x64',
+    )
+    expect(missingDigest?.packageKind).toBe('none')
+    expect(missingDigest?.unavailableReason).toContain('SHA-256')
+
     const badDigest = toReleaseInfo(
       'hypershield',
       RELEASE_SOURCES.hypershield[0],
@@ -298,12 +308,25 @@ describe('Windows package selection', () => {
     expect(genericResult?.assets.map(item => item.name)).toEqual([generic])
   })
 
+  it('accepts historical HyperShield-Shield package names', () => {
+    const historical = 'HyperShield-Shield-1.0.0-windows-x64.zip'
+    const result = toReleaseInfo(
+      'hyperion',
+      RELEASE_SOURCES.hyperion[0],
+      release(1, { assets: [asset(historical)] }),
+      'win32',
+      'x64',
+    )
+    expect(result).toMatchObject({ packageKind: 'archive' })
+    expect(result?.assets.map(item => item.name)).toEqual([historical])
+  })
+
   it('requires a published SHA-256 and Windows x64', () => {
     const generic = 'Hyperion-Shield-1.0.0.zip'
     const missingDigest = toReleaseInfo(
       'hyperion',
       RELEASE_SOURCES.hyperion[0],
-      release(1, { assets: [asset(generic)] }),
+      release(1, { assets: [asset(generic, null)] }),
       'win32',
       'x64',
     )

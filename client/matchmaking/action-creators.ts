@@ -20,6 +20,7 @@ import {
 } from '../../common/matchmaking'
 import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
+import { canUseHyperionForOrdinaryMatchmaking } from '../../common/server-config'
 import { apiUrl } from '../../common/urls'
 import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -32,8 +33,12 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { getServerConfig } from '../server-config-storage'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { healthChecked } from '../starcraft/health-checked'
+import { hyperionHealthy, refreshGameplayCapabilities } from '../starcraft/hyperion-health'
+import { isScrBackendSupported } from '../starcraft/scr-backend'
 import {
   draftGenerationAtom,
   draftStateAtom,
@@ -41,6 +46,7 @@ import {
   updateProvisionalPickAtom,
 } from './draft-atoms'
 import { clearMatchmakingState, findMatchSelectionAtom, hasAcceptedAtom } from './matchmaking-atoms'
+import { isMatchmakingTypeSupported, matchmakingHealthCheckOptions } from './matchmaking-platform'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -50,13 +56,14 @@ export function findMatch(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const findPromise = Promise.resolve().then(async () => {
-      const [identifiers, desiredRegion, clientPubkey] = await Promise.all([
+      const [identifiers, desiredRegion, clientPubkey, capabilities] = await Promise.all([
         (async () => (await ipcRenderer.invoke('securityGetClientIds')) ?? [])(),
         resolveDesiredRegion(),
         // Generate this session's netcode v2 keypair in the app and submit the public half; the
         // private half stays in the app until the launched game adopts it. Undefined outside
         // Electron (like every invoke here), where matchmaking can't be reached anyway.
         ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys'),
+        refreshGameplayCapabilities(),
       ])
 
       const body: FindMatchRequest = {
@@ -70,6 +77,7 @@ export function findMatch(
         rttMs: desiredRegion?.rttMs ?? undefined,
         regionManual: desiredRegion?.manual,
         clientPubkey,
+        capabilities,
       }
 
       return fetchJson<void>(apiUrl`matchmaking/find`, {
@@ -171,8 +179,18 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
         ? sessionSelection.types
         : ALL_MATCHMAKING_TYPES.filter(type => byType.get(type)?.selected)
 
+    const scrBackendSupported = isScrBackendSupported()
+    const nativeBackendSupported = jotaiStore.get(hyperionHealthy)
+    const ordinaryHyperionEnabled = canUseHyperionForOrdinaryMatchmaking(getServerConfig())
     let types = Array.from(selectedTypes).filter(
-      type => matchmakingStatus.byType.get(type)?.enabled,
+      type =>
+        matchmakingStatus.byType.get(type)?.enabled &&
+        isMatchmakingTypeSupported(
+          type,
+          scrBackendSupported,
+          nativeBackendSupported,
+          ordinaryHyperionEnabled,
+        ),
     )
     if (!types.length) {
       types = [gameConfig.gameSourceExtra.type]
@@ -197,15 +215,25 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       allPrefs.push(prefs as Immutable<MatchmakingPreferences>)
     }
 
-    dispatch(
-      findMatch(allPrefs, {
-        onSuccess: () => {},
-        onError: () => {
-          // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
-          // creator
-        },
-      }),
-    )
+    healthChecked(
+      () => {
+        dispatch(
+          findMatch(allPrefs, {
+            onSuccess: () => {},
+            onError: () => {
+              // NOTE(tec27): This promise actually can't fail, the error is handled inside the
+              // action creator
+            },
+          }),
+        )
+      },
+      matchmakingHealthCheckOptions(
+        types,
+        scrBackendSupported,
+        nativeBackendSupported,
+        ordinaryHyperionEnabled,
+      ),
+    )()
   }
 }
 

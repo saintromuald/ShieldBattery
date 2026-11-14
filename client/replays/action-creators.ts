@@ -1,4 +1,6 @@
+import type { ReplayHeader } from '@shieldbattery/broodrep'
 import { nanoid } from 'nanoid'
+import { GameplayBackend, ReplayIdentity } from '../../common/games/backend'
 import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
@@ -37,7 +39,16 @@ async function setGameConfig(
   }
   const slots = [player]
 
-  const header = (await ipcRenderer.invoke('replayParseMetadata', replay.path))?.headerData
+  let header: ReplayHeader | undefined
+  let identity: ReplayIdentity | undefined
+  try {
+    const metadata = await ipcRenderer.invoke('replayParseMetadata', replay.path)
+    header = metadata?.headerData
+    identity = metadata?.identity
+  } catch (error) {
+    identity = await ipcRenderer.invoke('replayDetectIdentity', replay.path)
+    if (identity?.playbackBackend !== GameplayBackend.Hyperion) throw error
+  }
 
   const localUser: SbUser = {
     id: user?.id ?? makeSbUserId(0),
@@ -54,7 +65,7 @@ async function setGameConfig(
     setup: {
       gameId: nanoid(),
       name: replay.name,
-      map: { isReplay: true, path: replay.path, startFrame: replay.startFrame },
+      map: { isReplay: true, path: replay.path, startFrame: replay.startFrame, replay: identity },
       gameType: GameType.Melee,
       gameSubType: 0,
       slots,
@@ -83,61 +94,95 @@ export function startReplay({
   /** The frame to seek the replay to as soon as it starts, if not its beginning. */
   startFrame?: number
 }): ThunkAction {
-  return healthChecked((dispatch, getState) => {
-    const { gameClient, settings } = getState()
-    if (isInParticipatingGame(gameClient) && !settings.local.keepReplaysAlongsideGames) {
-      // Only one game runs at a time with this setting off, and a replay never closes a game the
-      // user takes part in.
-      dispatch(
-        openSimpleDialog(
-          i18n.t('replays.loading.inGameTitle', "Can't start replay"),
-          i18n.t(
-            'replays.loading.inGameBody',
-            "Replays can't be started while you're in a game. To watch replays while other " +
-              'games run, turn on "Allow replays to run alongside other games" in the ' +
-              'StarCraft game settings.',
+  let playbackBackend: GameplayBackend | undefined
+  const checked: ThunkAction = healthChecked(
+    (dispatch, getState) => {
+      const { gameClient, settings } = getState()
+      if (isInParticipatingGame(gameClient) && !settings.local.keepReplaysAlongsideGames) {
+        // Only one game runs at a time with this setting off, and a replay never closes a game the
+        // user takes part in.
+        dispatch(
+          openSimpleDialog(
+            i18n.t('replays.loading.inGameTitle', "Can't start replay"),
+            i18n.t(
+              'replays.loading.inGameBody',
+              "Replays can't be started while you're in a game. To watch replays while other " +
+                'games run, turn on "Allow replays to run alongside other games" in the ' +
+                'StarCraft game settings.',
+            ),
           ),
-        ),
-      )
-      return
-    }
-
-    // Relationship state (the block list) resets on reconnect, so ensure it's loaded before reading
-    // it — otherwise a replay launched right after a reconnect would hide nothing. Consistent with
-    // the game-launch path in active-game/socket-handlers.ts.
-    dispatch(
-      ensureRelationshipsLoaded(() => {
-        const {
-          auth: { self },
-          relationships,
-        } = getState()
-
-        // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
-        // show to other people (like their friends) when a user is watching a replay.
-        const blockedUsers = Array.from(relationships.blocks.keys())
-        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
-          gameId => {
-            if (gameId) {
-              dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
-            }
-          },
-          err => {
-            logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
-            dispatch(
-              openSimpleDialog(
-                i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
-                i18n.t(
-                  'replays.loading.initFailureBody',
-                  'The selected replay could not be loaded. It may either be corrupt, or was ' +
-                    'created by a version of StarCraft newer than is currently supported.',
-                ),
-              ),
-            )
-          },
         )
-      }),
+        return
+      }
+
+      // Relationship state (the block list) resets on reconnect, so ensure it's loaded before reading
+      // it — otherwise a replay launched right after a reconnect would hide nothing. Consistent with
+      // the game-launch path in active-game/socket-handlers.ts.
+      dispatch(
+        ensureRelationshipsLoaded(() => {
+          const {
+            auth: { self },
+            relationships,
+          } = getState()
+
+          // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
+          // show to other people (like their friends) when a user is watching a replay.
+          const blockedUsers = Array.from(relationships.blocks.keys())
+          setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
+            gameId => {
+              if (gameId) {
+                dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
+              }
+            },
+            err => {
+              logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
+              dispatch(
+                openSimpleDialog(
+                  i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
+                  i18n.t(
+                    'replays.loading.initFailureBody',
+                    'The selected replay could not be loaded. It may either be corrupt, or was ' +
+                      'created by a version of StarCraft newer than is currently supported.',
+                  ),
+                ),
+              )
+            },
+          )
+        }),
+      )
+    },
+    {
+      requiresScrBackend: () => playbackBackend !== GameplayBackend.Hyperion,
+      requiresHyperionBackend: () => playbackBackend === GameplayBackend.Hyperion,
+    },
+  )
+
+  return (dispatch, getState) => {
+    Promise.resolve(ipcRenderer.invoke('replayDetectIdentity', path)).then(
+      identity => {
+        if (!identity) {
+          dispatch(
+            openSimpleDialog(
+              i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
+              i18n.t('replays.loading.initFailureBody', 'Replay services are unavailable.'),
+            ),
+          )
+          return
+        }
+        playbackBackend = identity.playbackBackend
+        checked(dispatch, getState)
+      },
+      error => {
+        logger.error(`Error inspecting replay file [${path}]: ${error?.stack ?? error}`)
+        dispatch(
+          openSimpleDialog(
+            i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
+            i18n.t('replays.loading.initFailureBody', 'The selected replay could not be read.'),
+          ),
+        )
+      },
     )
-  })
+  }
 }
 
 export function showReplayInfo(filePath: string) {

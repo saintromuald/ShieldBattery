@@ -4,6 +4,7 @@ import { MatchmakingType } from '../matchmaking'
 import { BwTurnRate } from '../network'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
+import type { GameplayBackendPolicy, GameplayRules, ResolvedGameplayRouting } from './backend'
 import { GameType } from './game-type'
 
 export enum GameSource {
@@ -57,6 +58,16 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
    * persists it before distributing setup. Records created without seed persistence won't have it.
    */
   seed?: number
+  /** The whole-formation backend policy requested before compatibility resolution. */
+  requestedBackendPolicy?: GameplayBackendPolicy
+  /** Exact gameplay semantics requested by the formation, before backend selection. */
+  requestedRules?: GameplayRules
+  /**
+   * The server-owned backend, rules, compatibility profile, transport, simulation, and replay
+   * identity resolved before registration. Retries must preserve this object exactly. Records
+   * created before it existed retain their historical backend interpretation.
+   */
+  gameplay?: ResolvedGameplayRouting
   /**
    * Whether this game is exempt from result tracking, because its teams include at least one
    * computer player or because it has fewer than two human players. Unlike `useNetcodeV2`, the

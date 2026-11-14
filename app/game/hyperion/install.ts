@@ -1,9 +1,11 @@
 import { app } from 'electron'
 import { execFile } from 'node:child_process'
-import { constants as fsConstants } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { createReadStream, constants as fsConstants } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { readSelectedHyperionInstall } from '../../releases/storage'
+import { sanitizedHyperionEnvironment } from './environment'
 import { HyperionInstall, parseHyperionInstall } from './launch'
 
 const IDENTITY_TIMEOUT_MS = 20_000
@@ -82,9 +84,7 @@ export async function probeHyperionIdentity(
   workingDirectory: string,
   gameDataPath?: string,
 ): Promise<unknown> {
-  const env: NodeJS.ProcessEnv = { ...process.env, HYPERION_WINDOW: 'hidden' }
-  delete env.HYPERION_SB_EVENTS
-  delete env.HYPERION_SB_RESULT_CODE
+  const env = sanitizedHyperionEnvironment({ hidden: true })
 
   const output = await new Promise<string>((resolve, reject) => {
     execFile(
@@ -125,6 +125,15 @@ export async function probeHyperionIdentity(
   }
 }
 
+async function executableSha256(executablePath: string): Promise<string> {
+  const hash = createHash('sha256')
+  const input = createReadStream(executablePath)
+  for await (const chunk of input) {
+    hash.update(chunk)
+  }
+  return hash.digest('hex')
+}
+
 /** Resolves the shipped engine and its actual game-data compatibility without player-created files. */
 export async function readEmbeddedHyperionInstall(
   options: EmbeddedHyperionInstallOptions = {},
@@ -154,18 +163,22 @@ export async function readEmbeddedHyperionInstall(
     : undefined
 
   const probeInstall = async (paths: EmbeddedHyperionPaths): Promise<HyperionInstall> => {
+    let digest: string
     try {
       await fs.mkdir(paths.dataPath, { recursive: true, mode: 0o700 })
-      const [, library, data] = await Promise.all([
-        fs.access(paths.executablePath, platform === 'win32' ? fsConstants.F_OK : fsConstants.X_OK),
+      const [executable, library, data, computedDigest] = await Promise.all([
+        fs.stat(paths.executablePath),
         fs.stat(
           path.join(paths.workingDirectory, platform === 'win32' ? 'SDL3.dll' : 'libSDL3.so.0'),
         ),
         fs.stat(path.join(paths.workingDirectory, 'Data')),
+        executableSha256(paths.executablePath),
+        fs.access(paths.executablePath, platform === 'win32' ? fsConstants.F_OK : fsConstants.X_OK),
       ])
-      if (!library.isFile() || !data.isDirectory()) {
+      if (!executable.isFile() || !library.isFile() || !data.isDirectory()) {
         throw new Error('Hyperion executable dependencies have invalid file types')
       }
+      digest = computedDigest
     } catch (error) {
       throw new Error(
         'HyperShield is not installed correctly. Reinstall HyperShield and try again.',
@@ -184,8 +197,16 @@ export async function readEmbeddedHyperionInstall(
     return parseHyperionInstall({
       ...paths,
       ...(options.gameDataPath ? { gameDataPath: options.gameDataPath } : {}),
+      executableSha256: digest,
       compatibility,
     })
+  }
+
+  if (downloaded?.invalid) {
+    if (!downloaded.fromLatestTracking) {
+      throw new Error('The pinned Hyperion installation is damaged; reinstall it before playing.')
+    }
+    return probeInstall(bundledPaths)
   }
 
   if (downloadedPaths) {

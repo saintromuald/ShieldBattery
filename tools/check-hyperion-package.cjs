@@ -57,6 +57,25 @@ function validatePe32PlusAmd64(contents) {
   }
 }
 
+function validateElf64(contents, expectedMachine) {
+  if (contents.byteLength < 20) {
+    throw new Error('the ELF header is truncated')
+  }
+  if (contents[0] !== 127 || contents[1] !== 69 || contents[2] !== 76 || contents[3] !== 70) {
+    throw new Error('the ELF signature is missing')
+  }
+  if (contents[4] !== 2 || contents[5] !== 1) {
+    throw new Error('the ELF header is not little-endian 64-bit')
+  }
+  if (contents.readUInt16LE(18) !== expectedMachine) {
+    throw new Error(`the ELF machine is not ${expectedMachine === 62 ? 'AMD64' : 'AArch64'}`)
+  }
+}
+
+function nativeMachine(executablePath) {
+  return path.basename(executablePath).toLowerCase().includes('aarch64') ? 183 : 62
+}
+
 function validateNativeExecutable(executablePath, platform) {
   const contents = fs.readFileSync(executablePath)
   if (platform === 'win32') {
@@ -67,11 +86,10 @@ function validateNativeExecutable(executablePath, platform) {
     }
     return undefined
   }
-  if (contents.byteLength < 4) {
-    return 'Hyperion.x86_64 is truncated'
-  }
-  if (contents[0] !== 127 || contents[1] !== 69 || contents[2] !== 76 || contents[3] !== 70) {
-    return 'Hyperion.x86_64 is not a native ELF executable'
+  try {
+    validateElf64(contents, nativeMachine(executablePath))
+  } catch (error) {
+    return `${path.basename(executablePath)} is not a native ELF executable: ${error.message}`
   }
   return undefined
 }
@@ -86,10 +104,7 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
   const resourceDirectory = path.join(appOutDir, 'resources', 'hyperion')
   const executablePath = path.join(resourceDirectory, executable)
   const problems = []
-  const required = [executable, library, 'release.json', 'EDITION.txt']
-  if (windows) {
-    required.push('Data')
-  }
+  const required = [executable, library, 'release.json', 'EDITION.txt', 'Data']
 
   for (const name of required) {
     if (!fs.existsSync(path.join(resourceDirectory, name))) {
@@ -99,7 +114,7 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
   if (fs.existsSync(path.join(resourceDirectory, 'Game'))) {
     problems.push('Game/ must not be shipped')
   }
-  if (windows && fs.existsSync(path.join(resourceDirectory, 'Data'))) {
+  if (fs.existsSync(path.join(resourceDirectory, 'Data'))) {
     const data = fs.lstatSync(path.join(resourceDirectory, 'Data'))
     if (!data.isDirectory() || data.isSymbolicLink()) {
       problems.push('Data must be a regular directory')
@@ -116,11 +131,19 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
     }
   }
   const libraryPath = path.join(resourceDirectory, library)
-  if (windows && fs.existsSync(libraryPath)) {
-    try {
-      validatePe32PlusAmd64(fs.readFileSync(libraryPath))
-    } catch (error) {
-      problems.push(`SDL3.dll is not a PE32+ AMD64 library: ${error.message}`)
+  if (fs.existsSync(libraryPath)) {
+    if (windows) {
+      try {
+        validatePe32PlusAmd64(fs.readFileSync(libraryPath))
+      } catch (error) {
+        problems.push(`SDL3.dll is not a PE32+ AMD64 library: ${error.message}`)
+      }
+    } else {
+      try {
+        validateElf64(fs.readFileSync(libraryPath), nativeMachine(executablePath))
+      } catch (error) {
+        problems.push(`${library} is not a native ELF library: ${error.message}`)
+      }
     }
   }
 
@@ -130,7 +153,8 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
     if (
       !PUBLIC_PRODUCT_NAMES.has(release.product) ||
       release.gameFilesBundled !== false ||
-      (windows && (typeof release.version !== 'string' || !release.version))
+      typeof release.version !== 'string' ||
+      !release.version
     ) {
       problems.push('release.json is not for public HyperShield Shield without game files')
     }

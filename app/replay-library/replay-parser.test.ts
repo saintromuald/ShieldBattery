@@ -1,5 +1,6 @@
 import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
 import { describe, expect, test } from 'vitest'
+import { GameplayBackend } from '../../common/games/backend'
 import { RaceChar } from '../../common/races'
 import { NON_EXISTING_USER_ID } from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
@@ -10,6 +11,7 @@ import {
   makeParseErrorRecord,
   mapReplayHeaderToRecord,
   ReplayFileInfo,
+  replayIdentityForBytes,
 } from './replay-parser'
 
 const FILE_INFO: ReplayFileInfo = {
@@ -326,5 +328,28 @@ describe('app/replay-library/replay-parser/decodeReplayColors', () => {
 
     expect(decodeReplayColors(section.subarray(0, section.length - 1))).toEqual([])
     expect(decodeReplayColors(section.subarray(0, 4))).toEqual([])
+  })
+})
+
+describe('replayIdentityForBytes', () => {
+  test('selects Hyperion for exact hxRS magic at either container offset', () => {
+    const fromBytes = replayIdentityForBytes(Buffer.from('hxRS-data'))
+    expect(fromBytes).toEqual({
+      format: 'hxRS',
+      playbackBackend: GameplayBackend.Hyperion,
+    })
+    const header = Buffer.from([0x7f, 0xf9, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0])
+    const fromHeader = replayIdentityForBytes(Buffer.concat([header, Buffer.from('hxRS')]))
+    expect(fromHeader).toEqual({
+      format: 'hxRS',
+      playbackBackend: GameplayBackend.Hyperion,
+    })
+  })
+
+  test.each(['reRS', 'hxRs', 'hxR', 'text'])('keeps %s on the legacy SC:R route', value => {
+    expect(replayIdentityForBytes(Buffer.from(value))).toEqual({
+      format: 'scr',
+      playbackBackend: GameplayBackend.Scr,
+    })
   })
 })

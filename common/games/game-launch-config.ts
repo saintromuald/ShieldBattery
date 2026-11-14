@@ -5,6 +5,7 @@ import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
+import type { ReplayIdentity, ResolvedGameplayRouting } from './backend'
 import { GameType } from './game-type'
 
 /** A matchmaking player's standing in the match's mode, as shown on the game's loading screen. */
@@ -41,6 +42,8 @@ export interface ReplayMapInfo {
   path: string
   /** The frame to seek the replay to as soon as it starts, if not its beginning. */
   startFrame?: number
+  /** Recording-validated identity. Unmarked historical recordings remain SC:R. */
+  replay?: ReplayIdentity
 }
 
 export function isReplayLaunchConfig(config: GameLaunchConfig) {
@@ -103,6 +106,8 @@ export interface GameSetup {
    */
   starcraftCompatibleReplays?: boolean
   seed: number
+  /** The same server-resolved gameplay identity persisted in the formation's game record. */
+  gameplay?: ResolvedGameplayRouting
   /**
    * Whether this game uses netcode v2 (rally-point2). When set, each client must generate a
    * per-session keypair and submit its public key to the server during loading; the server

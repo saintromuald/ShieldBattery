@@ -1692,7 +1692,7 @@ describe('games/game-loader/GameLoader', () => {
     const first = gameLoader.loadGame(request)
     const duplicate = gameLoader.loadGame({ ...request, onGameRegistered: duplicateRegistered })
     expect(duplicate).toBe(first)
-    expect(registerGame).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(registerGame).toHaveBeenCalledTimes(1))
     expect(asMockedFunction(registerGame).mock.calls[0][3]).toBe(gameId)
 
     finishRegistration({

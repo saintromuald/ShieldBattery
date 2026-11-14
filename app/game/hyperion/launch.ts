@@ -2,10 +2,12 @@ import { ChildProcess, execFile, spawn } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { hasExactReplayMagic, ReplayIdentity } from '../../../common/games/backend'
 import { GameSetup } from '../../../common/games/game-launch-config'
 import { NetcodeV2Setup } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import log from '../../logger'
+import { redactNativeDiagnostic, sanitizedHyperionEnvironment } from './environment'
 import {
   HyperionCompatibility,
   HyperionNativeManifest,
@@ -21,6 +23,8 @@ export interface HyperionInstall {
   /** A legally supplied StarCraft installation already configured in ShieldBattery. */
   gameDataPath?: string
   workingDirectory?: string
+  /** SHA-256 of the probed executable, retained for queue-to-launch identity checks. */
+  executableSha256?: string
   compatibility: HyperionCompatibility
 }
 
@@ -49,6 +53,17 @@ export interface HyperionLaunchResult {
   releaseGpuPreference: () => void
   quit: () => Promise<void>
   resultContext: HyperionResultContext
+}
+
+export interface HyperionReplayLaunchOptions {
+  install: HyperionInstall
+  replayPath: string
+  startFrame?: number
+  /** Recording-validated identity; native Classic uses `scr`, Hyperion QoL uses `hxRS`. */
+  replay?: ReplayIdentity
+  serverUrl: string
+  onStart?: () => void
+  onFinished?: () => void
 }
 
 export type HyperionSpawn = (
@@ -150,6 +165,7 @@ export function parseHyperionInstall(value: unknown): HyperionInstall {
     dataPath: optionalString(record.dataPath, 'dataPath'),
     gameDataPath: optionalString(record.gameDataPath, 'gameDataPath'),
     workingDirectory: optionalString(record.workingDirectory, 'workingDirectory'),
+    executableSha256: optionalString(record.executableSha256, 'executableSha256'),
     compatibility: parseHyperionCompatibility(record.compatibility),
   }
 }
@@ -282,17 +298,23 @@ export async function launchHyperionProcess(
     await restrictRunDirectory(runDirectory, process.platform)
     await fs.writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o600, flag: 'wx' })
     const args = nativeArguments(manifestPath, options, manifest)
+    const eligibleResultCode =
+      options.resultContext.resultCode &&
+      options.setup.slots.some(
+        slot => slot.userId === options.localUserId && slot.type === 'human',
+      ) &&
+      options.netcodeSetup.roster.some(entry => entry.userId === options.localUserId)
+        ? options.resultContext.resultCode
+        : undefined
     child = spawnProcess(options.install.executablePath, args, {
       cwd: options.install.workingDirectory ?? path.dirname(options.install.executablePath),
-      env: {
-        ...process.env,
-        HYPERION_SB_EVENTS: '1',
-        // The relay report needs this per-seat credential, but it must not enter
-        // the manifest, command line, lifecycle events, or native logs.
-        ...(options.resultContext.resultCode
-          ? { HYPERION_SB_RESULT_CODE: options.resultContext.resultCode }
-          : {}),
-      },
+      // Only an eligible tracked participant receives a result credential. In particular, an
+      // inherited value must never leak into an observer, replay, or development process.
+      env: sanitizedHyperionEnvironment({
+        resultCode: eligibleResultCode,
+        serverUrl: eligibleResultCode ? options.resultContext.serverUrl : undefined,
+        events: true,
+      }),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
@@ -315,7 +337,7 @@ export async function launchHyperionProcess(
 
     child.stderr?.setEncoding('utf8')
     child.stderr?.on('data', chunk => {
-      const text = chunk.trim()
+      const text = redactNativeDiagnostic(chunk, [options.resultContext.resultCode])
       if (text) {
         log.warning(`HyperShield ${options.setup.gameId}: ${text}`)
       }
@@ -335,10 +357,19 @@ export async function launchHyperionProcess(
     let quitting: Promise<void> | undefined
     const quit = () => {
       quitting ??= (async () => {
+        let escalation: ReturnType<typeof setTimeout> | undefined
         if (!exited) {
-          child!.kill()
+          child!.kill('SIGTERM')
+          escalation = setTimeout(() => {
+            if (!exited) child!.kill('SIGKILL')
+          }, 5000)
+          escalation.unref?.()
         }
-        await waitForExit()
+        try {
+          await waitForExit()
+        } finally {
+          if (escalation) clearTimeout(escalation)
+        }
       })()
       return quitting
     }
@@ -354,5 +385,96 @@ export async function launchHyperionProcess(
     }
     await cleanup()
     throw error
+  }
+}
+
+async function requireNativeReplay(
+  replayPath: string,
+  expectedFormat: 'scr' | 'hxRS',
+): Promise<void> {
+  const file = await fs.open(replayPath, 'r')
+  try {
+    const magic = Buffer.alloc(16)
+    const { bytesRead } = await file.read(magic, 0, 16, 0)
+    if (!hasExactReplayMagic(magic.subarray(0, bytesRead), expectedFormat)) {
+      throw new Error(
+        `Hyperion replay metadata requires ${expectedFormat === 'hxRS' ? 'hxRS replay magic' : 'classic reRS replay magic'}`,
+      )
+    }
+  } finally {
+    await file.close()
+  }
+}
+
+/** Launches a watch-only native replay without any live-game credentials or setup manifest. */
+export async function launchHyperionReplayProcess(
+  options: HyperionReplayLaunchOptions,
+  spawnProcess: HyperionSpawn = DEFAULT_SPAWN,
+): Promise<HyperionLaunchResult> {
+  if (options.startFrame !== undefined && options.startFrame > 0) {
+    throw new Error('Hyperion replay seeking at launch is not supported yet')
+  }
+  await requireNativeReplay(options.replayPath, options.replay?.format ?? 'hxRS')
+
+  const args = ['--replay', options.replayPath]
+  if (options.install.dataPath) args.push('--data', options.install.dataPath)
+  if (options.install.gameDataPath) {
+    args.push('--install-folder', options.install.gameDataPath)
+  }
+  const child = spawnProcess(options.install.executablePath, args, {
+    cwd: options.install.workingDirectory ?? path.dirname(options.install.executablePath),
+    env: sanitizedHyperionEnvironment({ events: true }),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  let exited = false
+  const exit = new Promise<number>((resolve, reject) => {
+    child.once('error', reject)
+    child.once('exit', (code, signal) => {
+      exited = true
+      resolve(exitCode(code, signal))
+    })
+  })
+  child.stderr?.setEncoding('utf8')
+  child.stderr?.on('data', chunk => {
+    const text = redactNativeDiagnostic(chunk, [])
+    if (text) log.warning(`HyperShield replay: ${text}`)
+  })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child.once('spawn', resolve)
+      child.once('error', reject)
+    })
+  } catch (error) {
+    await exit.catch(() => {})
+    throw error
+  }
+
+  forwardLifecycleEvents(child, options.onStart, options.onFinished)
+  options.onStart?.()
+  let quitting: Promise<void> | undefined
+  const quit = () => {
+    quitting ??= (async () => {
+      let escalation: ReturnType<typeof setTimeout> | undefined
+      if (!exited) {
+        child.kill('SIGTERM')
+        escalation = setTimeout(() => {
+          if (!exited) child.kill('SIGKILL')
+        }, 5000)
+        escalation.unref?.()
+      }
+      try {
+        await exit
+      } finally {
+        if (escalation) clearTimeout(escalation)
+      }
+    })()
+    return quitting
+  }
+  return {
+    proc: { waitForExit: () => exit },
+    releaseGpuPreference: () => {},
+    quit,
+    resultContext: { serverUrl: options.serverUrl },
   }
 }

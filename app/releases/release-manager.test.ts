@@ -17,7 +17,7 @@ import {
   readSelectedHyperionInstall,
   releaseCenterInstallRoot,
 } from './storage'
-import { makeHyperionZip } from './testing/fixtures'
+import { makeAppImage, makeHyperionZip } from './testing/fixtures'
 
 vi.mock('electron', () => ({
   app: {
@@ -129,7 +129,7 @@ function makeManager(
 
 const executable = new TextEncoder().encode('downloaded native executable')
 const library = new TextEncoder().encode('downloaded SDL library')
-const appImage = new TextEncoder().encode('downloaded AppImage')
+const appImage = makeAppImage()
 
 function rawRelease(id: number, version: string, prerelease = false) {
   return githubRelease(

@@ -1,0 +1,96 @@
+import { describe, expect, it, vi } from 'vitest'
+import { ShieldBatteryFile } from '../../common/shieldbattery-file'
+import { collectGameplayCapabilities, hyperionProfileForInstall } from './gameplay-capabilities'
+import { HyperionInstall } from './hyperion/launch'
+
+vi.mock('electron', () => ({ app: { getAppPath: () => '/unused' } }))
+vi.mock('../logger', () => ({ default: { error: vi.fn(), verbose: vi.fn() } }))
+
+const INSTALL: HyperionInstall = {
+  executablePath: '/opt/hyperion/Hyperion.x86_64',
+  executableSha256: 'c'.repeat(64),
+  compatibility: {
+    adapterProtocol: 1,
+    engineBuild: 'hyperion-test',
+    simRevision: 22,
+    rules: 'classic',
+    modId: 'bw',
+    modFingerprint: 'b'.repeat(40),
+    dataFingerprint: 'C3D54EC8',
+    rollback: false,
+  },
+}
+
+describe('collectGameplayCapabilities', () => {
+  it('advertises native support without requiring SC:R on Linux', async () => {
+    const checkScr = vi.fn()
+    const snapshot = await collectGameplayCapabilities({
+      gameDataPath: '/games/StarCraft',
+      readHyperion: async () => INSTALL,
+      checkScr,
+      platform: 'linux',
+      architecture: 'x64',
+    })
+    expect(snapshot.capabilities.hyperion).toMatchObject({
+      engineBuild: 'hyperion-test',
+      dataFingerprint: 'c3d54ec8',
+      executableSha256: 'c'.repeat(64),
+    })
+    expect(snapshot.capabilities.scrAvailable).toBe(false)
+    expect(snapshot.hyperionInstall).toBe(INSTALL)
+    expect(checkScr).not.toHaveBeenCalled()
+  })
+
+  it('does not treat native game data as proof of SC:R compatibility', async () => {
+    const snapshot = await collectGameplayCapabilities({
+      gameDataPath: 'C:\\Games\\StarCraft',
+      readHyperion: async () => INSTALL,
+      checkScr: async () => ({ path: false, version: false }),
+      checkScrDll: async () => [],
+      platform: 'win32',
+      architecture: 'x64',
+    })
+    expect(snapshot.capabilities.hyperion).toBeDefined()
+    expect(snapshot.capabilities.scrAvailable).toBe(false)
+  })
+
+  it('keeps independent SC:R compatibility available when native probing fails', async () => {
+    const snapshot = await collectGameplayCapabilities({
+      gameDataPath: 'C:\\Games\\StarCraft',
+      readHyperion: async () => {
+        throw new Error('native data missing')
+      },
+      checkScr: async () => ({ path: true, version: true }),
+      checkScrDll: async () => [
+        [ShieldBatteryFile.Init, true],
+        [ShieldBatteryFile.Main, true],
+      ],
+      platform: 'win32',
+      architecture: 'x64',
+    })
+    expect(snapshot.capabilities.hyperion).toBeUndefined()
+    expect(snapshot.capabilities.scrAvailable).toBe(true)
+    expect(snapshot.hyperionInstall).toBeUndefined()
+  })
+
+  it('does not advertise an install without an executable identity', async () => {
+    const snapshot = await collectGameplayCapabilities({
+      gameDataPath: '/games/StarCraft',
+      readHyperion: async () => ({ ...INSTALL, executableSha256: undefined }),
+      platform: 'linux',
+      architecture: 'x64',
+    })
+    expect(snapshot.capabilities.hyperion).toBeUndefined()
+    expect(snapshot.hyperionInstall).toBeUndefined()
+  })
+})
+
+describe('hyperionProfileForInstall', () => {
+  it('rejects unsupported Windows architectures', () => {
+    expect(() => hyperionProfileForInstall(INSTALL, 'win32', 'arm64')).toThrow('x64 Windows')
+  })
+
+  it('rejects unsupported operating systems', () => {
+    expect(() => hyperionProfileForInstall(INSTALL, 'darwin', 'arm64')).toThrow('operating system')
+  })
+})

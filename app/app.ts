@@ -51,9 +51,11 @@ import { findInstallPath } from './find-install-path'
 import { RegionLatencyManager } from './game-server-regions/region-latency-manager'
 import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
+import { createNativeGameQuitHandler } from './game/app-exit'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { GameWindowMinimizer } from './game/game-window-minimizer'
+import { embeddedHyperionPaths } from './game/hyperion/install'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
@@ -61,7 +63,12 @@ import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { ReleaseManager } from './releases'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
-import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
+import {
+  detectReplayIdentity,
+  parseReplayChat,
+  parseReplayMetadata,
+} from './replay-library/replay-parser'
+import { includeNativeReplayFolder } from './replay-library/replay-watcher-paths'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
@@ -731,7 +738,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
 
     if (replayLibrary) {
-      const folders = resolveReplayFolders(settings)
+      const nativeData = embeddedHyperionPaths(
+        app.getAppPath(),
+        app.getPath('userData'),
+        process.env.SB_SESSION,
+      )
+      const folders = includeNativeReplayFolder(resolveReplayFolders(settings), nativeData.dataPath)
       if (
         !lastReplayFolders ||
         folders.length !== lastReplayFolders.length ||
@@ -1023,7 +1035,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, request)
     })
 
-  app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
+  app.on(
+    'will-quit',
+    createNativeGameQuitHandler(app, activeGameManager, err => {
+      logger.error(`Error waiting for native game processes to quit: ${getErrorStack(err)}`)
+    }),
+  )
 
   ipcMain.handle('activeGameClearConfig', (event, gameId) =>
     activeGameManager.clearGameConfig(gameId),
@@ -1038,6 +1055,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
   ipcMain.handle('activeGameGenNetcodeV2SessionKeys', () =>
     activeGameManager.generateNetcodeV2SessionKeys(),
+  )
+  ipcMain.handle('activeGameGetGameplayCapabilities', () =>
+    activeGameManager.getGameplayCapabilities(),
   )
   ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
     activeGameManager.setNetcodeV2Setup(gameId, setup),
@@ -1231,6 +1251,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
     return parseReplayMetadata(replayPath)
   })
+  ipcMain.handle('replayDetectIdentity', async (event, replayPath) =>
+    detectReplayIdentity(replayPath),
+  )
   ipcMain.handle('replayParseChat', (event, replayPath) => parseReplayChat(replayPath))
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
@@ -1749,7 +1772,15 @@ app.on('ready', () => {
       }
 
       try {
-        const watchedFolders = resolveReplayFolders(await localSettings.get())
+        const nativeData = embeddedHyperionPaths(
+          app.getAppPath(),
+          app.getPath('userData'),
+          process.env.SB_SESSION,
+        )
+        const watchedFolders = includeNativeReplayFolder(
+          resolveReplayFolders(await localSettings.get()),
+          nativeData.dataPath,
+        )
         lastReplayFolders = watchedFolders
         // Namespaced by SB_SESSION (like the settings/log files) so concurrent dev instances don't
         // contend over one index file; without it (i.e. production) the bare name is used.

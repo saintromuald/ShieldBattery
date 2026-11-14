@@ -2,6 +2,7 @@ import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
 import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
@@ -27,6 +28,7 @@ import { ALL_RACE_CHARS } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
+import { gameplayCapabilitiesSchema } from '../games/gameplay-capabilities-schema'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
@@ -271,11 +273,13 @@ export class LobbyApi {
         useLegacyLimits: Joi.boolean(),
         starcraftCompatibleReplays: Joi.boolean(),
         lockedAlliances: Joi.boolean(),
+        backendPolicy: Joi.string().valid(...Object.values(GameplayBackendPolicy)),
         visibility: Joi.string().valid(...ALL_LOBBY_VISIBILITIES),
         region: regionSchema,
         rttMs: rttMsSchema,
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
+        capabilities: gameplayCapabilitiesSchema.optional(),
         leaveCurrentLobby: Joi.boolean(),
       }),
     })
@@ -291,11 +295,13 @@ export class LobbyApi {
       useLegacyLimits: body.useLegacyLimits,
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
+      backendPolicy: body.backendPolicy,
       visibility: body.visibility,
       region: body.region,
       rttMs: body.rttMs,
       regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
+      capabilities: body.capabilities,
       leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
@@ -313,6 +319,7 @@ export class LobbyApi {
         rttMs: rttMsSchema,
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
+        capabilities: gameplayCapabilitiesSchema.optional(),
         asObserver: Joi.boolean(),
         leaveCurrentLobby: Joi.boolean(),
       }),
@@ -326,6 +333,7 @@ export class LobbyApi {
       rttMs: body.rttMs,
       regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
+      capabilities: body.capabilities,
       asObserver: body.asObserver,
       leaveCurrentLobby: body.leaveCurrentLobby,
       user,

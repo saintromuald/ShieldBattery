@@ -112,6 +112,12 @@ impl Game {
         let loader = ctx.data::<DataLoader<GameRanksLoader>>()?;
         Ok(loader.load_one(self.id).await?.unwrap_or_default())
     }
+
+    /// The backend that actually launched, with historical records interpreted by their legacy
+    /// matchmaking identity rather than by the new default policy.
+    async fn effective_backend(&self) -> GameplayBackend {
+        self.config.effective_backend()
+    }
 }
 
 /// A player's standing in a matchmaking mode for a season. Carries only what's public about it
@@ -286,6 +292,108 @@ impl GamePlayer {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayBackend {
+    Hyperion,
+    Scr,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayBackendPolicy {
+    HyperionFirst,
+    ScrCompatibility,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayBackendSelectionReason {
+    Preferred,
+    ExplicitCompatibility,
+    MissingNativeFeature,
+    IncompatibleNativeProfile,
+    HyperionOnly,
+    OperatorPolicy,
+    ScrUnavailable,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayRuleSet {
+    Classic,
+    Hyperion,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayTransport {
+    LocalOnly,
+    NetcodeV2,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplaySimulationMode {
+    Lockstep,
+    Rollback,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, async_graphql::Enum)]
+pub enum ReplayFormat {
+    #[serde(rename = "scr")]
+    Scr,
+    #[serde(rename = "hxRS")]
+    HxRs,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayMutatorsData {
+    pub anti_meta: Option<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayRulesData {
+    pub rule_set: GameplayRuleSet,
+    pub mutators: Option<GameplayMutatorsData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedHyperionProfileData {
+    pub adapter_protocol: u16,
+    pub engine_build: String,
+    pub sim_revision: u32,
+    pub mod_id: String,
+    pub mod_fingerprint: String,
+    pub data_fingerprint: String,
+    pub features: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayIdentityData {
+    pub format: ReplayFormat,
+    pub playback_backend: GameplayBackend,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedGameplayRoutingData {
+    pub version: u8,
+    pub requested_policy: GameplayBackendPolicy,
+    pub backend: GameplayBackend,
+    pub reason: GameplayBackendSelectionReason,
+    pub rules: GameplayRulesData,
+    pub native_profile: Option<ResolvedHyperionProfileData>,
+    pub shadow_backend: Option<GameplayBackend>,
+    pub transport: GameplayTransport,
+    pub simulation: GameplaySimulationMode,
+    pub replay: ReplayIdentityData,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
 #[graphql(concrete(name = "GameConfigDataLobby", params(LobbyExtra)))]
 #[graphql(concrete(name = "GameConfigDataMatchmaking", params(MatchmakingExtra)))]
@@ -295,6 +403,8 @@ pub struct GameConfigData<ExtraT: OutputType> {
     pub game_sub_type: u8,
     pub teams: Vec<Vec<GamePlayer>>,
     pub game_source_extra: ExtraT,
+    #[serde(default)]
+    pub gameplay: Option<ResolvedGameplayRoutingData>,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, SimpleObject)]
@@ -532,6 +642,31 @@ pub enum MatchmakingExtra {
 pub enum GameConfig {
     Lobby(GameConfigData<LobbyExtra>),
     Matchmaking(GameConfigData<MatchmakingExtra>),
+}
+
+impl GameConfig {
+    pub fn effective_backend(&self) -> GameplayBackend {
+        let gameplay = match self {
+            GameConfig::Lobby(config) => &config.gameplay,
+            GameConfig::Matchmaking(config) => &config.gameplay,
+        };
+        if let Some(gameplay) = gameplay {
+            return gameplay.backend;
+        }
+        match self {
+            GameConfig::Matchmaking(config) => match &config.game_source_extra {
+                MatchmakingExtra::Hyperion1v1Rule1(_)
+                | MatchmakingExtra::Hyperion1v1Rule2(_)
+                | MatchmakingExtra::Hyperion1v1Rule3(_)
+                | MatchmakingExtra::Hyperion2v2Rule1(_)
+                | MatchmakingExtra::Hyperion2v2Rule2(_)
+                | MatchmakingExtra::Hyperion3v3Rule1(_)
+                | MatchmakingExtra::Hyperion3v3Rule2(_) => GameplayBackend::Hyperion,
+                _ => GameplayBackend::Scr,
+            },
+            GameConfig::Lobby(_) => GameplayBackend::Scr,
+        }
+    }
 }
 
 pub struct GamesRepo {
@@ -796,6 +931,7 @@ mod tests {
                     game_sub_type: 0,
                     teams: Vec::new(),
                     game_source_extra: extra,
+                    gameplay: None,
                 })),
                 disputable: false,
                 dispute_requested: false,
@@ -878,5 +1014,54 @@ mod tests {
             6,
         );
         assert_eq!(ids(&picked), vec![2, 3, 1]);
+    }
+
+    fn routing(backend: GameplayBackend) -> ResolvedGameplayRoutingData {
+        ResolvedGameplayRoutingData {
+            version: 1,
+            requested_policy: GameplayBackendPolicy::HyperionFirst,
+            backend,
+            reason: GameplayBackendSelectionReason::Preferred,
+            rules: GameplayRulesData {
+                rule_set: GameplayRuleSet::Classic,
+                mutators: None,
+            },
+            native_profile: None,
+            shadow_backend: None,
+            transport: GameplayTransport::NetcodeV2,
+            simulation: GameplaySimulationMode::Lockstep,
+            replay: ReplayIdentityData {
+                format: ReplayFormat::HxRs,
+                playback_backend: GameplayBackend::Hyperion,
+            },
+        }
+    }
+
+    #[test]
+    fn interprets_missing_historical_gameplay_by_matchmaking_identity() {
+        let standard: GameConfig = serde_json::from_str(
+            r#"{"gameSource":"MATCHMAKING","gameType":"oneVOne","gameSubType":0,"teams":[],"gameSourceExtra":{"type":"1v1"}}"#,
+        )
+        .unwrap();
+        assert_eq!(standard.effective_backend(), GameplayBackend::Scr);
+
+        let native: GameConfig = serde_json::from_str(
+            r#"{"gameSource":"MATCHMAKING","gameType":"oneVOne","gameSubType":0,"teams":[],"gameSourceExtra":{"type":"hyperion1v1rule1"}}"#,
+        )
+        .unwrap();
+        assert_eq!(native.effective_backend(), GameplayBackend::Hyperion);
+    }
+
+    #[test]
+    fn explicit_gameplay_backend_wins_over_matchmaking_identity() {
+        let mut game = one_v_one(1, None);
+        let GameConfig::Matchmaking(config) = &mut game.game.config.0 else {
+            unreachable!()
+        };
+        config.gameplay = Some(routing(GameplayBackend::Hyperion));
+        assert_eq!(
+            game.game.config.0.effective_backend(),
+            GameplayBackend::Hyperion
+        );
     }
 }

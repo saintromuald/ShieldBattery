@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
-import { constants as fsConstants } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { createReadStream, constants as fsConstants } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
@@ -40,6 +40,10 @@ export type ReleasePreferences = Record<ReleaseProduct, ProductPreferences>
 
 export interface InstalledReleaseRecord extends InstalledReleaseInfo {
   packageKind: Exclude<ReleasePackageKind, 'none'>
+  /** Published digest for every downloaded asset, retained for release identity. */
+  assetSha256?: Record<string, string>
+  /** Digest of the staged executable, rechecked on every selected-install validation. */
+  executableSha256?: string
   directoryName: string
   /** Path to the executable, relative to directoryName. */
   executablePath: string
@@ -283,6 +287,15 @@ export async function writeProductCatalogCache(
   await writeJsonAtomic(catalogCachePath(userDataPath, product), file)
 }
 
+export async function computeFileSha256(filePath: string): Promise<string> {
+  const hash = createHash('sha256')
+  const input = createReadStream(filePath)
+  for await (const chunk of input) {
+    hash.update(chunk)
+  }
+  return hash.digest('hex')
+}
+
 export function installedReleaseExecutable(
   userDataPath: string,
   product: ReleaseProduct,
@@ -356,6 +369,12 @@ export async function validateInstalledRelease(
     if (platform === 'linux') {
       await fs.access(executablePath, fsConstants.X_OK)
     }
+    if (
+      record.executableSha256 &&
+      (await computeFileSha256(executablePath)) !== record.executableSha256
+    ) {
+      return false
+    }
     if (product === 'hyperion') {
       const windows = platform === 'win32'
       if (
@@ -407,6 +426,8 @@ export interface DownloadedHyperionPaths {
   executablePath: string
   workingDirectory: string
   fromLatestTracking: boolean
+  /** Set when the selected record exists but fails validation; pinned callers must not fall back. */
+  invalid?: boolean
 }
 
 /** Resolves only a complete, selected installation; callers can retain their bundled fallback. */
@@ -418,26 +439,37 @@ export async function readSelectedHyperionInstall(
   if (!supportsReleaseInstallation('hyperion', platform, architecture)) {
     return undefined
   }
+  let failPinnedSelection = false
   try {
     const [preferences, registry] = await Promise.all([
       readReleasePreferences(userDataPath),
       readInstalledRegistry(userDataPath),
     ])
     const activeReleaseId = preferences.hyperion.activeReleaseId
+    failPinnedSelection = preferences.hyperion.selection === 'pinned' && !!activeReleaseId
     const record = registry.hyperion.find(candidate => candidate.releaseId === activeReleaseId)
-    if (
-      !record ||
-      !(await validateInstalledRelease(userDataPath, 'hyperion', record, platform, architecture))
-    ) {
+    if (!record) {
+      if (failPinnedSelection) {
+        throw new Error('The pinned Hyperion installation is missing from the release registry.')
+      }
       return undefined
     }
+    const valid = await validateInstalledRelease(
+      userDataPath,
+      'hyperion',
+      record,
+      platform,
+      architecture,
+    )
     const executablePath = installedReleaseExecutable(userDataPath, 'hyperion', record)
     return {
       executablePath,
       workingDirectory: path.dirname(executablePath),
       fromLatestTracking: preferences.hyperion.selection === 'latest',
+      invalid: !valid,
     }
-  } catch {
+  } catch (error) {
+    if (failPinnedSelection) throw error
     return undefined
   }
 }

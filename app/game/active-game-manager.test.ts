@@ -1,6 +1,15 @@
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  GameplayBackend,
+  GameplayBackendPolicy,
+  GameplayBackendSelectionReason,
+  hyperionProfileCompatibility,
+  ResolvedGameplayRouting,
+} from '../../common/games/backend'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
@@ -11,11 +20,16 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
-import { HyperionInstall, HyperionLaunchOptions } from './hyperion/launch'
+import { hyperionProfileForInstall } from './gameplay-capabilities'
+import { HyperionInstall, HyperionLaunchOptions, HyperionLaunchResult } from './hyperion/launch'
 
 const { verifyGame, electronApp } = vi.hoisted(() => ({
   verifyGame: vi.fn<() => Promise<void>>(),
-  electronApp: { getAppPath: () => 'C:\\fake-app', isPackaged: true },
+  electronApp: {
+    getAppPath: () => 'C:\\fake-app',
+    getPath: vi.fn(() => '/fake-user-data'),
+    isPackaged: true,
+  },
 }))
 vi.mock('virtual:sb-security-impl', () => ({ verifyGame }))
 
@@ -72,6 +86,7 @@ function configFor(gameId: string): GameLaunchConfig {
 
 function replayConfigFor(gameId: string): GameLaunchConfig {
   return {
+    serverConfig: { serverUrl: 'https://server.invalid' },
     setup: { gameId, map: { isReplay: true, path: `C:\\replays\\${gameId}.rep` } },
   } as unknown as GameLaunchConfig
 }
@@ -244,6 +259,7 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
   const guestId = makeSbUserId(202)
   const install: HyperionInstall = {
     executablePath: '/hyperion/Hyperion.x86_64',
+    executableSha256: 'c'.repeat(64),
     compatibility: {
       adapterProtocol: 1,
       engineBuild: 'hyperion-test-build',
@@ -305,6 +321,29 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     } as GameLaunchConfig
   }
 
+  function withResolvedHyperion(
+    config: GameLaunchConfig,
+    rules: ResolvedGameplayRouting['rules'] = { ruleSet: 'classic' },
+  ): GameLaunchConfig {
+    config.setup.gameplay = {
+      version: 1,
+      requestedPolicy: GameplayBackendPolicy.HyperionFirst,
+      backend: GameplayBackend.Hyperion,
+      reason: GameplayBackendSelectionReason.Preferred,
+      rules,
+      nativeProfile: hyperionProfileCompatibility(
+        hyperionProfileForInstall(install, 'linux', 'x64'),
+      ),
+      transport: 'netcodeV2',
+      simulation: 'lockstep',
+      replay:
+        rules.ruleSet === 'classic'
+          ? { format: 'scr', playbackBackend: GameplayBackend.Hyperion }
+          : { format: 'hxRS', playbackBackend: GameplayBackend.Hyperion },
+    }
+    return config
+  }
+
   function hyperionNetcodeFor(clientPubkey: string): NetcodeV2ServerSetup {
     return {
       token: 'session-token-test-value',
@@ -329,6 +368,8 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     backend: {
       install?: HyperionInstall
       readInstall?: (options?: { gameDataPath?: string }) => Promise<HyperionInstall>
+      launchReplay?: (options: any) => Promise<any>
+      readReplayMetadata?: (filePath: string) => Promise<any>
     } = { install },
   ) {
     const mapStore = {
@@ -346,11 +387,16 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
       localSettings as any,
       scrSettings as any,
       {
+        readReplayMetadata: async () => ({
+          headerData: { startTime: 0x12345678 },
+          players: [],
+          shieldBatteryData: undefined,
+        }),
         ...backend,
         launch,
       },
     )
-    return { manager, mapStore }
+    return { manager, mapStore, scrSettings }
   }
 
   function launchResult(options: HyperionLaunchOptions) {
@@ -378,7 +424,7 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
       process = launchResult(options)
       return process.result
     })
-    const { manager, mapStore } = makeHarness(launch)
+    const { manager, mapStore, scrSettings } = makeHarness(launch)
     const statuses: any[] = []
     manager.on('gameStatus', status => statuses.push(status))
 
@@ -416,6 +462,83 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
     expect(statuses.some(status => status.state === 'error')).toBe(false)
     expect(process.result.releaseGpuPreference).toHaveBeenCalledTimes(1)
+    expect(scrSettings.syncWithGameSettingsFile).not.toHaveBeenCalled()
+  })
+
+  it('routes an ordinary formation through Hyperion with explicit Classic rules', async () => {
+    let launchedOptions: HyperionLaunchOptions | undefined
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      launchedOptions = options
+      process = launchResult(options)
+      return process.result
+    })
+    const readInstall = vi.fn(async () => install)
+    const { manager } = makeHarness(launch, { readInstall })
+    const config = withResolvedHyperion(hyperionConfigFor('ordinary-hyperion'))
+    config.setup.matchmakingType = MatchmakingType.Match1v1
+    const capabilities = await manager.getGameplayCapabilities()
+    expect(capabilities.hyperion?.engineBuild).toBe('hyperion-test-build')
+    vi.mocked(checkStarcraftPath).mockClear()
+
+    manager.setGameConfig(config)
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('ordinary-hyperion', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    expect(launchedOptions!.ruleConfiguration).toEqual({ ruleSet: 'classic', antiMeta: false })
+    expect(readInstall).toHaveBeenCalledTimes(2)
+    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  })
+
+  it('fails the whole load when the native profile changes after queueing', async () => {
+    const launch = vi.fn()
+    const changedInstall: HyperionInstall = {
+      ...install,
+      compatibility: { ...install.compatibility, engineBuild: 'changed-engine' },
+    }
+    const readInstall = vi
+      .fn(async () => install)
+      .mockResolvedValueOnce(install)
+      .mockResolvedValueOnce(changedInstall)
+    const { manager } = makeHarness(launch, { readInstall })
+    const config = withResolvedHyperion(hyperionConfigFor('changed-hyperion'))
+    await manager.getGameplayCapabilities()
+
+    manager.setGameConfig(config)
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('changed-hyperion', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(readInstall).toHaveBeenCalledTimes(2)
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('routes hxRS playback only through the native replay backend', async () => {
+    const liveLaunch = vi.fn()
+    let process!: ReturnType<typeof launchResult>
+    const launchReplay = vi.fn(async (options: any) => {
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(liveLaunch, { install, launchReplay })
+    const config = replayConfigFor('native-replay')
+    ;(config.setup.map as any).replay = {
+      format: 'hxRS',
+      playbackBackend: GameplayBackend.Hyperion,
+    }
+    vi.mocked(checkStarcraftPath).mockClear()
+
+    manager.setGameConfig(config)
+    await vi.waitFor(() => expect(launchReplay).toHaveBeenCalledTimes(1))
+
+    expect(liveLaunch).not.toHaveBeenCalled()
+    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    expect(launchReplay.mock.calls[0][0].resultContext).toBeUndefined()
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus('native-replay')).toBeNull())
   })
 
   it('enables anti-meta only for Hyperion Rule 2', async () => {
@@ -513,6 +636,14 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     manager.setGameConfig(hyperionConfigFor('hyperion-relaunch'))
     await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(2))
     expect(processes[0].result.quit).toHaveBeenCalledTimes(1)
+
+    processes[0].resolveExit(0)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(manager.getStatus()).not.toBeNull()
+    expect(launch).toHaveBeenCalledTimes(2)
+
+    processes[1].resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
   })
 
   it('quits a process whose launch became stale while configuration was pending', async () => {
@@ -554,6 +685,362 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
     expect(statuses).toContainEqual(expect.objectContaining({ state: 'error', extra: failure }))
     expect(ended).toHaveBeenCalledWith('hyperion-error')
+  })
+
+  it('preserves a native recording locally without SC:R upload or settings activity', async () => {
+    const dataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-replay-'))
+    const replayDirectory = path.join(dataPath, 'maps', 'replays')
+    await fsPromises.mkdir(replayDirectory, { recursive: true })
+    await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'hxRS stale fixture')
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'hxRS fixture')
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager, scrSettings } = makeHarness(launch, {
+      install: { ...install, dataPath },
+    })
+    const saved = vi.fn()
+    const resend = vi.fn()
+    manager.on('replaySaved', saved)
+    manager.on('resendReplay', resend)
+    try {
+      manager.setGameConfig(hyperionConfigFor('native-recording'))
+      const pubkey = manager.generateNetcodeV2SessionKeys()
+      manager.setNetcodeV2Setup('native-recording', hyperionNetcodeFor(pubkey))
+      await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+      process.resolveExit(0)
+
+      const destination = path.join(replayDirectory, 'HyperShield-native-recording.rep')
+      await vi.waitFor(() => expect(saved).toHaveBeenCalledWith('native-recording', destination))
+      expect(await fsPromises.readFile(destination, 'utf8')).toBe('hxRS fixture')
+      expect(resend).not.toHaveBeenCalled()
+      expect(scrSettings.syncWithGameSettingsFile).not.toHaveBeenCalled()
+    } finally {
+      await fsPromises.rm(dataPath, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    { name: 'predates the launch', stale: true, seed: 0x12345678, embeddedGameId: undefined },
+    { name: 'has the wrong seed', stale: false, seed: 0x87654321, embeddedGameId: undefined },
+    { name: 'has another game ID', stale: false, seed: 0x12345678, embeddedGameId: 'earlier-game' },
+  ])('does not preserve a scratch recording that $name', async testCase => {
+    const dataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-stale-'))
+    const replayDirectory = path.join(dataPath, 'maps', 'replays')
+    await fsPromises.mkdir(replayDirectory, { recursive: true })
+    const source = path.join(replayDirectory, 'LastReplay.rep')
+    await fsPromises.writeFile(source, 'hxRS earlier fixture')
+    if (testCase.stale) {
+      await fsPromises.utimes(source, new Date('2020-01-01'), new Date('2020-01-01'))
+    }
+    let process!: ReturnType<typeof launchResult>
+    const readReplayMetadata = vi.fn(async () => ({
+      headerData: { startTime: testCase.seed },
+      players: [],
+      shieldBatteryData: testCase.embeddedGameId ? { gameId: testCase.embeddedGameId } : undefined,
+    }))
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      await fsPromises.writeFile(source, 'hxRS mismatched fresh fixture')
+      if (testCase.stale) {
+        await fsPromises.utimes(source, new Date('2020-01-01'), new Date('2020-01-01'))
+      }
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, {
+      install: { ...install, dataPath },
+      readReplayMetadata,
+    })
+    const saved = vi.fn()
+    manager.on('replaySaved', saved)
+    try {
+      manager.setGameConfig(hyperionConfigFor('native-new-game'))
+      const pubkey = manager.generateNetcodeV2SessionKeys()
+      manager.setNetcodeV2Setup('native-new-game', hyperionNetcodeFor(pubkey))
+      await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+      expect(await fsPromises.readFile(source, 'utf8')).toBe('hxRS mismatched fresh fixture')
+      process.resolveExit(0)
+      await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+
+      expect(readReplayMetadata.mock.calls).toEqual(testCase.stale ? [] : [[source]])
+      expect(saved).not.toHaveBeenCalled()
+      await expect(
+        fsPromises.stat(path.join(replayDirectory, 'HyperShield-native-new-game.rep')),
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(
+        fsPromises.stat(path.join(replayDirectory, 'HyperShield-native-new-game.hyperion.json')),
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await fsPromises.rm(dataPath, { recursive: true, force: true })
+    }
+  })
+
+  it('uses the default native data path for scratch cleanup and replay persistence', async () => {
+    const userDataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-default-'))
+    const dataPath = path.join(userDataPath, 'hyperion')
+    const replayDirectory = path.join(dataPath, 'maps', 'replays')
+    await fsPromises.mkdir(replayDirectory, { recursive: true })
+    const source = path.join(replayDirectory, 'LastReplay.rep')
+    await fsPromises.writeFile(source, 'hxRS stale fixture')
+    electronApp.getPath.mockReturnValue(userDataPath)
+    vi.stubEnv('SB_SESSION', '')
+
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch)
+    const saved = vi.fn()
+    manager.on('replaySaved', saved)
+    try {
+      manager.setGameConfig(hyperionConfigFor('native-default-path'))
+      const pubkey = manager.generateNetcodeV2SessionKeys()
+      manager.setNetcodeV2Setup('native-default-path', hyperionNetcodeFor(pubkey))
+      await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+      expect(electronApp.getPath).toHaveBeenCalledWith('userData')
+      await expect(fsPromises.stat(source)).rejects.toMatchObject({ code: 'ENOENT' })
+      await fsPromises.writeFile(source, 'hxRS fresh fixture')
+      process.resolveExit(0)
+
+      const destination = path.join(replayDirectory, 'HyperShield-native-default-path.rep')
+      await vi.waitFor(() => expect(saved).toHaveBeenCalledWith('native-default-path', destination))
+      expect(await fsPromises.readFile(destination, 'utf8')).toBe('hxRS fresh fixture')
+    } finally {
+      electronApp.getPath.mockReturnValue('/fake-user-data')
+      vi.unstubAllEnvs()
+      await fsPromises.rm(userDataPath, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves a native Classic reRS recording with its Hyperion sidecar', async () => {
+    const dataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-classic-'))
+    const replayDirectory = path.join(dataPath, 'maps', 'replays')
+    await fsPromises.mkdir(replayDirectory, { recursive: true })
+    await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'reRS stale fixture')
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'reRS fixture')
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, {
+      install: { ...install, dataPath },
+    })
+    const saved = vi.fn()
+    manager.on('replaySaved', saved)
+    try {
+      manager.setGameConfig(withResolvedHyperion(hyperionConfigFor('native-classic-recording')))
+      const pubkey = manager.generateNetcodeV2SessionKeys()
+      manager.setNetcodeV2Setup('native-classic-recording', hyperionNetcodeFor(pubkey))
+      await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+      process.resolveExit(0)
+
+      const destination = path.join(replayDirectory, 'HyperShield-native-classic-recording.rep')
+      await vi.waitFor(() =>
+        expect(saved).toHaveBeenCalledWith('native-classic-recording', destination),
+      )
+      expect(await fsPromises.readFile(destination, 'utf8')).toBe('reRS fixture')
+      const sidecar = JSON.parse(
+        await fsPromises.readFile(destination.replace(/\.rep$/i, '.hyperion.json'), 'utf8'),
+      )
+      expect(sidecar).toMatchObject({
+        version: 1,
+        gameId: 'native-classic-recording',
+        backend: GameplayBackend.Hyperion,
+        replay: { format: 'scr', playbackBackend: GameplayBackend.Hyperion },
+        rules: { ruleSet: 'classic' },
+        seed: 0x12345678,
+      })
+      expect(sidecar).not.toHaveProperty('resultCode')
+    } finally {
+      await fsPromises.rm(dataPath, { recursive: true, force: true })
+    }
+  })
+
+  it.each(['missing', 'malformed'])(
+    'repairs a %s sidecar for an existing native Classic recording',
+    async sidecarState => {
+      const dataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-existing-'))
+      const replayDirectory = path.join(dataPath, 'maps', 'replays')
+      await fsPromises.mkdir(replayDirectory, { recursive: true })
+      const gameId = `native-classic-existing-${sidecarState}`
+      const destination = path.join(replayDirectory, `HyperShield-${gameId}.rep`)
+      await fsPromises.writeFile(destination, 'reRS existing')
+      if (sidecarState === 'malformed') {
+        await fsPromises.writeFile(destination.replace(/\.rep$/i, '.hyperion.json'), '{not json')
+      }
+
+      let process!: ReturnType<typeof launchResult>
+      const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+        process = launchResult(options)
+        return process.result
+      })
+      const { manager } = makeHarness(launch, { install: { ...install, dataPath } })
+      const saved = vi.fn()
+      manager.on('replaySaved', saved)
+      try {
+        manager.setGameConfig(withResolvedHyperion(hyperionConfigFor(gameId)))
+        const pubkey = manager.generateNetcodeV2SessionKeys()
+        manager.setNetcodeV2Setup(gameId, hyperionNetcodeFor(pubkey))
+        await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+        process.resolveExit(0)
+
+        await vi.waitFor(() => expect(saved).toHaveBeenCalledWith(gameId, destination))
+        expect(await fsPromises.readFile(destination, 'utf8')).toBe('reRS existing')
+        const sidecar = JSON.parse(
+          await fsPromises.readFile(destination.replace(/\.rep$/i, '.hyperion.json'), 'utf8'),
+        )
+        expect(sidecar).toMatchObject({
+          version: 1,
+          gameId,
+          replay: { format: 'scr', playbackBackend: GameplayBackend.Hyperion },
+        })
+      } finally {
+        await fsPromises.rm(dataPath, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it('terminates the participating native process on app shutdown', async () => {
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch)
+    manager.setGameConfig(hyperionConfigFor('hyperion-shutdown'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-shutdown', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    let finishQuit!: () => void
+    process.result.quit.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          finishQuit = resolve
+        }),
+    )
+
+    const quitting = manager.quitAllGamesOnAppExit()
+    expect(process.result.quit).toHaveBeenCalledTimes(1)
+    expect(quitting).toHaveLength(1)
+
+    let settled = false
+    const observed = quitting[0].then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    finishQuit()
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    process.resolveExit(0)
+    await observed
+    expect(settled).toBe(true)
+  })
+
+  it('quits a native process that finishes launching after app shutdown begins', async () => {
+    let process!: ReturnType<typeof launchResult>
+    let completeLaunch!: (result: HyperionLaunchResult) => void
+    const launch = vi.fn((options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return new Promise<HyperionLaunchResult>(resolve => {
+        completeLaunch = resolve
+      })
+    })
+    const { manager } = makeHarness(launch)
+    manager.setGameConfig(hyperionConfigFor('hyperion-launch-shutdown'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-launch-shutdown', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    const quitting = manager.quitAllGamesOnAppExit()
+    expect(quitting).toHaveLength(1)
+    expect(process.result.quit).not.toHaveBeenCalled()
+
+    completeLaunch(process.result)
+    await vi.waitFor(() => expect(process.result.quit).toHaveBeenCalledTimes(1))
+    process.resolveExit(0)
+    await quitting[0]
+  })
+
+  it('waits for a superseded native launch without commanding its replacement ID', async () => {
+    let process!: ReturnType<typeof launchResult>
+    let completeLaunch!: (result: HyperionLaunchResult) => void
+    const launch = vi.fn((options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return new Promise<HyperionLaunchResult>(resolve => {
+        completeLaunch = resolve
+      })
+    })
+    const { manager } = makeHarness(launch)
+    const commands = vi.fn()
+    manager.on('gameCommand', commands)
+    manager.setGameConfig(hyperionConfigFor('hyperion-superseded-shutdown'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-superseded-shutdown', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    manager.clearGameConfig('hyperion-superseded-shutdown')
+    commands.mockClear()
+    const quitting = manager.quitAllGamesOnAppExit()
+    expect(quitting).toHaveLength(1)
+    expect(commands).not.toHaveBeenCalled()
+
+    completeLaunch(process.result)
+    await quitting[0]
+    expect(process.result.quit).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for native replay preservation before app shutdown completes', async () => {
+    const dataPath = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sb-native-shutdown-replay-'))
+    const replayDirectory = path.join(dataPath, 'maps', 'replays')
+    await fsPromises.mkdir(replayDirectory, { recursive: true })
+    await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'hxRS stale fixture')
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      await fsPromises.writeFile(path.join(replayDirectory, 'LastReplay.rep'), 'hxRS fixture')
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, { install: { ...install, dataPath } })
+    manager.setGameConfig(hyperionConfigFor('hyperion-replay-shutdown'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('hyperion-replay-shutdown', hyperionNetcodeFor(pubkey))
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+
+    let finishCopy!: () => void
+    const copyFile = vi.spyOn(fsPromises, 'copyFile').mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          finishCopy = resolve
+        }),
+    )
+    try {
+      const quitting = manager.quitAllGamesOnAppExit()
+      process.resolveExit(0)
+      await vi.waitFor(() => expect(copyFile).toHaveBeenCalledTimes(1))
+
+      let settled = false
+      const observed = quitting[0].then(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(settled).toBe(false)
+
+      finishCopy()
+      await observed
+      expect(settled).toBe(true)
+    } finally {
+      copyFile.mockRestore()
+      await fsPromises.rm(dataPath, { recursive: true, force: true })
+    }
   })
 })
 

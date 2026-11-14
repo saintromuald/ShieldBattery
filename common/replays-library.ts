@@ -1,3 +1,4 @@
+import { ReplayFormat } from './games/backend'
 import {
   EncodedMatchupString,
   GameDurationFilter,
@@ -46,6 +47,8 @@ export interface ReplayLibraryEntry {
    * replays.
    */
   sbGameId?: string
+  /** Recording format. Missing only for index rows written before format identity existed. */
+  replayFormat?: ReplayFormat
   /** True if the replay could not be parsed; only `path`/`fileName`/`fileSize` are meaningful then. */
   parseError: boolean
   players: ReplayLibraryPlayer[]

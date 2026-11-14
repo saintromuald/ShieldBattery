@@ -2,7 +2,10 @@ import { RouterContext } from '@koa/router'
 import { Result } from 'typescript-result'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import createDeferred from '../../../common/async/deferred'
+import { GameplayBackend } from '../../../common/games/backend'
+import { GameSource } from '../../../common/games/configuration'
 import { GameResultErrorCode } from '../../../common/games/results'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { BanSource } from '../../../common/users/user-network'
 import { ParsedReplay } from '../../workers/replays/messages'
@@ -96,6 +99,30 @@ describe('GameApi#submitGameReplay', () => {
       expect(ctx.status).toBe(204)
     },
   )
+
+  test.each([
+    {
+      name: 'persisted native routing',
+      config: { seed: 123, gameplay: { backend: GameplayBackend.Hyperion } },
+    },
+    {
+      name: 'historical native matchmaking',
+      config: {
+        seed: 123,
+        gameSource: GameSource.Matchmaking,
+        gameSourceExtra: { type: MatchmakingType.Hyperion1v1Rule1 },
+      },
+    },
+  ])('rejects $name without validating or storing its replay', async ({ config }) => {
+    const { api, gameResultService, replayService } = makeApi()
+    gameResultService.retrieveGame.mockResolvedValue({ config } as any)
+
+    await expect(api.submitGameReplay(makeContext())).rejects.toThrow(
+      'native game replays are not accepted',
+    )
+    expect(parseReplay).toHaveBeenCalledOnce()
+    expect(replayService.storeReplay).not.toHaveBeenCalled()
+  })
 
   test('persists protection before banning the uploader', async () => {
     setReplaySeed(124)

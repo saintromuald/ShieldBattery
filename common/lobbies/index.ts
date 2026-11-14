@@ -1,4 +1,5 @@
 import { GameServerRegionId } from '../game-server-regions'
+import { GameplayBackendPolicy } from '../games/backend'
 import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, gameTypeAllowsAllianceChanges, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
@@ -95,6 +96,8 @@ export interface Lobby {
    * `gameTypeAllowsAllianceChanges`).
    */
   readonly lockedAlliances: boolean
+  /** Whole-formation policy chosen at creation. Missing on historical lobby records. */
+  readonly backendPolicy?: GameplayBackendPolicy
   readonly visibility: LobbyVisibility
   /** When the lobby was created (Unix millis). */
   readonly createdAt: number

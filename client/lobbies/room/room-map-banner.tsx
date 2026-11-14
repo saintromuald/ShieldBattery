@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
 import {
@@ -817,6 +818,12 @@ export function RoomMapBanner({
 
   const mapStats: Array<[label: string, value: React.ReactNode, labelInfo?: React.ReactNode]> = [
     [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
+    [
+      t('lobbies.room.banner.statBackendPolicy', 'Backend policy'),
+      lobby.backendPolicy === GameplayBackendPolicy.ScrCompatibility
+        ? t('lobbies.room.banner.scrCompatibility', 'SC:R compatibility')
+        : t('lobbies.room.banner.hyperionFirst', 'Hyperion first'),
+    ],
   ]
   if (isTeamType(lobby.gameType)) {
     mapStats.push([t('lobbies.lobby.gameSubType', 'Teams'), gameSubTypeLabel(lobby, t)])

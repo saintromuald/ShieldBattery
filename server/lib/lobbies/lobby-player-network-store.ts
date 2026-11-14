@@ -1,3 +1,4 @@
+import { ClientGameplayCapabilities } from '../../../common/games/backend'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbUserId } from '../../../common/users/sb-user-id'
 
@@ -13,6 +14,8 @@ export interface LobbyPlayerNetworkInfo {
   regionManual?: boolean
   /** base64 of the occupant's per-session netcode v2 public key, if reported. */
   netcodeV2Pubkey?: string
+  /** The occupant's captured gameplay capabilities; never broadcast in lobby slot state. */
+  capabilities?: ClientGameplayCapabilities
 }
 
 /**

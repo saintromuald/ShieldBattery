@@ -177,6 +177,7 @@ const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
     useLegacyLimits: lobby.useLegacyLimits,
     starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
+    backendPolicy: 'hyperionFirst',
     ...counts,
     lifecycle: 'gathering',
     createdAt: lobby.createdAt,

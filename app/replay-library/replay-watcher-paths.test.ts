@@ -1,9 +1,25 @@
+import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import {
+  includeNativeReplayFolder,
   isIndexableReplayFilename,
   isIndexedPathVanished,
   isPathUnderRoot,
 } from './replay-watcher-paths'
+
+describe('app/replay-library/replay-watcher-paths/includeNativeReplayFolder', () => {
+  test('retains the native root alongside settings folders without duplicating it', () => {
+    const native = path.join('/home/player/data', 'maps', 'replays')
+    expect(includeNativeReplayFolder(['/home/player/scr'], '/home/player/data')).toEqual([
+      '/home/player/scr',
+      native,
+    ])
+    expect(includeNativeReplayFolder(['/home/player/scr', native], '/home/player/data')).toEqual([
+      '/home/player/scr',
+      native,
+    ])
+  })
+})
 
 describe('app/replay-library/replay-watcher-paths/isPathUnderRoot', () => {
   test('a file directly inside the root is under it', () => {
@@ -40,6 +56,16 @@ describe('app/replay-library/replay-watcher-paths/isPathUnderRoot', () => {
 
   test('a trailing separator on the root does not change containment', () => {
     expect(isPathUnderRoot('C:\\replays\\a.rep', 'C:\\replays\\')).toBe(true)
+  })
+
+  test('supports native POSIX replay folders', () => {
+    expect(isPathUnderRoot('/home/player/replays/native/a.rep', '/home/player/replays')).toBe(true)
+    expect(isPathUnderRoot('/home/player/replays2/a.rep', '/home/player/replays')).toBe(false)
+    expect(isPathUnderRoot('/home/player/replays/sub/../a.rep', '/home/player/replays')).toBe(true)
+  })
+
+  test('retains case-sensitive POSIX paths', () => {
+    expect(isPathUnderRoot('/home/player/Replays/a.rep', '/home/player/replays')).toBe(false)
   })
 })
 

@@ -467,6 +467,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const onJoinClick = () => {
     join(routeLobbyId, {
       name: lobbyName,
+      backendPolicy: summary?.status === 'loaded' ? summary.data.summary.backendPolicy : undefined,
       onJoinFailed: (message, err) => {
         switch (lobbyJoinErrorCode(err)) {
           case LobbyJoinErrorCode.NoLongerOpen:

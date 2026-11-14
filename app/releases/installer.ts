@@ -11,6 +11,7 @@ import type {
 } from '../../common/release-center'
 import { validatePe32PlusAmd64File } from './pe'
 import {
+  computeFileSha256,
   errorMessage,
   installedReleaseExecutable,
   type InstalledReleaseRecord,
@@ -107,6 +108,12 @@ async function downloadAsset(
   fetchImpl: typeof globalThis.fetch,
   onProgress: (bytesTransferred: number, bytesPerSecond?: number) => void,
 ): Promise<void> {
+  const assetUrl = new URL(asset.url)
+  if (assetUrl.protocol !== 'https:' || assetUrl.hostname !== 'github.com') {
+    throw new Error(
+      `Refusing to download a release asset from an untrusted origin: ${assetUrl.origin}`,
+    )
+  }
   const controller = new AbortController()
   let connectionTimer: ReturnType<typeof setTimeout>
   const connectionTimeout = new Promise<never>((_, reject) => {
@@ -436,9 +443,13 @@ async function extractHyperionArchive(archivePath: string, destination: string):
   let listing: string
   try {
     const result = await execFileAsync(
-      'tar',
+      '/usr/bin/tar',
       ['-tvzf', archivePath, '--numeric-owner', '--quoting-style=c'],
-      { maxBuffer: TAR_LIST_LIMIT_BYTES, windowsHide: true },
+      {
+        maxBuffer: TAR_LIST_LIMIT_BYTES,
+        windowsHide: true,
+        env: { PATH: '/usr/bin:/bin' },
+      },
     )
     listing = result.stdout
   } catch (error) {
@@ -450,7 +461,7 @@ async function extractHyperionArchive(archivePath: string, destination: string):
   await fs.mkdir(destination, { recursive: false, mode: 0o700 })
   try {
     await execFileAsync(
-      'tar',
+      '/usr/bin/tar',
       [
         '-xzf',
         archivePath,
@@ -461,7 +472,7 @@ async function extractHyperionArchive(archivePath: string, destination: string):
         '--delay-directory-restore',
         '--keep-old-files',
       ],
-      { windowsHide: true },
+      { windowsHide: true, env: { PATH: '/usr/bin:/bin' } },
     )
   } catch (error) {
     throw new Error(`Could not extract the Hyperion archive safely: ${errorMessage(error)}`, {
@@ -640,6 +651,26 @@ async function stageHyperShield(
   if (release.packageKind !== 'appImage' || downloaded.length !== 1) {
     throw new Error('This HyperShield release has no compatible AppImage.')
   }
+  const source = await fs.open(downloaded[0].path, 'r')
+  try {
+    const header = Buffer.alloc(12)
+    const { bytesRead } = await source.read(header, 0, header.length, 0)
+    if (
+      bytesRead !== header.length ||
+      header[0] !== 0x7f ||
+      header[1] !== 0x45 ||
+      header[2] !== 0x4c ||
+      header[3] !== 0x46 ||
+      header[4] !== 2 ||
+      header[8] !== 0x41 ||
+      header[9] !== 0x49 ||
+      ![1, 2].includes(header[10])
+    ) {
+      throw new Error('The HyperShield AppImage has an invalid ELF or AppImage header.')
+    }
+  } finally {
+    await source.close()
+  }
   await fs.mkdir(stagingDirectory, { recursive: false, mode: 0o700 })
   const executablePath = safeFilePart(release.assets[0].name)
   await fs.copyFile(
@@ -681,6 +712,9 @@ export async function installDownloadedRelease(options: {
   }
   if (release.packageKind === 'none') {
     throw new Error(release.unavailableReason ?? 'This release has no compatible package.')
+  }
+  if (release.assets.some(asset => !/^[a-f0-9]{64}$/i.test(asset.sha256 ?? ''))) {
+    throw new Error('Every release asset requires a published SHA-256 digest before installation.')
   }
   if (
     platform === 'win32' &&
@@ -742,6 +776,10 @@ export async function installDownloadedRelease(options: {
       channel: release.channel,
       installedAt: new Date().toISOString(),
       packageKind: release.packageKind,
+      assetSha256: Object.fromEntries(
+        release.assets.map(asset => [asset.name, asset.sha256!.toLowerCase()]),
+      ),
+      executableSha256: await computeFileSha256(path.join(finalDirectory, relativeExecutable)),
       directoryName,
       executablePath: relativeExecutable,
       platform,

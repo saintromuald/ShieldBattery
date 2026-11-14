@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameplayBackend, historicalGameplayBackend } from '../../../common/games/backend'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameType } from '../../../common/games/game-type'
@@ -864,6 +865,10 @@ export class GameApi {
     }
 
     const game = await this.gameResultService.retrieveGame(gameId)
+    if (historicalGameplayBackend(game.config) === GameplayBackend.Hyperion) {
+      throw new httpErrors.BadRequest('native game replays are not accepted')
+    }
+
     await this.replayService.validateGameSeed(
       parseResult.value.header.startTime,
       game.config.seed,

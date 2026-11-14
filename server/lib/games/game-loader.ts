@@ -7,10 +7,16 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { extendableDeadline } from '../../../common/async/extendable-deadline'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
+import {
+  ClientGameplayCapabilities,
+  GameplayBackend,
+  GameplayBackendSelectionReason,
+} from '../../../common/games/backend'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GamePlayerRank, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameType } from '../../../common/games/game-type'
+import { GameCancellationReason } from '../../../common/games/games'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -26,6 +32,11 @@ import { ActivityStatusService } from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import {
+  GameBackendSelectionError,
+  gameplaySelectionPolicyFromEnvironment,
+  selectGameBackend,
+} from './game-backend-selection'
 import { cancelGame, finalizeGameSetupCancellation, updateGameConfig } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
@@ -68,6 +79,8 @@ export enum GameLoadErrorType {
   Timeout = 'timeout',
   /** A relay detected an unauthorized lobby command during setup. */
   GameAnomaly = 'gameAnomaly',
+  /** No single backend can preserve this formation's semantics for every participant. */
+  BackendUnsupported = 'backendUnsupported',
 }
 
 type GameLoadErrorTypeToData = {
@@ -81,6 +94,10 @@ type GameLoadErrorTypeToData = {
 
   [GameLoadErrorType.Canceled]: undefined
   [GameLoadErrorType.Internal]: undefined
+  [GameLoadErrorType.BackendUnsupported]: {
+    reason: GameplayBackendSelectionReason
+    detail?: string
+  }
 }
 
 export class BaseGameLoaderError<
@@ -93,6 +110,7 @@ export type GameLoaderError =
   | BaseGameLoaderError<GameLoadErrorType.Internal>
   | BaseGameLoaderError<GameLoadErrorType.PlayerFailed>
   | BaseGameLoaderError<GameLoadErrorType.Timeout>
+  | BaseGameLoaderError<GameLoadErrorType.BackendUnsupported>
 
 export function isGameLoaderError(err: unknown): err is GameLoaderError {
   return err instanceof BaseGameLoaderError
@@ -147,6 +165,8 @@ export interface GameLoadPlayer {
    * a multi-human (netcode v2) game — a missing value fails the load fast rather than waiting.
    */
   readonly netcodeV2Pubkey?: string
+  /** Non-secret, queue/join-time gameplay capabilities captured from this participant's client. */
+  readonly capabilities?: ClientGameplayCapabilities
 }
 
 const createLoadingData = Record({
@@ -507,11 +527,15 @@ function getGeneralGameSetup({
       host,
       users,
       seed,
+      gameplay: gameConfig.gameplay,
       turnRate,
       userLatency,
       useLegacyLimits: gameConfig.gameSourceExtra?.useLegacyLimits,
       starcraftCompatibleReplays: gameConfig.gameSourceExtra?.starcraftCompatibleReplays,
-      disableAllianceChanges: gameConfig.lockedAlliances,
+      disableAllianceChanges:
+        gameConfig.gameplay?.backend === GameplayBackend.Hyperion
+          ? true
+          : gameConfig.lockedAlliances,
     }
   } else if (gameConfig.gameSource === GameSource.Matchmaking) {
     return {
@@ -531,6 +555,7 @@ function getGeneralGameSetup({
       // The fixes this turns off are only offered as an opt-in for lobbies.
       starcraftCompatibleReplays: true,
       seed,
+      gameplay: gameConfig.gameplay,
       turnRate,
       userLatency,
     }
@@ -555,7 +580,7 @@ export class GameLoader {
   private pendingCancellations = new Map<
     string,
     {
-      reason: GameLoadErrorType
+      reason: GameCancellationReason
       pending?: Promise<void>
     }
   >()
@@ -640,14 +665,80 @@ export class GameLoader {
 
     this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
 
-    registerGame(mapId, gameConfig, undefined, gameId).then(
-      ({ gameId, resultCodes }) => {
+    const failBeforeRegistration = (error: GameLoaderError) => {
+      gameLoaded.resolve(Result.error(error))
+    }
+
+    ;(async () => {
+      let map: MapInfo
+      try {
+        const maps = await getMapInfos([mapId])
+        if (!maps.length) {
+          throw new Error(`no map with ID ${mapId}`)
+        }
+        map = maps[0]
+      } catch (err) {
+        log.error({ err, gameId }, "couldn't resolve the formation map")
+        failBeforeRegistration(
+          new BaseGameLoaderError(GameLoadErrorType.Internal, "Couldn't find the formation map", {
+            cause: err,
+          }),
+        )
+        return
+      }
+
+      let resolvedConfig: GameConfig
+      try {
+        const gameplay = selectGameBackend({
+          gameConfig,
+          players,
+          playerInfos,
+          map,
+          policy: gameplaySelectionPolicyFromEnvironment(),
+        })
+        resolvedConfig = { ...gameConfig, gameplay }
+        log.info(
+          {
+            gameId,
+            gameSource: gameConfig.gameSource,
+            backend: gameplay.backend,
+            reason: gameplay.reason,
+            rules: gameplay.rules,
+            nativeProfile: gameplay.nativeProfile,
+            shadowBackend: gameplay.shadowBackend,
+          },
+          'selected gameplay backend for formation',
+        )
+      } catch (err) {
+        if (err instanceof GameBackendSelectionError) {
+          failBeforeRegistration(
+            new BaseGameLoaderError(GameLoadErrorType.BackendUnsupported, err.message, {
+              data: { reason: err.reason, detail: err.detail },
+              cause: err,
+            }),
+          )
+        } else {
+          log.error({ err, gameId }, 'could not resolve a gameplay backend')
+          failBeforeRegistration(
+            new BaseGameLoaderError(
+              GameLoadErrorType.Internal,
+              'Could not resolve a gameplay backend',
+              { cause: err },
+            ),
+          )
+        }
+        return
+      }
+
+      try {
+        const registered = await registerGame(mapId, resolvedConfig, undefined, gameId)
+        const loadedGameId = registered.gameId
         const abortController = new AbortController()
         const deadline = extendableDeadline(gameLoaded, GAME_LOAD_TIMEOUT, 'game load timed out')
         this.loadingGames = this.loadingGames.set(
-          gameId,
+          loadedGameId,
           createLoadingData({
-            gameSource: gameConfig.gameSource,
+            gameSource: resolvedConfig.gameSource,
             players: [...players],
             abortController,
             deferred: gameLoaded,
@@ -658,39 +749,47 @@ export class GameLoader {
           }),
         )
 
-        onGameRegistered?.(gameId)
+        onGameRegistered?.(loadedGameId)
 
         this.doGameLoad({
-          gameId,
-          mapId,
-          gameConfig,
-          resultCodes,
+          gameId: loadedGameId,
+          map,
+          gameConfig: resolvedConfig,
+          resultCodes: registered.resultCodes,
           playerInfos,
           ranks,
         }).onFailure(err => {
-          this.maybeCancelLoadingFromSystem(gameId, err)
+          this.maybeCancelLoadingFromSystem(loadedGameId, err)
         })
 
         deadline.expired.catch(() => {
-          this.handleLoadDeadlineExpired(gameId).catch(err => {
-            log.error({ err }, `error handling expired load deadline for ${gameId}`)
+          this.handleLoadDeadlineExpired(loadedGameId).catch(err => {
+            log.error({ err }, `error handling expired load deadline for ${loadedGameId}`)
           })
         })
-      },
-      err => {
+      } catch (err) {
         log.error({ err }, "couldn't register game with database")
-        // NOTE(tec27): We haven't registered the game in `loadingGames` yet by this point so we
-        // can't cancel it that way
-        gameLoaded.resolve(
-          Result.error(
-            new BaseGameLoaderError(
-              GameLoadErrorType.Internal,
-              "Couldn't register game with database",
-            ),
+        failBeforeRegistration(
+          new BaseGameLoaderError(
+            GameLoadErrorType.Internal,
+            "Couldn't register game with database",
+            { cause: err },
           ),
         )
-      },
-    )
+      }
+    })().catch(err => {
+      log.error({ err, gameId }, 'unexpected error preparing a game load')
+      const error = new BaseGameLoaderError(
+        GameLoadErrorType.Internal,
+        'Could not prepare the game load',
+        { cause: err },
+      )
+      if (this.loadingGames.has(gameId)) {
+        this.maybeCancelLoadingFromSystem(gameId, error)
+      } else {
+        failBeforeRegistration(error)
+      }
+    })
 
     Result.fromAsync(() => gameLoaded)
       .onSuccess(() => {
@@ -1213,7 +1312,10 @@ export class GameLoader {
     loadingData.failureResolution?.controller.abort()
     loadingData.deferred.resolve(Result.error(reason))
 
-    this.pendingCancellations.set(gameId, { reason: reason.code })
+    this.pendingCancellations.set(gameId, {
+      // Backend selection failures return before registration and never reach this path.
+      reason: reason.code as GameCancellationReason,
+    })
     this.persistCancellation(gameId)
 
     return true
@@ -1283,14 +1385,14 @@ export class GameLoader {
 
   private doGameLoad({
     gameId,
-    mapId,
+    map: selectedMap,
     gameConfig,
     resultCodes,
     playerInfos,
     ranks,
   }: {
     gameId: string
-    mapId: SbMapId
+    map: MapInfo
     gameConfig: GameConfig
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
@@ -1306,7 +1408,7 @@ export class GameLoader {
         )
       }
 
-      const mapPromise = Result.try(() => getMapInfos([mapId]))
+      const mapPromise = Result.try(async () => [selectedMap])
 
       const loadingData = this.loadingGames.get(gameId)!
       const { players, signal } = loadingData
@@ -1365,7 +1467,9 @@ export class GameLoader {
           ),
         )
       }
-      const useNetcodeV2 = hasMultipleHumans
+      const useNetcodeV2 = gameConfig.gameplay
+        ? gameConfig.gameplay.transport === 'netcodeV2'
+        : hasMultipleHumans
       // A game with a single human has no network session; anything else is networked. Recorded on
       // the load because it decides where this load's completion signal comes from, and how a load
       // that runs out of time assigns fault.
@@ -1399,7 +1503,7 @@ export class GameLoader {
         return Result.error(
           new BaseGameLoaderError(
             GameLoadErrorType.Internal,
-            `Couldn't find map with ID ${mapId}`,
+            `Couldn't find map with ID ${selectedMap.id}`,
             {
               cause: mapError,
             },
@@ -1512,7 +1616,9 @@ export class GameLoader {
               slots,
               // EUD triggers can write to memory the rollback snapshot doesn't cover. They only run
               // in UMS games (a melee game on an EUD map runs melee triggers instead).
-              canRollBack: !(gameConfig.gameType === GameType.UseMapSettings && map.mapData.isEud),
+              canRollBack:
+                gameConfig.gameplay?.backend !== GameplayBackend.Hyperion &&
+                !(gameConfig.gameType === GameType.UseMapSettings && map.mapData.isEud),
               signal,
               onProvisioning: regions => this.handleGameServerProvisioning(gameId, regions),
             }),

@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
 import { isLobbySummaryFull } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { canUseHyperionForOrdinaryLobbies } from '../../../common/server-config'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useTrackPageView } from '../../analytics/analytics'
@@ -18,6 +19,7 @@ import { FilledButton, TextButton } from '../../material/button'
 import { useScrollMemory } from '../../navigation/router-hooks'
 import siteSocket from '../../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { getServerConfig } from '../../server-config-storage'
 import { useRelationshipsLoader } from '../../social/friends-list'
 import { healthChecked } from '../../starcraft/health-checked'
 import { FlexSpacer } from '../../styles/flex-spacer'
@@ -328,6 +330,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     joinLobbyAction(summary.id, {
       name: summary.name,
       asObserver,
+      backendPolicy: summary.backendPolicy,
       onJoinFailed: message => setJoinError({ lobbyId: summary.id, message }),
     })
   }
@@ -345,7 +348,10 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart='add'
             disabled={isMatchmaking}
-            onClick={healthChecked(onNavigateToCreate)}
+            onClick={healthChecked(onNavigateToCreate, {
+              requiresScrBackend: () => !canUseHyperionForOrdinaryLobbies(getServerConfig()),
+              requiresAnyBackend: () => canUseHyperionForOrdinaryLobbies(getServerConfig()),
+            })}
           />
         ) : null}
       </EmptyState>
@@ -483,7 +489,10 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
                   )
                 : undefined
             }
-            onClick={healthChecked(onNavigateToCreate)}
+            onClick={healthChecked(onNavigateToCreate, {
+              requiresScrBackend: () => !canUseHyperionForOrdinaryLobbies(getServerConfig()),
+              requiresAnyBackend: () => canUseHyperionForOrdinaryLobbies(getServerConfig()),
+            })}
             testName='create-lobby-button'
           />
         ) : undefined}

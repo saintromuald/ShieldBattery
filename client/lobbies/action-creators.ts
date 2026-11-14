@@ -1,5 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
+import { GameplayBackendPolicy } from '../../common/games/backend'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyVisibility } from '../../common/lobbies'
@@ -33,6 +34,7 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
+import { refreshGameplayCapabilities } from '../starcraft/hyperion-health'
 import { ActivateLobby, DeactivateLobby } from './actions'
 import { isInLobby } from './lobby-reducer'
 
@@ -47,9 +49,10 @@ const ipcRenderer = new TypedIpcRenderer()
  * lookup fails.
  */
 async function resolveNetworkParams(): Promise<LobbyNetworkParams> {
-  const [desiredRegion, clientPubkey] = await Promise.all([
+  const [desiredRegion, clientPubkey, capabilities] = await Promise.all([
     resolveDesiredRegion().catch(() => undefined),
     Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(() => undefined),
+    refreshGameplayCapabilities(),
   ])
 
   return {
@@ -60,6 +63,7 @@ async function resolveNetworkParams(): Promise<LobbyNetworkParams> {
     rttMs: desiredRegion?.rttMs ?? undefined,
     regionManual: desiredRegion?.manual,
     clientPubkey,
+    capabilities,
   }
 }
 
@@ -71,6 +75,7 @@ export interface CreateLobbyParams {
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
+  backendPolicy?: GameplayBackendPolicy
   allowObservers?: boolean
   visibility?: LobbyVisibility
   /**
@@ -89,6 +94,7 @@ export function createLobby(
     useLegacyLimits,
     starcraftCompatibleReplays,
     lockedAlliances,
+    backendPolicy,
     allowObservers,
     visibility,
     leaveCurrentLobby,
@@ -100,7 +106,7 @@ export function createLobby(
 
     return await fetchJson<CreateLobbyResponse>(apiUrl`lobbies`, {
       method: 'POST',
-      body: encodeBodyAsParams<CreateLobbyRequest>({
+      body: JSON.stringify({
         clientId,
         name,
         map,
@@ -109,11 +115,12 @@ export function createLobby(
         useLegacyLimits,
         starcraftCompatibleReplays,
         lockedAlliances,
+        backendPolicy,
         allowObservers,
         visibility,
         leaveCurrentLobby,
         ...network,
-      }),
+      } satisfies CreateLobbyRequest),
       signal: spec.signal,
     })
   })
@@ -142,12 +149,12 @@ export function joinLobby(
 
     await fetchJson<void>(apiUrl`lobbies/${id}/join`, {
       method: 'POST',
-      body: encodeBodyAsParams<JoinLobbyRequest>({
+      body: JSON.stringify({
         clientId,
         asObserver,
         leaveCurrentLobby,
         ...network,
-      }),
+      } satisfies JoinLobbyRequest),
       signal: spec.signal,
     })
   })

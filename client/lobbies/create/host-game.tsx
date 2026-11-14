@@ -5,10 +5,12 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility, NUM_RECENT_MAPS } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
+import { canUseHyperionForOrdinaryLobbies } from '../../../common/server-config'
 import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
@@ -17,6 +19,8 @@ import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import DotsIndicator, { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { getServerConfig } from '../../server-config-storage'
+import { healthChecked } from '../../starcraft/health-checked'
 import {
   createLobby,
   CreateLobbyParams,
@@ -160,6 +164,7 @@ function HostGameContent({
     mapId: initial.selectedMap,
     gameType: initial.gameType,
     gameSubType: initial.gameSubType,
+    backendPolicy: GameplayBackendPolicy.HyperionFirst,
     useLegacyLimits: initial.useLegacyLimits,
     starcraftCompatibleReplays: initial.starcraftCompatibleReplays,
     lockedAlliances: initial.lockedAlliances,
@@ -239,22 +244,35 @@ function HostGameContent({
       return
     }
 
-    setIsCreating(true)
-    dispatch(
-      createLobby(params, {
-        onSuccess: result => navigateToLobby(result.id, params.name),
-        onError: () => {
-          setIsCreating(false)
-          showErrorDialog()
-        },
-      }),
-    )
+    healthChecked(
+      () => {
+        setIsCreating(true)
+        dispatch(
+          createLobby(params, {
+            onSuccess: result => navigateToLobby(result.id, params.name),
+            onError: () => {
+              setIsCreating(false)
+              showErrorDialog()
+            },
+          }),
+        )
+      },
+      {
+        requiresScrBackend: () =>
+          params.backendPolicy === GameplayBackendPolicy.ScrCompatibility ||
+          !canUseHyperionForOrdinaryLobbies(getServerConfig()),
+        requiresAnyBackend: () =>
+          params.backendPolicy !== GameplayBackendPolicy.ScrCompatibility &&
+          canUseHyperionForOrdinaryLobbies(getServerConfig()),
+      },
+    )()
   }
 
   const setupModel: GameSetupModel = {
     mapId: initial.selectedMap,
     gameType: initial.gameType,
     gameSubType: initial.gameSubType,
+    backendPolicy: GameplayBackendPolicy.HyperionFirst,
     useLegacyLimits: initial.useLegacyLimits,
     starcraftCompatibleReplays: initial.starcraftCompatibleReplays,
     lockedAlliances: initial.lockedAlliances,
@@ -350,6 +368,7 @@ function HostGameContent({
             map: model.mapId!,
             gameType: model.gameType,
             gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
+            backendPolicy: model.backendPolicy ?? GameplayBackendPolicy.HyperionFirst,
             useLegacyLimits: model.useLegacyLimits,
             starcraftCompatibleReplays: model.starcraftCompatibleReplays,
             lockedAlliances: model.lockedAlliances,

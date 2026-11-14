@@ -5,6 +5,7 @@ import type { Database as SqliteDatabase, Statement } from 'better-sqlite3'
 // addon dynamically, so a build would silently drop it and the packaged app would fail to load.
 import Database from 'better-sqlite3/win32-x64'
 import path from 'node:path'
+import { ReplayFormat } from '../../common/games/backend'
 import { RaceChar } from '../../common/races'
 import {
   ReplayLibraryEntry,
@@ -17,7 +18,7 @@ import { reorderPlaylistEntries } from './playlist-order'
 import { deriveTeamLayout, IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery } from './replay-queries'
 
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 10
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -36,6 +37,7 @@ interface DbReplayRow {
   parse_error: number
   team_size: number | null
   matchup: string | null
+  replay_format: ReplayFormat | null
   bookmarked_at: number | null
 }
 
@@ -117,8 +119,8 @@ export class ReplayDb {
     this.insertReplayStmt = this.db.prepare(`
       INSERT INTO replays (
         path, file_mtime, file_size, content_hash, game_time, map_name, game_type,
-        duration_frames, sb_game_id, parse_error, team_size, matchup
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_frames, sb_game_id, parse_error, team_size, matchup, replay_format
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     // Deliberately omits `bookmarked_at`: a reparse (see `upsertTxn`) updates a row in place so the
     // user's bookmark (and, via the stable id, playlist memberships) survive the reparse.
@@ -126,7 +128,7 @@ export class ReplayDb {
       UPDATE replays SET
         path = ?, file_mtime = ?, file_size = ?, content_hash = ?, game_time = ?, map_name = ?,
         game_type = ?, duration_frames = ?, sb_game_id = ?, parse_error = ?, team_size = ?,
-        matchup = ?
+        matchup = ?, replay_format = ?
       WHERE id = ?
     `)
     this.insertPlayerStmt = this.db.prepare(`
@@ -223,6 +225,7 @@ export class ReplayDb {
           record.parseError ? 1 : 0,
           record.teamSize,
           record.matchup,
+          record.replayFormat,
           id,
         )
         this.deletePlayersByReplayIdStmt.run(id)
@@ -240,6 +243,7 @@ export class ReplayDb {
           record.parseError ? 1 : 0,
           record.teamSize,
           record.matchup,
+          record.replayFormat,
         )
         id = Number(info.lastInsertRowid)
       }
@@ -441,6 +445,15 @@ export class ReplayDb {
           // parse-error row forces one reparse of them all, recovering any replay that was never
           // actually unreadable; genuinely corrupt ones are simply re-recorded as parse errors.
           this.db.exec('UPDATE replays SET file_mtime = NULL WHERE parse_error = 1')
+        }
+
+        if (version < 10) {
+          // Native recordings carry an explicit format identity; every historical row remains SC:R.
+          // Reparse unreadable rows so hxRS files rejected by older indexers can gain local metadata.
+          this.db.exec(`
+          ALTER TABLE replays ADD COLUMN replay_format TEXT NOT NULL DEFAULT 'scr';
+          UPDATE replays SET file_mtime = NULL WHERE parse_error = 1;
+        `)
         }
 
         if (version < SCHEMA_VERSION) {
@@ -685,6 +698,7 @@ function rowToEntry(row: DbReplayRow, playerRows: DbPlayerRow[]): ReplayLibraryE
     gameType: row.game_type ?? 0,
     durationFrames: row.duration_frames ?? 0,
     sbGameId: row.sb_game_id ?? undefined,
+    replayFormat: row.replay_format ?? 'scr',
     parseError: row.parse_error !== 0,
     players,
     bookmarkedAt: row.bookmarked_at ?? undefined,

@@ -2,6 +2,7 @@ import { useId, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import {
   ALL_GAME_TYPES,
   GameType,
@@ -20,6 +21,7 @@ import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
+import { SegmentedButtonGroup } from '../../material/segmented-button'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
 import { warpFieldDescription, WarpFieldFixesInfo } from '../warp-field'
@@ -250,6 +252,8 @@ export interface GameSetupModel {
   mapId?: SbMapId
   gameType: GameType
   gameSubType: number
+  /** Present for creation-time policy selection; absent from editable room settings. */
+  backendPolicy?: GameplayBackendPolicy
   useLegacyLimits: boolean
   starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
@@ -503,6 +507,39 @@ export function GameSetupForm({
                 }
                 mapName={selectedMapInfo.name}
               />
+            </Section>
+          ) : null}
+
+          {getInputValue('backendPolicy') !== undefined ? (
+            <Section>
+              <SectionHeader>
+                {t('lobbies.createLobby.backendPolicy', 'Gameplay backend')}
+              </SectionHeader>
+              <SegmentedButtonGroup<GameplayBackendPolicy>
+                segments={[
+                  {
+                    value: GameplayBackendPolicy.HyperionFirst,
+                    label: t('lobbies.createLobby.hyperionFirst', 'Hyperion first'),
+                    testName: 'hyperion-first-backend',
+                  },
+                  {
+                    value: GameplayBackendPolicy.ScrCompatibility,
+                    label: t('lobbies.createLobby.scrCompatibility', 'SC:R compatibility'),
+                    neutral: true,
+                    testName: 'scr-compatibility-backend',
+                  },
+                ]}
+                value={getInputValue('backendPolicy')!}
+                onChange={value => setInputValue('backendPolicy', value)}
+                disabled={disabled}
+                ariaLabel={t('lobbies.createLobby.backendPolicy', 'Gameplay backend')}
+              />
+              <GameTypeDescription>
+                {t(
+                  'lobbies.createLobby.backendPolicyDescription',
+                  'Hyperion is used when every player and this configuration support it. Compatibility keeps the whole lobby on SC:R.',
+                )}
+              </GameTypeDescription>
             </Section>
           ) : null}
 

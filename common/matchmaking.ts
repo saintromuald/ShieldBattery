@@ -4,6 +4,7 @@ import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo } from './chat'
 import { binarySearch } from './data-structures/arrays'
 import { GameServerRegionId } from './game-server-regions'
+import type { ClientGameplayCapabilities } from './games/backend'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
@@ -1427,6 +1428,8 @@ export interface FindMatchRequest {
    * is always multi-human and every real client is an up-to-date Electron app.
    */
   clientPubkey?: string
+  /** Non-secret native/SC:R launch capabilities captured from the selected local installations. */
+  capabilities?: ClientGameplayCapabilities
 }
 
 export interface DraftProvisionalPickRequest {

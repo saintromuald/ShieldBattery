@@ -3,6 +3,7 @@ import { m } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { hasLockedAlliances, MAX_BENCH } from '../../../common/lobbies'
 import { LobbySummarySlotJson } from '../../../common/lobbies/lobby-network'
@@ -559,6 +560,11 @@ export function LobbyDetailRail({
         <ChipRow>
           {isInGame ? <InGameChip elapsedMs={summary.elapsedMs} /> : null}
           <RoomChip>{gameTypeToLabel(summary.gameType, t)}</RoomChip>
+          <RoomChip>
+            {summary.backendPolicy === GameplayBackendPolicy.ScrCompatibility
+              ? t('lobbies.browser.scrCompatibility', 'SC:R compatibility')
+              : t('lobbies.browser.hyperionFirst', 'Hyperion first')}
+          </RoomChip>
           {subTypeLabel ? <RoomChip>{subTypeLabel}</RoomChip> : null}
           {summary.hasObserverTeam ? (
             <RoomChip>{t('lobbies.browser.observers', 'Observers')}</RoomChip>

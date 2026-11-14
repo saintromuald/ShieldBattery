@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { GameplayBackendPolicy } from '../../common/games/backend'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
 import { healthChecked } from './health-checked'
 import { shieldBatteryFilesState, starcraftPathValid, starcraftVersionValid } from './health-state'
+import { gameplayCapabilityHealth } from './hyperion-health'
 import { isScrBackendSupported } from './scr-backend'
 
 vi.mock('../dispatch-registry', () => ({ dispatch: vi.fn() }))
@@ -20,6 +22,14 @@ describe('healthChecked', () => {
       main: false,
       init64: false,
       main64: false,
+    })
+    jotaiStore.set(gameplayCapabilityHealth, {
+      status: 'ready',
+      capabilities: {
+        protocol: 1,
+        backendPolicy: GameplayBackendPolicy.HyperionFirst,
+        scrAvailable: false,
+      },
     })
   })
 
@@ -79,5 +89,58 @@ describe('healthChecked', () => {
         payload: { type: DialogType.ShieldBatteryHealth },
       }),
     )
+  })
+
+  it('opens native health instead of SC:R health for Hyperion-only actions', () => {
+    const callback = vi.fn()
+    healthChecked(callback, {
+      requiresScrBackend: () => false,
+      requiresHyperionBackend: () => true,
+    })()
+    expect(callback).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: '@dialogs/open',
+        payload: { type: DialogType.HyperionHealth },
+      }),
+    )
+  })
+
+  it('allows native-only actions with a valid Hyperion profile and no SC:R installation', () => {
+    jotaiStore.set(gameplayCapabilityHealth, {
+      status: 'ready',
+      capabilities: {
+        protocol: 1,
+        backendPolicy: GameplayBackendPolicy.HyperionFirst,
+        hyperion: {} as any,
+        scrAvailable: false,
+      },
+    })
+    vi.mocked(isScrBackendSupported).mockReturnValue(false)
+    const callback = vi.fn()
+    healthChecked(callback, {
+      requiresScrBackend: () => false,
+      requiresHyperionBackend: () => true,
+    })()
+    expect(callback).toHaveBeenCalledOnce()
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('allows an either-backend action when only SC:R is healthy', () => {
+    jotaiStore.set(starcraftPathValid, true)
+    jotaiStore.set(starcraftVersionValid, true)
+    jotaiStore.set(shieldBatteryFilesState, {
+      init: true,
+      main: true,
+      init64: true,
+      main64: true,
+    })
+    const callback = vi.fn()
+    healthChecked(callback, {
+      requiresScrBackend: () => false,
+      requiresAnyBackend: () => true,
+    })()
+    expect(callback).toHaveBeenCalledOnce()
+    expect(dispatch).not.toHaveBeenCalled()
   })
 })

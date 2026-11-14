@@ -2,7 +2,17 @@ import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/bro
 import { init, parseReplay } from '@shieldbattery/broodrep'
 import { createHash } from 'node:crypto'
 import { open, readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { inflateSync } from 'node:zlib'
+import {
+  GameplayBackend,
+  hyperionReplayMagicOffset,
+  ReplayFormat,
+  ReplayIdentity,
+  replayIdentityForBytes,
+} from '../../common/games/backend'
+
+export { replayIdentityForBytes } from '../../common/games/backend'
 import { computeMatchupString } from '../../common/games/matchups'
 import { filterColorCodes } from '../../common/maps'
 import { RaceChar } from '../../common/races'
@@ -31,6 +41,8 @@ export interface ReplayFileInfo {
   fileSize: number
   /** Hash of the first `CONTENT_HASH_BYTES` of the file. */
   contentHash: string
+  /** Recording magic detected on disk. Absent until the indexer first probes it. */
+  replayFormat?: ReplayFormat
 }
 
 /**
@@ -38,6 +50,7 @@ export interface ReplayFileInfo {
  * shape; the renderer-facing shape is `ReplayLibraryEntry`.
  */
 export interface IndexedReplay extends ReplayFileInfo {
+  replayFormat: ReplayFormat
   /** Game start time as unix ms (derived from the replay's random seed). */
   gameTime: number
   mapName: string
@@ -123,6 +136,48 @@ function getSbUserIdForSlot(
     : undefined
 }
 
+/** Reads only the recording magic; the native player performs full playback compatibility checks. */
+export async function detectReplayIdentity(filePath: string): Promise<ReplayIdentity> {
+  const fd = await open(filePath, 'r')
+  try {
+    const magic = Buffer.alloc(16)
+    const { bytesRead } = await fd.read(magic, 0, 16, 0)
+    const identity = replayIdentityForBytes(magic.subarray(0, bytesRead))
+    if (path.basename(filePath).toLowerCase().startsWith('hypershield-')) {
+      try {
+        const sidecar = JSON.parse(
+          await readFile(filePath.replace(/\.rep$/i, '.hyperion.json'), 'utf8'),
+        ) as {
+          version?: number
+          backend?: GameplayBackend
+          replay?: { format?: ReplayFormat; playbackBackend?: GameplayBackend }
+        }
+        if (
+          sidecar.version === 1 &&
+          sidecar.backend === GameplayBackend.Hyperion &&
+          sidecar.replay?.format === identity.format &&
+          sidecar.replay.playbackBackend === GameplayBackend.Hyperion
+        ) {
+          return { format: identity.format, playbackBackend: GameplayBackend.Hyperion }
+        }
+      } catch {
+        // An absent or invalid sidecar leaves the recording with its unmarked legacy behavior.
+      }
+    }
+    return identity
+  } finally {
+    await fd.close()
+  }
+}
+
+function broodRepBuffer(buffer: Buffer): Buffer {
+  const offset = hyperionReplayMagicOffset(buffer)
+  if (offset === undefined) return buffer
+  const compatibleView = Buffer.from(buffer)
+  compatibleView.write('reRS', offset, 'ascii')
+  return compatibleView
+}
+
 /**
  * Maps a parsed replay header (plus its players and optional ShieldBattery section) into an
  * `IndexedReplay`. Pure: no file access, no side effects.
@@ -132,6 +187,7 @@ export function mapReplayHeaderToRecord(
   header: ReplayHeader,
   headerPlayers: ReadonlyArray<Player>,
   sbData: ShieldBatteryData | undefined,
+  replayFormat: ReplayFormat = 'scr',
 ): IndexedReplay {
   const players = headerPlayers.map<ReplayLibraryPlayer>(p => ({
     slot: p.slotId,
@@ -145,6 +201,7 @@ export function mapReplayHeaderToRecord(
 
   return {
     ...fileInfo,
+    replayFormat,
     // The replay's start time is the unix-seconds timestamp of when the game started.
     gameTime: header.startTime * 1000,
     mapName: filterColorCodes(header.mapName),
@@ -165,6 +222,7 @@ export function mapReplayHeaderToRecord(
 export function makeParseErrorRecord(fileInfo: ReplayFileInfo): IndexedReplay {
   return {
     ...fileInfo,
+    replayFormat: fileInfo.replayFormat ?? 'scr',
     gameTime: 0,
     mapName: '',
     gameType: 0,
@@ -194,15 +252,18 @@ export async function computeContentHash(filePath: string): Promise<string> {
  * can't be parsed. Shared by the library indexer and the `replayParseMetadata` IPC handler.
  */
 export async function parseReplayMetadata(filePath: string): Promise<{
+  identity: ReplayIdentity
   headerData: ReplayHeader
   players: Player[]
   shieldBatteryData?: ShieldBatteryData
 }> {
   const buffer = await readFile(filePath)
+  const identity = await detectReplayIdentity(filePath)
   try {
-    const replay = parseReplay(buffer)
+    const replay = parseReplay(broodRepBuffer(buffer))
     try {
       return {
+        identity,
         headerData: replay.header,
         players: replay.players(),
         shieldBatteryData: replay.getShieldBatterySection(),
@@ -218,8 +279,10 @@ export async function parseReplayMetadata(filePath: string): Promise<{
 
 /** Parses a replay file into an `IndexedReplay`. Rejects if the file can't be parsed. */
 export async function parseReplayFile(fileInfo: ReplayFileInfo): Promise<IndexedReplay> {
+  const identity = await detectReplayIdentity(fileInfo.path)
+  fileInfo.replayFormat = identity.format
   const { headerData, players, shieldBatteryData } = await parseReplayMetadata(fileInfo.path)
-  return mapReplayHeaderToRecord(fileInfo, headerData, players, shieldBatteryData)
+  return mapReplayHeaderToRecord(fileInfo, headerData, players, shieldBatteryData, identity.format)
 }
 
 /**
@@ -236,7 +299,7 @@ const DROPPED_LEAVE_REASON = 6
 export async function parseReplayChat(filePath: string): Promise<ReplayChat> {
   const buffer = await readFile(filePath)
   try {
-    const replay = parseReplay(buffer)
+    const replay = parseReplay(broodRepBuffer(buffer))
     try {
       const sbData = replay.getShieldBatterySection()
       const colorsSection = replay.getRawSection('customColors')

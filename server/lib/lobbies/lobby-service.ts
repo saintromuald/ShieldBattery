@@ -4,6 +4,7 @@ import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
+import { ClientGameplayCapabilities, GameplayBackendPolicy } from '../../../common/games/backend'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
@@ -647,11 +648,13 @@ export class LobbyService {
     useLegacyLimits,
     starcraftCompatibleReplays,
     lockedAlliances,
+    backendPolicy,
     visibility,
     region,
     rttMs,
     regionManual,
     clientPubkey,
+    capabilities,
     leaveCurrentLobby,
     user,
     client,
@@ -664,12 +667,14 @@ export class LobbyService {
     useLegacyLimits?: boolean
     starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
+    backendPolicy?: GameplayBackendPolicy
     visibility?: LobbyVisibility
     region?: GameServerRegionId
     rttMs?: number
     /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
     regionManual?: boolean
     clientPubkey?: string
+    capabilities?: ClientGameplayCapabilities
     /**
      * When set, a client currently in a different lobby is removed from it as part of this create
      * rather than the create failing outright. Applied only after every failure check has passed,
@@ -718,6 +723,7 @@ export class LobbyService {
       useLegacyLimits,
       starcraftCompatibleReplays,
       lockedAlliances,
+      backendPolicy,
       visibility: lobbyVisibility,
     })
 
@@ -743,11 +749,17 @@ export class LobbyService {
     this.lobbyJoinCodes.set(lobby.id, joinCode)
     this.joinCodeToLobby.set(joinCode, lobby.id)
     this.lobbyClients.set(client, lobby.id)
-    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+    if (
+      rttMs !== undefined ||
+      regionManual !== undefined ||
+      clientPubkey !== undefined ||
+      capabilities !== undefined
+    ) {
       this.lobbyPlayerNetwork.set(lobby.id, client.userId, {
         rttMs,
         regionManual,
         netcodeV2Pubkey: clientPubkey,
+        capabilities,
       })
     }
     this._subscribeClientToLobby(lobby, user, client)
@@ -763,6 +775,7 @@ export class LobbyService {
     rttMs,
     regionManual,
     clientPubkey,
+    capabilities,
     asObserver,
     leaveCurrentLobby,
     user,
@@ -774,6 +787,7 @@ export class LobbyService {
     /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
     regionManual?: boolean
     clientPubkey?: string
+    capabilities?: ClientGameplayCapabilities
     /** Whether the joiner wants an observer seat specifically; see the handling below. */
     asObserver?: boolean
     /**
@@ -890,11 +904,17 @@ export class LobbyService {
 
     this.lobbies.set(id, updated)
     this.lobbyClients.set(client, id)
-    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+    if (
+      rttMs !== undefined ||
+      regionManual !== undefined ||
+      clientPubkey !== undefined ||
+      capabilities !== undefined
+    ) {
       this.lobbyPlayerNetwork.set(id, client.userId, {
         rttMs,
         regionManual,
         netcodeV2Pubkey: clientPubkey,
+        capabilities,
       })
     }
 
@@ -2336,6 +2356,7 @@ export class LobbyService {
         visibility: lobby.visibility,
       },
       lockedAlliances: hasLockedAlliances(lobby),
+      requestedBackendPolicy: lobby.backendPolicy ?? GameplayBackendPolicy.HyperionFirst,
       observers: getLobbySlots(lobby)
         .filter(s => s.type === SlotType.Observer)
         .map(s => s.userId!),
@@ -2388,6 +2409,7 @@ export class LobbyService {
         rttMs: networkByUser.get(s.userId!)?.rttMs,
         regionManual: networkByUser.get(s.userId!)?.regionManual,
         netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
+        capabilities: networkByUser.get(s.userId!)?.capabilities,
       }))
       const gameLoadResult = await this.gameLoader.loadGame({
         gameId: formationId,
@@ -2411,6 +2433,7 @@ export class LobbyService {
             break
           case GameLoadErrorType.Canceled:
           case GameLoadErrorType.Internal:
+          case GameLoadErrorType.BackendUnsupported:
             break
           default:
             gameLoadResult.error satisfies never

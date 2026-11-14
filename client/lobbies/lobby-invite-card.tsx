@@ -589,6 +589,7 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const [state] = useLobbySummary(lobbyId, { cached: true })
   const host = state?.status === 'loaded' ? state.data.host : undefined
   const name = state?.status === 'loaded' ? state.data.summary.name : undefined
+  const backendPolicy = state?.status === 'loaded' ? state.data.summary.backendPolicy : undefined
 
   useEffect(() => {
     // The summary carries the host's user info, so their name renders without a lookup of its own.
@@ -601,7 +602,7 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
     <LobbyInviteCardContent
       state={state}
       onClick={() => navigateToLobby(lobbyId, name)}
-      onJoinClick={() => joinLobbyAction(lobbyId, { name })}
+      onJoinClick={() => joinLobbyAction(lobbyId, { name, backendPolicy })}
     />
   )
 }

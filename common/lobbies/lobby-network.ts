@@ -1,6 +1,7 @@
 import { assertUnreachable } from '../assert-unreachable'
 import { BasicChannelInfo } from '../chat'
 import { GameServerRegionId } from '../game-server-regions'
+import type { ClientGameplayCapabilities, GameplayBackendPolicy } from '../games/backend'
 import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
@@ -93,6 +94,8 @@ export interface LobbyNetworkParams {
    */
   regionManual?: boolean
   clientPubkey?: string
+  /** Non-secret native/SC:R capabilities, kept server-side rather than in peer-visible slots. */
+  capabilities?: ClientGameplayCapabilities
 }
 
 /** The body of a request to create a new lobby. */
@@ -105,6 +108,8 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
+  /** Immutable whole-lobby backend policy for games formed from this lobby. */
+  backendPolicy?: GameplayBackendPolicy
   visibility?: LobbyVisibility
   /**
    * When set, a client currently in a different lobby is removed from it in the same operation
@@ -342,6 +347,8 @@ export interface LobbySummaryJson {
   useLegacyLimits: boolean
   starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
+  /** Whole-formation policy visible before joining; absent only on historical lobbies. */
+  backendPolicy?: GameplayBackendPolicy
   playerSlots: LobbyPlayerSlotCounts
   observerSlots: LobbyObserverSlotCounts
   /**

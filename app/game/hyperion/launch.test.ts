@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { GameplayBackend } from '../../../common/games/backend'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { NetcodeV2Setup } from '../../../common/games/netcode-v2'
@@ -16,6 +18,7 @@ import {
   HyperionLaunchOptions,
   HyperionSpawn,
   launchHyperionProcess,
+  launchHyperionReplayProcess,
   parseHyperionInstall,
 } from './launch'
 import { HyperionCompatibility } from './native-protocol'
@@ -164,6 +167,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
 
@@ -222,7 +226,7 @@ describe('launchHyperionProcess', () => {
     expect(spawnOptions.cwd).toBe('/opt/hyperion')
     expect(spawnOptions.env.HYPERION_SB_EVENTS).toBe('1')
     expect(spawnOptions.env.HYPERION_SB_RESULT_CODE).toBe(RESULT_CODE)
-    expect(spawnOptions.env).not.toHaveProperty('HYPERION_SB_SERVER_URL')
+    expect(spawnOptions.env.HYPERION_SB_SERVER_URL).toBe(SERVER_URL)
     expect(spawnOptions.windowsHide).toBe(true)
 
     const manifestPath = args[args.indexOf('--sb-setup') + 1]
@@ -312,6 +316,43 @@ describe('launchHyperionProcess', () => {
     expect(spawnOptions.env).not.toHaveProperty('HYPERION_SB_RESULT_CODE')
     const manifestBytes = await fs.readFile(args[args.indexOf('--sb-setup') + 1], 'utf8')
     expect(manifestBytes).not.toContain(SERVER_URL)
+    child.exit(0)
+    await launched.proc.waitForExit()
+  })
+
+  it('removes poisoned inherited result and development environment variables', async () => {
+    vi.stubEnv('HYPERION_SB_RESULT_CODE', 'poisoned-parent-result')
+    vi.stubEnv('HYPERION_SB_DEV_MINT', '1')
+    vi.stubEnv('HYPERION_SB_TRACE', '1')
+    vi.stubEnv('HYPERION_CHILD_TOKEN', 'child-control-token')
+    vi.stubEnv('HYPERION_CONTROL_KEY', 'child-control-key')
+    vi.stubEnv('HYPERION_PATH_BUDGET', '999999')
+    vi.stubEnv('HYPERION_TEST_CRASH', '1')
+    vi.stubEnv('hyperion_path_budget', '123456')
+    vi.stubEnv('Hyperion_Test_Crash', '1')
+    vi.stubEnv('hyperion_sb_result_code', 'poisoned-lowercase-result')
+    vi.stubEnv('GITHUB_TOKEN', 'github-credential')
+    const child = new FakeChild()
+    const spawn = fakeSpawn(child)
+    const launched = await launchHyperionProcess(
+      makeOptions({ resultContext: { resultCode: undefined, serverUrl: SERVER_URL } }),
+      spawn,
+    )
+
+    const environment = spawn.mock.calls[0][2].env
+    expect(environment).not.toHaveProperty('HYPERION_SB_RESULT_CODE')
+    expect(environment).not.toHaveProperty('HYPERION_SB_SERVER_URL')
+    expect(environment).not.toHaveProperty('HYPERION_SB_DEV_MINT')
+    expect(environment).not.toHaveProperty('HYPERION_SB_TRACE')
+    expect(environment).not.toHaveProperty('HYPERION_CHILD_TOKEN')
+    expect(environment).not.toHaveProperty('HYPERION_CONTROL_KEY')
+    expect(environment).not.toHaveProperty('HYPERION_PATH_BUDGET')
+    expect(environment).not.toHaveProperty('HYPERION_TEST_CRASH')
+    expect(environment).not.toHaveProperty('hyperion_path_budget')
+    expect(environment).not.toHaveProperty('Hyperion_Test_Crash')
+    expect(environment).not.toHaveProperty('hyperion_sb_result_code')
+    expect(environment).not.toHaveProperty('GITHUB_TOKEN')
+    expect(environment.HYPERION_SB_EVENTS).toBe('1')
     child.exit(0)
     await launched.proc.waitForExit()
   })
@@ -439,5 +480,127 @@ describe('launchHyperionProcess', () => {
     })
     child.exit(0)
     await launched.proc.waitForExit()
+  })
+})
+
+describe('launchHyperionReplayProcess', () => {
+  async function replayFile(magic: string): Promise<{ directory: string; path: string }> {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'sb-hyperion-replay-test-'))
+    const replayPath = path.join(directory, 'recording.rep')
+    await fs.writeFile(replayPath, `${magic} native replay fixture`)
+    return { directory, path: replayPath }
+  }
+
+  it('plays only hxRS recordings without live-game credentials or a manifest', async () => {
+    vi.stubEnv('HYPERION_SB_RESULT_CODE', 'poisoned-replay-result')
+    vi.stubEnv('HYPERION_SB_DEV_MINT', '1')
+    vi.stubEnv('HYPERION_CONTROL_KEY', 'poisoned-control')
+    const replay = await replayFile('hxRS')
+    const child = new FakeChild()
+    const spawn = fakeSpawn(child)
+    const onStart = vi.fn()
+    try {
+      const launched = await launchHyperionReplayProcess(
+        {
+          install: INSTALL,
+          replayPath: replay.path,
+          serverUrl: SERVER_URL,
+          onStart,
+        },
+        spawn,
+      )
+      const [, args, options] = spawn.mock.calls[0]
+      expect(args).toEqual([
+        '--replay',
+        replay.path,
+        '--data',
+        INSTALL.dataPath,
+        '--install-folder',
+        INSTALL.gameDataPath,
+      ])
+      expect(args).not.toContain('--sb-setup')
+      expect(options.env).not.toHaveProperty('HYPERION_SB_RESULT_CODE')
+      expect(options.env).not.toHaveProperty('HYPERION_SB_DEV_MINT')
+      expect(options.env).not.toHaveProperty('HYPERION_CONTROL_KEY')
+      expect(launched.resultContext).toEqual({ serverUrl: SERVER_URL })
+      expect(onStart).toHaveBeenCalledOnce()
+      child.exit(0)
+      await expect(launched.proc.waitForExit()).resolves.toBe(0)
+    } finally {
+      await fs.rm(replay.directory, { recursive: true, force: true })
+    }
+  })
+
+  it('plays native Classic reRS recordings when metadata selects Hyperion', async () => {
+    const replay = await replayFile('reRS')
+    const child = new FakeChild()
+    const spawn = fakeSpawn(child)
+    try {
+      const launched = await launchHyperionReplayProcess(
+        {
+          install: INSTALL,
+          replayPath: replay.path,
+          replay: { format: 'scr', playbackBackend: GameplayBackend.Hyperion },
+          serverUrl: SERVER_URL,
+        },
+        spawn,
+      )
+      expect(spawn).toHaveBeenCalledOnce()
+      expect(spawn.mock.calls[0][2].env).not.toHaveProperty('HYPERION_SB_RESULT_CODE')
+      child.exit(0)
+      await launched.proc.waitForExit()
+    } finally {
+      await fs.rm(replay.directory, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects malformed files even when metadata selects native Classic playback', async () => {
+    const replay = await replayFile('not a replayreRS')
+    const spawn = vi.fn<HyperionSpawn>()
+    try {
+      await expect(
+        launchHyperionReplayProcess(
+          {
+            install: INSTALL,
+            replayPath: replay.path,
+            replay: { format: 'scr', playbackBackend: GameplayBackend.Hyperion },
+            serverUrl: SERVER_URL,
+          },
+          spawn,
+        ),
+      ).rejects.toThrow('classic reRS replay magic')
+      expect(spawn).not.toHaveBeenCalled()
+    } finally {
+      await fs.rm(replay.directory, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects SC:R recordings and unsupported launch-time seeks before spawning', async () => {
+    const scrReplay = await replayFile('reRS')
+    const nativeReplay = await replayFile('hxRS')
+    const spawn = vi.fn<HyperionSpawn>()
+    try {
+      await expect(
+        launchHyperionReplayProcess(
+          { install: INSTALL, replayPath: scrReplay.path, serverUrl: SERVER_URL },
+          spawn,
+        ),
+      ).rejects.toThrow('hxRS replay magic')
+      await expect(
+        launchHyperionReplayProcess(
+          {
+            install: INSTALL,
+            replayPath: nativeReplay.path,
+            startFrame: 120,
+            serverUrl: SERVER_URL,
+          },
+          spawn,
+        ),
+      ).rejects.toThrow('seeking at launch')
+      expect(spawn).not.toHaveBeenCalled()
+    } finally {
+      await fs.rm(scrReplay.directory, { recursive: true, force: true })
+      await fs.rm(nativeReplay.directory, { recursive: true, force: true })
+    }
   })
 })
