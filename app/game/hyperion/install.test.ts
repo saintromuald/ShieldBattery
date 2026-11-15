@@ -15,6 +15,7 @@ import {
   readEmbeddedHyperionInstall,
 } from './install'
 import { HyperionCompatibility } from './native-protocol'
+import { hyperionExecutablePath, hyperionLibraryPath } from './paths'
 
 vi.mock('../../logger', () => ({ default: { warning: vi.fn() } }))
 vi.mock('electron', () => ({
@@ -51,43 +52,55 @@ afterEach(async () => {
   await fs.rm(temporaryDirectory, { recursive: true, force: true })
 })
 
-function runtimeLibraryName(platform: 'linux' | 'win32'): string {
-  return platform === 'win32' ? 'SDL3.dll' : 'libSDL3.so.0'
+type HyperionTestPlatform = 'linux' | 'win32' | 'darwin'
+
+function testArchitecture(platform: HyperionTestPlatform): string {
+  return platform === 'darwin' ? 'arm64' : 'x64'
 }
 
-async function stageExecutable(platform: 'linux' | 'win32' = 'linux') {
+async function stageExecutable(platform: HyperionTestPlatform = 'linux') {
   const appPath = path.join(temporaryDirectory, 'resources', 'app.asar')
   const paths = embeddedHyperionPaths(
     appPath,
     path.join(temporaryDirectory, 'user-data'),
     'seat 1',
     platform,
-    'x64',
+    testArchitecture(platform),
   )
   await fs.mkdir(path.join(paths.workingDirectory, 'Data'), { recursive: true })
+  await fs.mkdir(path.dirname(paths.executablePath), { recursive: true })
   await fs.writeFile(paths.executablePath, 'native test fixture', {
     mode: platform === 'win32' ? 0o644 : 0o755,
   })
-  await fs.writeFile(path.join(paths.workingDirectory, runtimeLibraryName(platform)), 'native SDL')
+  await fs.writeFile(
+    hyperionLibraryPath(paths.executablePath, paths.workingDirectory, platform),
+    'native SDL',
+  )
   return { appPath, paths }
 }
 
 async function stageDownloadedExecutable(
   userDataPath: string,
   selection: 'latest' | 'pinned',
-  platform: 'linux' | 'win32' = 'linux',
+  platform: HyperionTestPlatform = 'linux',
 ) {
   const releaseId = 'github:saintromuald/hyperion-public:1'
   const downloadedDirectory = path.join(
     releaseCenterInstallRoot(userDataPath, 'hyperion'),
     'downloaded-1.0.0',
   )
-  const executableName = platform === 'win32' ? 'Hyperion.exe' : 'Hyperion.x86_64'
+  const architecture = testArchitecture(platform)
+  const executableName = hyperionExecutablePath(platform, architecture)
+  const executablePath = path.join(downloadedDirectory, executableName)
   await fs.mkdir(path.join(downloadedDirectory, 'Data'), { recursive: true })
-  await fs.writeFile(path.join(downloadedDirectory, executableName), 'downloaded engine', {
+  await fs.mkdir(path.dirname(executablePath), { recursive: true })
+  await fs.writeFile(executablePath, 'downloaded engine', {
     mode: platform === 'win32' ? 0o644 : 0o755,
   })
-  await fs.writeFile(path.join(downloadedDirectory, runtimeLibraryName(platform)), 'downloaded SDL')
+  await fs.writeFile(
+    hyperionLibraryPath(executablePath, downloadedDirectory, platform),
+    'downloaded SDL',
+  )
   const preferences = defaultReleasePreferences()
   preferences.hyperion.selection = selection
   preferences.hyperion.activeReleaseId = releaseId
@@ -109,7 +122,7 @@ async function stageDownloadedExecutable(
         directoryName: 'downloaded-1.0.0',
         executablePath: executableName,
         platform,
-        architecture: 'x64',
+        architecture,
       },
     ],
     hypershield: [],
@@ -123,7 +136,7 @@ async function stageDownloadedExecutable(
 
 describe('embeddedHyperionPaths', () => {
   it('resolves development and packaged resources beside the app tree', () => {
-    const executable = process.platform === 'win32' ? 'Hyperion.exe' : 'Hyperion.x86_64'
+    const executable = hyperionExecutablePath(process.platform, process.arch)
     expect(embeddedHyperionPaths('/work/ShieldBattery/app', '/work/user-data')).toEqual({
       executablePath: path.resolve('/work/ShieldBattery/hyperion', executable),
       dataPath: path.join('/work/user-data', 'hyperion'),
@@ -145,6 +158,23 @@ describe('embeddedHyperionPaths', () => {
     })
   })
 
+  it('resolves the Apple Silicon app bundle with Data beside Hyperion.app', () => {
+    expect(
+      embeddedHyperionPaths(
+        '/Applications/HyperShield.app/Contents/Resources/app.asar',
+        '/Users/player/Library/Application Support/HyperShield',
+        undefined,
+        'darwin',
+        'arm64',
+      ),
+    ).toEqual({
+      executablePath:
+        '/Applications/HyperShield.app/Contents/Resources/hyperion/Hyperion.app/Contents/MacOS/Hyperion',
+      dataPath: '/Users/player/Library/Application Support/HyperShield/hyperion',
+      workingDirectory: '/Applications/HyperShield.app/Contents/Resources/hyperion',
+    })
+  })
+
   it('namespaces native data for concurrent development sessions', () => {
     expect(
       embeddedHyperionPaths('/work/app', '/work/user-data', 'seat/one', 'linux', 'x64').dataPath,
@@ -153,10 +183,13 @@ describe('embeddedHyperionPaths', () => {
 
   it('rejects unsupported platforms and processor architectures', () => {
     expect(() =>
-      embeddedHyperionPaths('/work/app', '/work/user-data', undefined, 'darwin'),
+      embeddedHyperionPaths('/work/app', '/work/user-data', undefined, 'freebsd'),
     ).toThrow('not available on this operating system')
     expect(() =>
       embeddedHyperionPaths('/work/app', '/work/user-data', undefined, 'win32', 'arm64'),
+    ).toThrow('not available on this processor architecture')
+    expect(() =>
+      embeddedHyperionPaths('/work/app', '/work/user-data', undefined, 'darwin', 'x64'),
     ).toThrow('not available on this processor architecture')
   })
 })
@@ -219,6 +252,35 @@ describe('readEmbeddedHyperionInstall', () => {
       paths.workingDirectory,
       'C:\\Games\\StarCraft',
     )
+  })
+
+  it('probes the Mac executable and its SDL library without moving Data into the app bundle', async () => {
+    const { appPath, paths } = await stageExecutable('darwin')
+    const probe = vi.fn(async () => COMPATIBILITY)
+
+    const install = await readEmbeddedHyperionInstall({
+      appPath,
+      userDataPath: path.join(temporaryDirectory, 'user-data'),
+      sessionName: 'seat 1',
+      platform: 'darwin',
+      architecture: 'arm64',
+      gameDataPath: '/games/StarCraft',
+      probe,
+    })
+
+    expect(install).toEqual({
+      ...paths,
+      gameDataPath: '/games/StarCraft',
+      executableSha256: BUNDLED_EXECUTABLE_SHA256,
+      compatibility: COMPATIBILITY,
+    })
+    expect(probe).toHaveBeenCalledExactlyOnceWith(
+      paths.executablePath,
+      paths.dataPath,
+      paths.workingDirectory,
+      '/games/StarCraft',
+    )
+    expect((await fs.stat(path.join(paths.workingDirectory, 'Data'))).isDirectory()).toBe(true)
   })
 
   it('uses the selected downloaded release while retaining bundled native data settings', async () => {
@@ -383,7 +445,7 @@ describe('readEmbeddedHyperionInstall', () => {
     expect(probe).toHaveBeenCalledTimes(2)
   })
 
-  it.each(['linux', 'win32'] as const)(
+  it.each(['linux', 'win32', 'darwin'] as const)(
     'fails cleanly when the $platform executable is missing',
     async platform => {
       const probe = vi.fn()
@@ -392,7 +454,7 @@ describe('readEmbeddedHyperionInstall', () => {
           appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
           userDataPath: path.join(temporaryDirectory, 'user-data'),
           platform,
-          architecture: 'x64',
+          architecture: testArchitecture(platform),
           probe,
         }),
       ).rejects.toThrow('Reinstall HyperShield and try again')
@@ -405,16 +467,18 @@ describe('readEmbeddedHyperionInstall', () => {
     { platform: 'linux', dependency: 'data' },
     { platform: 'win32', dependency: 'library' },
     { platform: 'win32', dependency: 'data' },
+    { platform: 'darwin', dependency: 'library' },
+    { platform: 'darwin', dependency: 'data' },
   ] as const)(
     'rejects a bundled $platform install with its $dependency dependency missing',
     async ({ platform, dependency }) => {
       const { appPath, paths } = await stageExecutable(platform)
       if (dependency === 'library') {
-        await fs.rm(path.join(paths.workingDirectory, runtimeLibraryName(platform)))
+        await fs.rm(hyperionLibraryPath(paths.executablePath, paths.workingDirectory, platform))
         await fs.writeFile(
           path.join(
             paths.workingDirectory,
-            runtimeLibraryName(platform === 'win32' ? 'linux' : 'win32'),
+            platform === 'win32' || platform === 'darwin' ? 'libSDL3.so.0' : 'SDL3.dll',
           ),
           'wrong platform SDL',
         )
@@ -429,7 +493,7 @@ describe('readEmbeddedHyperionInstall', () => {
           userDataPath: path.join(temporaryDirectory, 'user-data'),
           sessionName: 'seat 1',
           platform,
-          architecture: 'x64',
+          architecture: testArchitecture(platform),
           probe,
         }),
       ).rejects.toThrow('Reinstall HyperShield and try again')

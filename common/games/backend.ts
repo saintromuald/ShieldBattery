@@ -89,7 +89,7 @@ export interface HyperionCapabilityProfile {
   modFingerprint: string
   dataFingerprint: string
   features: HyperionNativeFeature[]
-  platform: 'win32' | 'linux'
+  platform: 'win32' | 'linux' | 'darwin'
   architecture: 'x64' | 'arm64'
   /** SHA-256 of the exact selected executable, used for local launch revalidation. */
   executableSha256: string

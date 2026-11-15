@@ -5,6 +5,7 @@ export interface ZipFixtureEntry {
   contents?: Uint8Array | string
   kind?: 'file' | 'directory' | 'symlink'
   advertisedSize?: number
+  executable?: boolean
 }
 
 const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
@@ -49,6 +50,14 @@ export function makeElf64(machine: 'x64' | 'arm64' = 'x64'): Buffer {
   return contents
 }
 
+export function makeMachOArm64(fileType: 'executable' | 'dynamicLibrary' = 'executable'): Buffer {
+  const contents = Buffer.alloc(32)
+  contents.writeUInt32LE(0xfeedfacf, 0)
+  contents.writeUInt32LE(0x0100000c, 4)
+  contents.writeUInt32LE(fileType === 'executable' ? 2 : 6, 12)
+  return contents
+}
+
 export function makeAppImage(): Buffer {
   const contents = makeElf64()
   contents.write('AI\x02', 8, 'ascii')
@@ -90,7 +99,7 @@ export function makeZip(entries: readonly ZipFixtureEntry[]): Buffer {
     central.writeUInt32LE(compressed.length, 20)
     central.writeUInt32LE(size, 24)
     central.writeUInt16LE(name.length, 28)
-    let mode = 0o100644
+    let mode = entry.executable ? 0o100755 : 0o100644
     if (directory) {
       mode = 0o40755
     } else if (entry.kind === 'symlink') {
@@ -134,5 +143,43 @@ export function publicHyperionZipEntries(
 }
 
 export function makeHyperionZip(entries = publicHyperionZipEntries()): Buffer {
+  return makeZip(entries)
+}
+
+export function publicMacHyperionZipEntries(
+  executable = makeMachOArm64(),
+  library = makeMachOArm64('dynamicLibrary'),
+  wrapper = 'package',
+): ZipFixtureEntry[] {
+  const prefix = wrapper ? `${wrapper}/` : ''
+  return [
+    {
+      name: `${prefix}Hyperion.app/Contents/MacOS/Hyperion`,
+      contents: executable,
+      executable: true,
+    },
+    {
+      name: `${prefix}Hyperion.app/Contents/MacOS/libSDL3.0.dylib`,
+      contents: library,
+    },
+    {
+      name: `${prefix}Hyperion.app/Contents/Info.plist`,
+      contents: '<plist><dict/></plist>',
+    },
+    { name: `${prefix}Data/`, kind: 'directory' },
+    { name: `${prefix}Data/public.dat`, contents: 'public engine data' },
+    {
+      name: `${prefix}release.json`,
+      contents: JSON.stringify({
+        product: 'Hyperion Shield Zero',
+        version: '1.0.0',
+        gameFilesBundled: false,
+      }),
+    },
+    { name: `${prefix}EDITION.txt`, contents: 'Public Hyperion Shield Zero\n' },
+  ]
+}
+
+export function makeMacHyperionZip(entries = publicMacHyperionZipEntries()): Buffer {
   return makeZip(entries)
 }

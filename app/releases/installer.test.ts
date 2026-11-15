@@ -26,10 +26,14 @@ import {
 } from './storage'
 import {
   makeHyperionZip,
+  makeMachOArm64,
+  makeMacHyperionZip,
   makePe32PlusAmd64,
   makePe32X86,
   makeZip,
   publicHyperionZipEntries,
+  publicMacHyperionZipEntries,
+  type ZipFixtureEntry,
 } from './testing/fixtures'
 
 const execFileAsync = promisify(execFile)
@@ -92,6 +96,28 @@ function plutoSupportZipEntries(bridge: Uint8Array | string = makePe32X86()) {
     { name: 'Data/pluto/COPYING.BWAPI', contents: 'BWAPI copying notice' },
     { name: 'Data/pluto/SOURCE.BWAPI.txt', contents: 'BWAPI source notice' },
   ]
+}
+
+function macArchiveRelease(contents: Uint8Array): ReleaseInfo {
+  const release = windowsArchiveRelease(contents, 'Hyperion-Shield-Zero-1.0.0-mac-arm64.zip')
+  return release
+}
+
+function macClientRelease(contents: Uint8Array): ReleaseInfo {
+  const name = 'HyperShield-13.0.0-arm64-mac.zip'
+  return {
+    ...archiveRelease(contents),
+    product: 'hypershield',
+    packageKind: 'macZip',
+    assets: [
+      {
+        name,
+        url: `https://github.com/download/${name}`,
+        size: contents.byteLength,
+        sha256: digest(contents),
+      },
+    ],
+  }
 }
 
 async function makeArchive(
@@ -613,6 +639,24 @@ describe('secure Windows Hyperion ZIP installation', () => {
       'forbidden',
     ],
     [
+      'out-of-place pluto.dll',
+      [...publicHyperionZipEntries(), { name: 'docs/pluto.dll', contents: 'official payload' }],
+      'official Pluto payload',
+    ],
+    [
+      'out-of-place pluto_infer.exe',
+      [
+        ...publicHyperionZipEntries(),
+        { name: 'Data/other/pluto_infer.exe', contents: 'official payload' },
+      ],
+      'official Pluto payload',
+    ],
+    [
+      'out-of-place pluto_weights.bin',
+      [...publicHyperionZipEntries(), { name: 'pluto_weights.bin', contents: 'official payload' }],
+      'official Pluto payload',
+    ],
+    [
       'excessive path depth',
       [...publicHyperionZipEntries(), { name: `${'deep/'.repeat(33)}file.dat`, contents: 'depth' }],
       'depth limit',
@@ -687,5 +731,203 @@ describe('secure Windows Hyperion ZIP installation', () => {
       })),
     )
     await expect(installWindows(excessiveTotal)).rejects.toThrow('uncompressed size limit')
+  })
+})
+
+describe('secure macOS package installation', () => {
+  async function installMacHyperion(contents: Uint8Array) {
+    const userDataPath = path.join(temporaryDirectory, 'user-data')
+    const record = await installDownloadedRelease({
+      userDataPath,
+      appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+      product: 'hyperion',
+      release: macArchiveRelease(contents),
+      platform: 'darwin',
+      architecture: 'arm64',
+      clientVersion: '1.0.0',
+      fetchImpl: vi
+        .fn()
+        .mockResolvedValue(new Response(Uint8Array.from(contents).buffer, { status: 200 })),
+    })
+    return { record, userDataPath }
+  }
+
+  function macClientEntries(): ZipFixtureEntry[] {
+    return [
+      {
+        name: 'HyperShield.app/Contents/MacOS/HyperShield',
+        contents: makeMachOArm64(),
+        executable: true,
+      },
+      {
+        name: 'HyperShield.app/Contents/Info.plist',
+        contents: '<plist><dict/></plist>',
+      },
+      {
+        name: 'HyperShield.app/Contents/Resources/app.asar',
+        contents: 'packaged app fixture',
+      },
+      {
+        name: 'HyperShield.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework',
+        contents: makeMachOArm64('dynamicLibrary'),
+        executable: true,
+      },
+      {
+        name: 'HyperShield.app/Contents/Frameworks/Electron Framework.framework/Versions/Current',
+        contents: 'A',
+        kind: 'symlink',
+      },
+      {
+        name: 'HyperShield.app/Contents/Frameworks/Electron Framework.framework/Electron Framework',
+        contents: 'Versions/Current/Electron Framework',
+        kind: 'symlink',
+      },
+    ]
+  }
+
+  it('stages the wrapped Hyperion.app with Data beside it and validates both Mach-O files', async () => {
+    const { record, userDataPath } = await installMacHyperion(makeMacHyperionZip())
+    expect(record).toMatchObject({
+      executablePath: path.join('package', 'Hyperion.app', 'Contents', 'MacOS', 'Hyperion'),
+      packageKind: 'archive',
+      platform: 'darwin',
+      architecture: 'arm64',
+    })
+    const executablePath = installedReleaseExecutable(userDataPath, 'hyperion', record)
+    await expect(fs.access(executablePath, fsConstants.X_OK)).resolves.toBeUndefined()
+    await expect(
+      fs.readFile(
+        path.join(
+          userDataPath,
+          'release-center',
+          'installs',
+          'hyperion',
+          record.directoryName,
+          'package',
+          'Data',
+          'public.dat',
+        ),
+        'utf8',
+      ),
+    ).resolves.toBe('public engine data')
+    await expect(
+      validateInstalledRelease(userDataPath, 'hyperion', record, 'darwin', 'arm64'),
+    ).resolves.toBe(true)
+  })
+
+  it('rejects non-ARM64 engines and official Pluto payloads while allowing our exact bridge', async () => {
+    const wrongArchitecture = makeMachOArm64()
+    wrongArchitecture.writeUInt32LE(7, 4)
+    await expect(
+      installMacHyperion(makeMacHyperionZip(publicMacHyperionZipEntries(wrongArchitecture))),
+    ).rejects.toThrow('CPU type is not ARM64')
+
+    const withBridge = makeMacHyperionZip([
+      ...publicMacHyperionZipEntries(),
+      {
+        name: 'package/Data/pluto/pluto-bridge.exe',
+        contents: makePe32PlusAmd64(),
+      },
+      { name: 'package/Data/pluto/COPYING.BWAPI', contents: 'BWAPI license' },
+      { name: 'package/Data/pluto/SOURCE.BWAPI.txt', contents: 'BWAPI source notice' },
+    ])
+    await expect(installMacHyperion(withBridge)).resolves.toMatchObject({
+      record: { platform: 'darwin' },
+    })
+
+    const officialPayload = makeMacHyperionZip([
+      ...publicMacHyperionZipEntries(),
+      { name: 'package/Data/pluto/official-payload.zip', contents: 'official Pluto payload' },
+    ])
+    await expect(installMacHyperion(officialPayload)).rejects.toThrow(
+      'only our bridge and BWAPI notices',
+    )
+  })
+
+  it('stages HyperShield.app with safe framework links and executable permissions', async () => {
+    const contents = makeZip(macClientEntries())
+    const userDataPath = path.join(temporaryDirectory, 'user-data')
+    const record = await installDownloadedRelease({
+      userDataPath,
+      appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+      product: 'hypershield',
+      release: macClientRelease(contents),
+      platform: 'darwin',
+      architecture: 'arm64',
+      clientVersion: '12.3.13',
+      fetchImpl: vi
+        .fn()
+        .mockResolvedValue(new Response(Uint8Array.from(contents).buffer, { status: 200 })),
+    })
+
+    expect(record).toMatchObject({
+      executablePath: path.join('HyperShield.app', 'Contents', 'MacOS', 'HyperShield'),
+      packageKind: 'macZip',
+    })
+    const executablePath = installedReleaseExecutable(userDataPath, 'hypershield', record)
+    await expect(fs.access(executablePath, fsConstants.X_OK)).resolves.toBeUndefined()
+    const installDirectory = path.dirname(path.dirname(path.dirname(path.dirname(executablePath))))
+    const frameworkLink = path.join(
+      installDirectory,
+      'HyperShield.app',
+      'Contents',
+      'Frameworks',
+      'Electron Framework.framework',
+      'Electron Framework',
+    )
+    expect((await fs.lstat(frameworkLink)).isSymbolicLink()).toBe(true)
+    await expect(fs.access(frameworkLink, fsConstants.X_OK)).resolves.toBeUndefined()
+    await expect(
+      validateInstalledRelease(userDataPath, 'hypershield', record, 'darwin', 'arm64'),
+    ).resolves.toBe(true)
+
+    await fs.rm(path.join(installDirectory, 'HyperShield.app', 'Contents', 'Resources', 'app.asar'))
+    await expect(
+      validateInstalledRelease(userDataPath, 'hypershield', record, 'darwin', 'arm64'),
+    ).resolves.toBe(false)
+  })
+
+  it('rejects escaping framework links and files outside HyperShield.app', async () => {
+    const escaping = makeZip([
+      ...macClientEntries(),
+      {
+        name: 'HyperShield.app/Contents/Frameworks/escape',
+        contents: '../../../../outside',
+        kind: 'symlink',
+      },
+    ])
+    await expect(
+      installDownloadedRelease({
+        userDataPath: path.join(temporaryDirectory, 'escape-user-data'),
+        appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+        product: 'hypershield',
+        release: macClientRelease(escaping),
+        platform: 'darwin',
+        architecture: 'arm64',
+        clientVersion: '12.3.13',
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(new Response(Uint8Array.from(escaping).buffer, { status: 200 })),
+      }),
+    ).rejects.toThrow('link escapes')
+
+    const outside = makeZip([
+      ...macClientEntries(),
+      { name: 'official-payload.exe', contents: makePe32PlusAmd64() },
+    ])
+    await expect(
+      installDownloadedRelease({
+        userDataPath: path.join(temporaryDirectory, 'outside-user-data'),
+        appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+        product: 'hypershield',
+        release: macClientRelease(outside),
+        platform: 'darwin',
+        architecture: 'arm64',
+        clientVersion: '12.3.13',
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(new Response(Uint8Array.from(outside).buffer, { status: 200 })),
+      }),
+    ).rejects.toThrow('outside HyperShield.app')
   })
 })

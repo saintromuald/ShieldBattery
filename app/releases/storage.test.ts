@@ -21,12 +21,16 @@ afterEach(async () => {
 })
 
 describe('release persistence', () => {
-  it('limits Windows installs to x64 Hyperion and AppImages to Linux', () => {
+  it('limits each product to its supported platform and architecture packages', () => {
     expect(supportsReleaseInstallation('hyperion', 'win32', 'x64')).toBe(true)
     expect(supportsReleaseInstallation('hyperion', 'win32', 'arm64')).toBe(false)
     expect(supportsReleaseInstallation('hypershield', 'win32', 'x64')).toBe(false)
     expect(supportsReleaseInstallation('hyperion', 'linux', 'arm64')).toBe(true)
     expect(supportsReleaseInstallation('hypershield', 'linux', 'x64')).toBe(true)
+    expect(supportsReleaseInstallation('hyperion', 'darwin', 'arm64')).toBe(true)
+    expect(supportsReleaseInstallation('hypershield', 'darwin', 'arm64')).toBe(true)
+    expect(supportsReleaseInstallation('hyperion', 'darwin', 'x64')).toBe(false)
+    expect(supportsReleaseInstallation('hypershield', 'darwin', 'x64')).toBe(false)
   })
 
   it('serializes concurrent snapshots for the same file and leaves no temporary files', async () => {

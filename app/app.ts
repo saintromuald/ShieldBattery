@@ -189,7 +189,9 @@ nsisUpdater.verifyUpdateCodeSignature = async (publisherNames, updateFile) => {
 }
 let downloadingUpdate = false
 
-if (process.platform !== 'linux') {
+// The generic feed is the Windows NSIS service. Linux and Mac releases are staged from their
+// own GitHub assets by the release center, so electron-updater must never query this URL there.
+if (process.platform === 'win32') {
   logger.info('Setting auto-updater url to: ' + updateUrl)
   autoUpdater.setFeedURL({
     provider: 'generic',
@@ -876,7 +878,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(event.sender).send(updateState)
     })
 
-  if (!isDev && process.platform !== 'linux') {
+  if (!isDev && process.platform === 'win32') {
     ipcMain.on('networkSiteConnected', () => {
       autoUpdater.checkForUpdates().catch(err => {
         logger.error(`Error checking for updates: ${err?.stack ?? err}`)
@@ -1704,7 +1706,7 @@ async function createWindow() {
     })
   }
 
-  if (!isDev && process.platform !== 'linux') {
+  if (!isDev && process.platform === 'win32') {
     mainWindow.once('ready-to-show', () => {
       ipcMain.on('networkSiteConnected', () => {
         autoUpdater.checkForUpdates().catch(err => {
@@ -1749,7 +1751,7 @@ app.on('ready', () => {
   // Ctrl+W to close, Ctrl+R to refresh [which we don't want outside of dev])
   Menu.setApplicationMenu(null)
 
-  if (!isDev && process.platform !== 'linux') {
+  if (!isDev && process.platform === 'win32') {
     autoUpdater.checkForUpdates().catch(err => {
       logger.error(`Error checking for updates: ${err?.stack ?? err}`)
     })
@@ -1780,7 +1782,7 @@ app.on('ready', () => {
       gameServer = createGameServer(localSettings, scrSettings)
       await createWindow()
 
-      if (!isDev && process.platform === 'linux') {
+      if (!isDev && (process.platform === 'linux' || process.platform === 'darwin')) {
         releaseManager?.checkForAutomaticUpdates().catch(err => {
           logger.error(`Error checking release-center updates: ${getErrorStack(err)}`)
         })
@@ -1808,6 +1810,18 @@ app.on('ready', () => {
           watchedFolders,
           getSender: () => TypedIpcSender.from(mainWindow?.webContents),
         })
+        if (process.env.SB_PACKAGED_SMOKE_TEST === '1') {
+          replayLibrary
+            .runPackagedSmokeCheck()
+            .then(() => {
+              console.log('HYPERSHIELD_PACKAGED_SMOKE_OK')
+              app.exit(0)
+            })
+            .catch(error => {
+              console.error(`Packaged native smoke check failed: ${getErrorStack(error)}`)
+              app.exit(1)
+            })
+        }
       } catch (err) {
         // A failure to set up the replay index shouldn't take down the whole app.
         logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)

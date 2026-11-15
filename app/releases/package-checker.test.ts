@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { checkHyperionPackage, validatePe32PlusAmd64 } from '../../tools/check-hyperion-package.cjs'
-import { makeElf64, makePe32PlusAmd64, makePe32X86 } from './testing/fixtures'
+import { makeElf64, makeMachOArm64, makePe32PlusAmd64, makePe32X86 } from './testing/fixtures'
 
 let temporaryDirectory: string
 let appOutDir: string
@@ -55,6 +55,18 @@ async function writePlutoSupport(bridge: Uint8Array | string = makePe32X86()): P
   await fs.writeFile(path.join(plutoDirectory, 'pluto-bridge.exe'), bridge)
   await fs.writeFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'BWAPI copying notice')
   await fs.writeFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'BWAPI source notice')
+}
+
+async function writeMacPackage(): Promise<void> {
+  appOutDir = path.join(temporaryDirectory, 'mac-arm64', 'HyperShield.app')
+  resourceDirectory = path.join(appOutDir, 'Contents', 'Resources', 'hyperion')
+  const macOsDirectory = path.join(resourceDirectory, 'Hyperion.app', 'Contents', 'MacOS')
+  await fs.mkdir(path.join(resourceDirectory, 'Data'), { recursive: true })
+  await fs.mkdir(macOsDirectory, { recursive: true })
+  await fs.writeFile(path.join(resourceDirectory, 'Data', 'public.dat'), 'public engine data')
+  await fs.writeFile(path.join(macOsDirectory, 'Hyperion'), makeMachOArm64(), { mode: 0o755 })
+  await fs.writeFile(path.join(macOsDirectory, 'libSDL3.0.dylib'), makeMachOArm64('dynamicLibrary'))
+  await writeMetadata()
 }
 
 describe('Hyperion package native validation', () => {
@@ -141,6 +153,32 @@ describe('Hyperion package native validation', () => {
     expect(() => checkHyperionPackage(appOutDir, 'win32')).toThrow('file is forbidden')
   })
 
+  it('allows only the public Pluto bridge and BWAPI notices inside Data/pluto', async () => {
+    await writeWindowsPackage()
+    const plutoDirectory = path.join(resourceDirectory, 'Data', 'pluto')
+    await fs.mkdir(plutoDirectory)
+    await fs.writeFile(path.join(plutoDirectory, 'pluto-bridge.exe'), makePe32PlusAmd64())
+    await fs.writeFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'BWAPI license')
+    await fs.writeFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'BWAPI source notice')
+    expect(() => checkHyperionPackage(appOutDir, 'win32')).not.toThrow()
+
+    await fs.writeFile(path.join(plutoDirectory, 'pluto-official.exe'), makePe32PlusAmd64())
+    expect(() => checkHyperionPackage(appOutDir, 'win32')).toThrow('file is forbidden')
+  })
+
+  it.each(['docs/pluto.dll', 'Data/other/pluto_infer.exe', 'pluto_weights.bin'])(
+    'rejects official Pluto payload %s outside Data/pluto',
+    async name => {
+      await writeWindowsPackage()
+      const payloadPath = path.join(resourceDirectory, name)
+      await fs.mkdir(path.dirname(payloadPath), { recursive: true })
+      await fs.writeFile(payloadPath, 'official Pluto payload')
+      expect(() => checkHyperionPackage(appOutDir, 'win32')).toThrow(
+        'official Pluto payload is forbidden',
+      )
+    },
+  )
+
   it('retains ELF validation for Linux packages', async () => {
     await fs.mkdir(path.join(resourceDirectory, 'Data'))
     await fs.writeFile(path.join(resourceDirectory, 'Hyperion.x86_64'), makeElf64(), {
@@ -154,6 +192,42 @@ describe('Hyperion package native validation', () => {
       mode: 0o755,
     })
     expect(() => checkHyperionPackage(appOutDir, 'linux')).toThrow('not a native ELF executable')
+  })
+
+  it('validates the nested Hyperion.app and both ARM64 Mach-O binaries on macOS', async () => {
+    await writeMacPackage()
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).not.toThrow()
+
+    const executablePath = path.join(
+      resourceDirectory,
+      'Hyperion.app',
+      'Contents',
+      'MacOS',
+      'Hyperion',
+    )
+    const executable = makeMachOArm64()
+    executable.writeUInt32LE(0x00000007, 4)
+    await fs.writeFile(executablePath, executable, { mode: 0o755 })
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).toThrow('CPU type is not ARM64')
+
+    await fs.writeFile(executablePath, makeMachOArm64(), { mode: 0o755 })
+    const libraryPath = path.join(path.dirname(executablePath), 'libSDL3.0.dylib')
+    await fs.writeFile(libraryPath, makeMachOArm64())
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).toThrow('not MH_DYLIB')
+  })
+
+  it('rejects foreign libraries and official Pluto payloads in the Mac package', async () => {
+    await writeMacPackage()
+    await fs.writeFile(path.join(resourceDirectory, 'Data', 'other.dylib'), makeMachOArm64())
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).toThrow('file is forbidden')
+
+    await fs.rm(path.join(resourceDirectory, 'Data', 'other.dylib'))
+    const plutoDirectory = path.join(resourceDirectory, 'Data', 'pluto')
+    await fs.mkdir(plutoDirectory)
+    await fs.writeFile(path.join(plutoDirectory, 'pluto-bridge.exe'), makePe32PlusAmd64())
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).not.toThrow()
+    await fs.writeFile(path.join(plutoDirectory, 'Pluto.exe'), makePe32PlusAmd64())
+    expect(() => checkHyperionPackage(appOutDir, 'darwin')).toThrow('file is forbidden')
   })
 
   it('requires Data and a valid native SDL library on Linux', async () => {

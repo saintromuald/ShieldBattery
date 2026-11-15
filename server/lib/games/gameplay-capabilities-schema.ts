@@ -22,12 +22,15 @@ export const gameplayCapabilitiesSchema = Joi.object({
     modFingerprint: Joi.string().hex().length(40).required(),
     dataFingerprint: Joi.string().hex().length(8).required(),
     features: Joi.array().items(nativeFeatureSchema).unique().max(32).required(),
-    platform: Joi.string().valid('win32', 'linux').required(),
+    platform: Joi.string().valid('win32', 'linux', 'darwin').required(),
     architecture: Joi.string().valid('x64', 'arm64').required(),
     executableSha256: Joi.string().hex().length(64).required(),
   })
     .custom((profile, helpers) => {
-      if (profile.platform === 'win32' && profile.architecture !== 'x64') {
+      if (
+        (profile.platform === 'win32' && profile.architecture !== 'x64') ||
+        (profile.platform === 'darwin' && profile.architecture !== 'arm64')
+      ) {
         return helpers.error('any.invalid')
       }
       return profile

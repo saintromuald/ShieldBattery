@@ -19,6 +19,13 @@ if (isDev && process.platform === 'linux' && !process.env.SB_SERVER) {
 // Set a proper app name, since our build setup makes the one in our package.json innaccurate
 app.name = path.basename(getUserDataPath())
 
+if (process.env.SB_PACKAGED_SMOKE_TEST === '1') {
+  setTimeout(() => {
+    console.error('Packaged startup smoke check timed out')
+    app.exit(1)
+  }, 60_000)
+}
+
 // Ensure that it's only possible to open a single instance of the application in non-dev mode. If
 // someone tries to open two instances, we just focus the main window
 if (!isDev) {

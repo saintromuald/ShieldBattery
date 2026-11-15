@@ -90,7 +90,26 @@ describe('hyperionProfileForInstall', () => {
     expect(() => hyperionProfileForInstall(INSTALL, 'win32', 'arm64')).toThrow('x64 Windows')
   })
 
-  it('rejects unsupported operating systems', () => {
-    expect(() => hyperionProfileForInstall(INSTALL, 'darwin', 'arm64')).toThrow('operating system')
+  it('advertises Apple Silicon macOS without claiming SC:R injection support', async () => {
+    const checkScr = vi.fn()
+    const snapshot = await collectGameplayCapabilities({
+      readHyperion: async () => INSTALL,
+      checkScr,
+      platform: 'darwin',
+      architecture: 'arm64',
+    })
+
+    expect(snapshot.capabilities.hyperion).toMatchObject({
+      platform: 'darwin',
+      architecture: 'arm64',
+      engineBuild: 'hyperion-test',
+    })
+    expect(snapshot.capabilities.scrAvailable).toBe(false)
+    expect(checkScr).not.toHaveBeenCalled()
+  })
+
+  it('rejects unsupported operating systems and Intel macOS', () => {
+    expect(() => hyperionProfileForInstall(INSTALL, 'freebsd', 'x64')).toThrow('operating system')
+    expect(() => hyperionProfileForInstall(INSTALL, 'darwin', 'x64')).toThrow('ARM64 macOS')
   })
 })

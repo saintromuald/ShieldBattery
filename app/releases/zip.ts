@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs'
 import path from 'node:path'
-import { Readable, Transform, type TransformCallback } from 'node:stream'
+import { Readable, Transform, type TransformCallback, Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createInflateRaw } from 'node:zlib'
 
@@ -12,13 +12,14 @@ const ZIP_CENTRAL_HEADER_BYTES = 46
 const SUPPORTED_ZIP_FLAGS = 0x080e
 
 export interface ZipEntry {
-  kind: 'file' | 'directory'
+  kind: 'file' | 'directory' | 'symlink'
   name: string
   size: number
   compressedSize: number
   compression: number
   crc32: number
   flags: number
+  executable: boolean
   localHeaderOffset: number
   dataOffset: number
 }
@@ -90,8 +91,9 @@ function validateDirectoryLayout(entries: readonly ZipEntry[]): void {
   for (const canonical of kinds.keys()) {
     const segments = canonical.split('/')
     for (let length = 1; length < segments.length; length += 1) {
-      if (kinds.get(segments.slice(0, length).join('/')) === 'file') {
-        throw new Error('Hyperion ZIP contains a file used as a parent directory.')
+      const parent = kinds.get(segments.slice(0, length).join('/'))
+      if (parent && parent !== 'directory') {
+        throw new Error('Hyperion ZIP contains a non-directory used as a parent directory.')
       }
     }
   }
@@ -102,6 +104,7 @@ async function readZipDirectory(
   fileSize: number,
   limits: ZipExtractionLimits,
   validateEntry: (entry: ZipEntry) => void,
+  allowSymlinks: boolean,
 ): Promise<ZipDirectory> {
   if (fileSize < ZIP_END_RECORD_BYTES) {
     throw new Error('Hyperion ZIP is truncated.')
@@ -195,33 +198,50 @@ async function readZipDirectory(
     )
     const versionMadeBy = central.readUInt16LE(offset + 4)
     const externalAttributes = central.readUInt32LE(offset + 38)
-    const unixFileType = versionMadeBy >> 8 === 3 ? (externalAttributes >>> 16) & 0xf000 : 0
-    if (unixFileType && unixFileType !== 0x8000 && unixFileType !== 0x4000) {
+    const unixMode = versionMadeBy >> 8 === 3 ? (externalAttributes >>> 16) & 0xffff : 0
+    const unixFileType = unixMode & 0xf000
+    const symbolicLink = unixFileType === 0xa000
+    if (
+      unixFileType &&
+      unixFileType !== 0x8000 &&
+      unixFileType !== 0x4000 &&
+      !(symbolicLink && allowSymlinks)
+    ) {
       throw new Error(
         'Hyperion ZIP may contain only regular files and directories; links are forbidden.',
       )
     }
     const directory = name.endsWith('/') || (externalAttributes & 0x10) !== 0
     if (
-      (directory && unixFileType === 0x8000) ||
+      (directory && (unixFileType === 0x8000 || symbolicLink)) ||
       (!directory && unixFileType === 0x4000) ||
-      (directory && (size !== 0 || compressedSize !== 0))
+      (directory && (size !== 0 || compressedSize !== 0)) ||
+      (symbolicLink && size > 4096)
     ) {
-      throw new Error('Hyperion ZIP contains inconsistent file types or directory data.')
+      throw new Error(
+        'Hyperion ZIP contains inconsistent file types, directory data, or link size.',
+      )
+    }
+    let kind: ZipEntry['kind'] = 'file'
+    if (directory) {
+      kind = 'directory'
+    } else if (symbolicLink) {
+      kind = 'symlink'
     }
     const entry: ZipEntry = {
-      kind: directory ? 'directory' : 'file',
+      kind,
       name,
       size,
       compressedSize,
       compression,
       crc32: central.readUInt32LE(offset + 16),
       flags,
+      executable: unixFileType === 0x8000 && (unixMode & 0o111) !== 0,
       localHeaderOffset,
       dataOffset: 0,
     }
     validateEntry(entry)
-    if (entry.kind === 'file') {
+    if (entry.kind !== 'directory') {
       if (size > limits.maxFileBytes) {
         throw new Error(`Hyperion ZIP contains an excessive file size: ${name}`)
       }
@@ -345,12 +365,48 @@ async function extractEntry(
       })
     : Readable.from([])
   const verifier = new ZipVerificationTransform(entry)
-  const output = createWriteStream(outputPath, { flags: 'wx', mode: 0o600 })
+  const output = createWriteStream(outputPath, {
+    flags: 'wx',
+    mode: entry.executable ? 0o700 : 0o600,
+  })
   if (entry.compression === 8) {
     await pipeline(source, createInflateRaw(), verifier, output)
   } else {
     await pipeline(source, verifier, output)
   }
+}
+
+async function readSymbolicLinkTarget(archivePath: string, entry: ZipEntry): Promise<string> {
+  const source = entry.compressedSize
+    ? createReadStream(archivePath, {
+        start: entry.dataOffset,
+        end: entry.dataOffset + entry.compressedSize - 1,
+      })
+    : Readable.from([])
+  const chunks: Buffer[] = []
+  const collector = new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      chunks.push(chunk)
+      callback()
+    },
+  })
+  const verifier = new ZipVerificationTransform(entry)
+  if (entry.compression === 8) {
+    await pipeline(source, createInflateRaw(), verifier, collector)
+  } else {
+    await pipeline(source, verifier, collector)
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))
+  } catch (error) {
+    throw new Error(`Hyperion ZIP contains a non-UTF-8 link target: ${entry.name}`, {
+      cause: error,
+    })
+  }
+}
+
+function pathIsWithin(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(`${root}${path.sep}`)
 }
 
 /** Validates every ZIP record before writing files, then streams each verified entry to private storage. */
@@ -359,6 +415,7 @@ export async function extractHyperionZip(
   destination: string,
   limits: ZipExtractionLimits,
   validateEntry: (entry: ZipEntry) => void,
+  { allowSymlinks = false }: { allowSymlinks?: boolean } = {},
 ): Promise<void> {
   const handle = await fs.open(archivePath, 'r')
   let directory: ZipDirectory
@@ -367,7 +424,7 @@ export async function extractHyperionZip(
     if (size > limits.maxArchiveBytes) {
       throw new Error(`Hyperion ZIP exceeds the ${limits.maxArchiveBytes}-byte archive size limit.`)
     }
-    directory = await readZipDirectory(handle, size, limits, validateEntry)
+    directory = await readZipDirectory(handle, size, limits, validateEntry, allowSymlinks)
   } finally {
     await handle.close()
   }
@@ -381,6 +438,38 @@ export async function extractHyperionZip(
   for (const entry of directory.entries) {
     if (entry.kind === 'file') {
       await extractEntry(archivePath, destination, entry)
+    }
+  }
+
+  // Links are created only after all regular files, so no file write can traverse a link. Their
+  // targets must remain inside the private staging tree and resolve to something already packaged.
+  const destinationRoot = path.resolve(destination)
+  const links: string[] = []
+  for (const entry of directory.entries) {
+    if (entry.kind !== 'symlink') {
+      continue
+    }
+    const target = await readSymbolicLinkTarget(archivePath, entry)
+    if (
+      !target ||
+      target.includes('\0') ||
+      target.includes('\\') ||
+      path.posix.isAbsolute(target)
+    ) {
+      throw new Error(`Hyperion ZIP contains an unsafe link target: ${entry.name}`)
+    }
+    const outputPath = destinationPath(destinationRoot, entry.name)
+    const resolvedTarget = path.resolve(path.dirname(outputPath), target)
+    if (!pathIsWithin(destinationRoot, resolvedTarget)) {
+      throw new Error(`Hyperion ZIP link escapes its destination: ${entry.name}`)
+    }
+    await fs.symlink(target, outputPath)
+    links.push(outputPath)
+  }
+  for (const link of links) {
+    const resolved = await fs.realpath(link)
+    if (!pathIsWithin(destinationRoot, resolved)) {
+      throw new Error(`Hyperion ZIP link resolves outside its destination: ${link}`)
     }
   }
 }

@@ -9,6 +9,12 @@ import type {
   ReleaseProduct,
   ReleaseProgress,
 } from '../../common/release-center'
+import {
+  hyperionWorkingDirectory,
+  MAC_HYPERION_EXECUTABLE_PATH,
+  MAC_HYPERION_LIBRARY_NAME,
+} from '../game/hyperion/paths'
+import { validateMachOArm64File } from './macho'
 import { validatePe32PlusAmd64File, validatePeFile } from './pe'
 import {
   computeFileSha256,
@@ -35,6 +41,7 @@ export const MAX_ARCHIVE_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
 const FORBIDDEN_GAME_EXTENSIONS = new Set([
   '.casc',
   '.dll',
+  '.dylib',
   '.exe',
   '.grp',
   '.mpq',
@@ -274,7 +281,7 @@ export async function downloadReleaseAssets(
 }
 
 interface TarEntry {
-  kind: 'file' | 'directory'
+  kind: 'file' | 'directory' | 'symlink'
   name: string
   size: number
 }
@@ -322,7 +329,7 @@ function isHyperionPlutoSupportPath(name: string): boolean {
   )
 }
 
-function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linux'): void {
+function validateArchiveEntryPath(entry: TarEntry, platform: NodeJS.Platform): void {
   const name = entry.name
   if (!name || name.includes('\0') || name.includes('\\')) {
     throw new Error('Hyperion archive contains an unsafe filename.')
@@ -344,27 +351,58 @@ function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linu
   if (
     !Number.isSafeInteger(entry.size) ||
     entry.size < 0 ||
-    (entry.kind === 'file' && entry.size > MAX_EXTRACTED_FILE_BYTES)
+    (entry.kind !== 'directory' && entry.size > MAX_EXTRACTED_FILE_BYTES)
   ) {
     throw new Error(`Hyperion archive contains an invalid or excessive file size: ${name}`)
   }
-  if (meaningfulSegments.some(segment => FORBIDDEN_PLUTO_PAYLOADS.has(segment.toLowerCase()))) {
+  if (platform === 'win32' && meaningfulSegments.some(unsafeWindowsSegment)) {
+    throw new Error(`Hyperion ZIP contains an unsafe Windows filename: ${name}`)
+  }
+}
+
+function matchesPackagePath(name: string, expected: string, allowWrapper = false): boolean {
+  const actualParts = name.split('/').filter(segment => segment && segment !== '.')
+  const expectedParts = expected.split('/')
+  const offset = actualParts.length === expectedParts.length ? 0 : 1
+  return (
+    (offset === 0 || (allowWrapper && actualParts.length === expectedParts.length + 1)) &&
+    expectedParts.every((part, index) => actualParts[index + offset] === part)
+  )
+}
+
+function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linux'): void {
+  validateArchiveEntryPath(entry, platform)
+  const { name } = entry
+  const allowedWindowsBinary = name === 'Hyperion.exe' || name === 'SDL3.dll'
+  const allowedMacBinary =
+    matchesPackagePath(name, MAC_HYPERION_EXECUTABLE_PATH, true) ||
+    matchesPackagePath(name, `Hyperion.app/Contents/MacOS/${MAC_HYPERION_LIBRARY_NAME}`, true)
+  if (
+    entry.kind !== 'directory' &&
+    FORBIDDEN_PLUTO_PAYLOADS.has(path.posix.basename(name).toLowerCase())
+  ) {
     throw new Error(`Hyperion archive contains a forbidden official Pluto payload: ${name}`)
   }
   const allowedPlutoSupport = isHyperionPlutoSupportPath(name)
-  for (const segment of meaningfulSegments) {
+  if (
+    entry.kind !== 'directory' &&
+    /(?:^|\/)Data\/pluto(?:\/|$)/i.test(name) &&
+    !allowedPlutoSupport
+  ) {
+    throw new Error(
+      'Hyperion archive contains a forbidden file in Data/pluto; only our bridge and BWAPI notices are allowed.',
+    )
+  }
+  for (const segment of name.split('/').filter(segment => segment && segment !== '.')) {
     const lower = segment.toLowerCase()
     if (lower === 'game' || lower === 'zero' || /^(?:zero|game)[._-]/i.test(segment)) {
       throw new Error(`Hyperion archive contains forbidden Game/Zero content: ${name}`)
     }
-    if (platform === 'win32' && unsafeWindowsSegment(segment)) {
-      throw new Error(`Hyperion ZIP contains an unsafe Windows filename: ${name}`)
-    }
     const extension = path.posix.extname(lower)
-    const allowedWindowsBinary = name === 'Hyperion.exe' || name === 'SDL3.dll'
     if (
       FORBIDDEN_GAME_EXTENSIONS.has(extension) &&
       !(platform === 'win32' && allowedWindowsBinary) &&
+      !(platform === 'darwin' && allowedMacBinary) &&
       !allowedPlutoSupport
     ) {
       throw new Error(
@@ -577,7 +615,7 @@ function executableName(architecture: string): string {
   return architecture === 'arm64' ? 'Hyperion.aarch64' : 'Hyperion.x86_64'
 }
 
-async function validateWindowsReleaseMetadata(workingDirectory: string): Promise<void> {
+async function validatePublicReleaseMetadata(workingDirectory: string): Promise<void> {
   const metadataPath = path.join(workingDirectory, 'release.json')
   const stat = await fs.lstat(metadataPath)
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_RELEASE_METADATA_BYTES) {
@@ -644,7 +682,7 @@ async function stageWindowsHyperion(
   if (!data?.isDirectory() || data.isSymbolicLink()) {
     throw new Error('Hyperion ZIP must include Data at its root.')
   }
-  await validateWindowsReleaseMetadata(stagingDirectory)
+  await validatePublicReleaseMetadata(stagingDirectory)
   await validateOptionalHyperionPlutoBridge(stagingDirectory)
   try {
     await Promise.all([
@@ -657,6 +695,70 @@ async function stageWindowsHyperion(
     })
   }
   return 'Hyperion.exe'
+}
+
+async function stageMacHyperion(
+  downloaded: DownloadedAsset[],
+  stagingDirectory: string,
+): Promise<string> {
+  if (downloaded.length !== 1) {
+    throw new Error('Mac Hyperion releases must contain exactly one ZIP package.')
+  }
+  await extractHyperionZip(
+    downloaded[0].path,
+    stagingDirectory,
+    {
+      maxArchiveBytes: MAX_ASSET_BYTES,
+      maxEntries: MAX_ARCHIVE_ENTRIES,
+      maxFileBytes: MAX_EXTRACTED_FILE_BYTES,
+      maxUncompressedBytes: MAX_ARCHIVE_UNCOMPRESSED_BYTES,
+    },
+    entry => validateArchiveEntry(entry, 'darwin'),
+  )
+  const files = await validateExtractedTree(stagingDirectory, 'darwin')
+  const executables = files.filter(file =>
+    matchesPackagePath(file, MAC_HYPERION_EXECUTABLE_PATH, true),
+  )
+  if (executables.length !== 1) {
+    throw new Error(
+      executables.length
+        ? 'Hyperion ZIP contains more than one Mac executable.'
+        : 'Hyperion ZIP does not contain Hyperion.app/Contents/MacOS/Hyperion.',
+    )
+  }
+
+  const relativeExecutable = executables[0]
+  const executablePath = path.join(stagingDirectory, relativeExecutable)
+  const workingDirectory = hyperionWorkingDirectory(executablePath, 'darwin')
+  for (const name of ['release.json', 'EDITION.txt', 'Hyperion.app/Contents/Info.plist']) {
+    const stat = await fs.lstat(path.join(workingDirectory, name)).catch(() => undefined)
+    if (!stat?.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`Hyperion ZIP must include ${name} beside or inside Hyperion.app.`)
+    }
+  }
+  const data = await fs.lstat(path.join(workingDirectory, 'Data')).catch(() => undefined)
+  if (!data?.isDirectory() || data.isSymbolicLink()) {
+    throw new Error('Hyperion ZIP must include Data beside Hyperion.app.')
+  }
+  await validatePublicReleaseMetadata(workingDirectory)
+  try {
+    await Promise.all([
+      validateMachOArm64File(executablePath),
+      validateMachOArm64File(
+        path.join(path.dirname(executablePath), MAC_HYPERION_LIBRARY_NAME),
+        'dynamicLibrary',
+      ),
+    ])
+  } catch (error) {
+    throw new Error(
+      `Hyperion ZIP contains an invalid ARM64 Mach-O binary: ${errorMessage(error)}`,
+      {
+        cause: error,
+      },
+    )
+  }
+  await fs.chmod(executablePath, 0o755)
+  return relativeExecutable
 }
 
 async function stageHyperion(
@@ -672,6 +774,12 @@ async function stageHyperion(
       throw new Error('Windows Hyperion releases require a complete ZIP package.')
     }
     return stageWindowsHyperion(downloaded, stagingDirectory)
+  }
+  if (platform === 'darwin') {
+    if (release.packageKind !== 'archive' || architecture !== 'arm64') {
+      throw new Error('Mac Hyperion releases require a complete ARM64 ZIP package.')
+    }
+    return stageMacHyperion(downloaded, stagingDirectory)
   }
   const name = executableName(architecture)
   if (release.packageKind === 'raw') {
@@ -724,11 +832,119 @@ async function stageHyperion(
   return executables[0]
 }
 
+function validateMacClientArchiveEntry(entry: TarEntry): void {
+  validateArchiveEntryPath(entry, 'darwin')
+  const root = entry.name.split('/').find(segment => segment && segment !== '.')
+  if (root !== 'HyperShield.app') {
+    throw new Error(`HyperShield Mac ZIP contains a file outside HyperShield.app: ${entry.name}`)
+  }
+}
+
+async function validateExtractedMacClientTree(
+  directory: string,
+  relative = '',
+  usage: ExtractedTreeUsage = { entries: 0, uncompressedBytes: 0 },
+): Promise<string[]> {
+  const files: string[] = []
+  const entries = await fs.readdir(path.join(directory, relative), { withFileTypes: true })
+  for (const entry of entries) {
+    usage.entries += 1
+    if (usage.entries > MAX_ARCHIVE_ENTRIES) {
+      throw new Error(`HyperShield Mac ZIP exceeds the ${MAX_ARCHIVE_ENTRIES}-entry limit.`)
+    }
+    const entryRelative = path.join(relative, entry.name)
+    const entryPath = path.join(directory, entryRelative)
+    const stat = await fs.lstat(entryPath)
+    if (stat.isSymbolicLink()) {
+      const resolved = await fs.realpath(entryPath)
+      const appRoot = path.join(directory, 'HyperShield.app')
+      if (resolved !== appRoot && !resolved.startsWith(`${appRoot}${path.sep}`)) {
+        throw new Error(
+          `HyperShield Mac ZIP link resolves outside HyperShield.app: ${entryRelative}`,
+        )
+      }
+      continue
+    }
+    if (!stat.isFile() && !stat.isDirectory()) {
+      throw new Error(`HyperShield Mac ZIP contains a special file: ${entryRelative}`)
+    }
+    if (stat.isFile() && stat.nlink > 1) {
+      throw new Error(`HyperShield Mac ZIP contains a hard link: ${entryRelative}`)
+    }
+    validateMacClientArchiveEntry({
+      kind: stat.isDirectory() ? 'directory' : 'file',
+      name: entryRelative.split(path.sep).join('/'),
+      size: stat.isFile() ? stat.size : 0,
+    })
+    if (stat.isDirectory()) {
+      files.push(...(await validateExtractedMacClientTree(directory, entryRelative, usage)))
+    } else {
+      if (stat.size > MAX_ARCHIVE_UNCOMPRESSED_BYTES - usage.uncompressedBytes) {
+        throw new Error(
+          `HyperShield Mac ZIP exceeds the ${MAX_ARCHIVE_UNCOMPRESSED_BYTES}-byte uncompressed size limit.`,
+        )
+      }
+      usage.uncompressedBytes += stat.size
+      files.push(entryRelative)
+    }
+  }
+  return files
+}
+
+async function stageMacHyperShield(
+  downloaded: DownloadedAsset[],
+  stagingDirectory: string,
+): Promise<string> {
+  if (downloaded.length !== 1) {
+    throw new Error('HyperShield Mac updates must contain exactly one ZIP package.')
+  }
+  await extractHyperionZip(
+    downloaded[0].path,
+    stagingDirectory,
+    {
+      maxArchiveBytes: MAX_ASSET_BYTES,
+      maxEntries: MAX_ARCHIVE_ENTRIES,
+      maxFileBytes: MAX_EXTRACTED_FILE_BYTES,
+      maxUncompressedBytes: MAX_ARCHIVE_UNCOMPRESSED_BYTES,
+    },
+    validateMacClientArchiveEntry,
+    { allowSymlinks: true },
+  )
+  await validateExtractedMacClientTree(stagingDirectory)
+  const executablePath = path.join('HyperShield.app', 'Contents', 'MacOS', 'HyperShield')
+  for (const name of [
+    executablePath,
+    path.join('HyperShield.app', 'Contents', 'Info.plist'),
+    path.join('HyperShield.app', 'Contents', 'Resources', 'app.asar'),
+  ]) {
+    const stat = await fs.lstat(path.join(stagingDirectory, name)).catch(() => undefined)
+    if (!stat?.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`HyperShield Mac ZIP must include ${name}.`)
+    }
+  }
+  try {
+    await validateMachOArm64File(path.join(stagingDirectory, executablePath))
+  } catch (error) {
+    throw new Error(`HyperShield Mac ZIP has an invalid executable: ${errorMessage(error)}`, {
+      cause: error,
+    })
+  }
+  await fs.chmod(path.join(stagingDirectory, executablePath), 0o755)
+  return executablePath
+}
+
 async function stageHyperShield(
   release: ReleaseInfo,
   downloaded: DownloadedAsset[],
   stagingDirectory: string,
+  platform: NodeJS.Platform,
 ): Promise<string> {
+  if (platform === 'darwin') {
+    if (release.packageKind !== 'macZip') {
+      throw new Error('This HyperShield release has no compatible Mac ZIP.')
+    }
+    return stageMacHyperShield(downloaded, stagingDirectory)
+  }
   if (release.packageKind !== 'appImage' || downloaded.length !== 1) {
     throw new Error('This HyperShield release has no compatible AppImage.')
   }
@@ -840,7 +1056,7 @@ export async function installDownloadedRelease(options: {
             platform,
             architecture,
           )
-        : await stageHyperShield(release, downloaded, stagingDirectory)
+        : await stageHyperShield(release, downloaded, stagingDirectory, platform)
     try {
       await fs.lstat(finalDirectory)
       throw new Error('A unique installation directory could not be allocated.')

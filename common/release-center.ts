@@ -2,7 +2,7 @@ export const RELEASE_PRODUCTS = ['hyperion', 'hypershield'] as const
 export type ReleaseProduct = (typeof RELEASE_PRODUCTS)[number]
 
 export type ReleaseChannel = 'stable' | 'prerelease'
-export type ReleasePackageKind = 'archive' | 'raw' | 'appImage' | 'none'
+export type ReleasePackageKind = 'archive' | 'raw' | 'appImage' | 'macZip' | 'none'
 
 export interface ReleaseAsset {
   name: string

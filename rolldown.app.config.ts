@@ -58,8 +58,15 @@ const shared: RolldownOptions = {
   resolve: {
     alias: { 'better-sqlite3/win32-x64': sqlitePlatformEntry },
   },
-  // Electron's own modules come from the runtime, not from the bundle.
-  external: ['electron'],
+  // Electron's own modules come from the runtime, not from the bundle. The SC:R injector, registry,
+  // and Discord SDK adapters are Windows-only; their native binaries have no Mac equivalent and
+  // their dynamic imports are unreachable in the native Hyperion backend.
+  external: [
+    'electron',
+    ...(process.platform === 'darwin'
+      ? ['@shieldbattery/danimoth', '@shieldbattery/stimpack', '@shieldbattery/windows-registry']
+      : []),
+  ],
   // Dynamic imports in this code defer evaluation of modules whose top level needs a real
   // Electron process (so they can still load under plain Node for unit tests) -- they aren't
   // chunk-split requests, and splitting buys nothing for local CJS files. The "also statically

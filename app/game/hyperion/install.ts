@@ -7,6 +7,7 @@ import path from 'node:path'
 import { readSelectedHyperionInstall } from '../../releases/storage'
 import { sanitizedHyperionEnvironment } from './environment'
 import { HyperionInstall, parseHyperionInstall } from './launch'
+import { hyperionExecutablePath, hyperionLibraryPath } from './paths'
 
 const IDENTITY_TIMEOUT_MS = 20_000
 const IDENTITY_MAX_OUTPUT_BYTES = 64 * 1024
@@ -35,25 +36,6 @@ export interface EmbeddedHyperionInstallOptions {
   readDownloadedInstall?: typeof readSelectedHyperionInstall
 }
 
-function executableName(platform: NodeJS.Platform, architecture: string): string {
-  if (platform === 'win32') {
-    if (architecture === 'x64') {
-      return 'Hyperion.exe'
-    }
-    throw new Error('HyperShield is not available on this processor architecture yet.')
-  }
-  if (platform !== 'linux') {
-    throw new Error('HyperShield is not available on this operating system yet.')
-  }
-  if (architecture === 'x64') {
-    return 'Hyperion.x86_64'
-  }
-  if (architecture === 'arm64') {
-    return 'Hyperion.aarch64'
-  }
-  throw new Error('HyperShield is not available on this processor architecture yet.')
-}
-
 function sessionDataName(sessionName: string | undefined): string {
   if (!sessionName) {
     return 'hyperion'
@@ -71,7 +53,7 @@ export function embeddedHyperionPaths(
 ): EmbeddedHyperionPaths {
   const workingDirectory = path.resolve(appPath, '..', 'hyperion')
   return {
-    executablePath: path.join(workingDirectory, executableName(platform, architecture)),
+    executablePath: path.join(workingDirectory, hyperionExecutablePath(platform, architecture)),
     dataPath: path.join(userDataPath, sessionDataName(sessionName)),
     workingDirectory,
   }
@@ -168,9 +150,7 @@ export async function readEmbeddedHyperionInstall(
       await fs.mkdir(paths.dataPath, { recursive: true, mode: 0o700 })
       const [executable, library, data, computedDigest] = await Promise.all([
         fs.stat(paths.executablePath),
-        fs.stat(
-          path.join(paths.workingDirectory, platform === 'win32' ? 'SDL3.dll' : 'libSDL3.so.0'),
-        ),
+        fs.stat(hyperionLibraryPath(paths.executablePath, paths.workingDirectory, platform)),
         fs.stat(path.join(paths.workingDirectory, 'Data')),
         executableSha256(paths.executablePath),
         fs.access(paths.executablePath, platform === 'win32' ? fsConstants.F_OK : fsConstants.X_OK),

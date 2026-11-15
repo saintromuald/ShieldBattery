@@ -1,0 +1,49 @@
+# HyperShield's Apple Silicon package with the public, ad-hoc-signed Hyperion Shield Zero engine.
+# No Developer ID identity or notarization credentials are configured or implied.
+appId: gg.angelicgaming.hypershield
+productName: HyperShield
+publish: []
+afterPack: ./tools/check-hyperion-package.cjs
+extraResources:
+  - from: hyperion
+    to: hyperion
+    filter:
+      - Hyperion.app/**/*
+      - Data/**/*
+      - docs/**/*
+      - README.txt
+      - release.json
+      - EDITION.txt
+files:
+  - 'assets/**/*'
+  - 'dist/**/*'
+  - '!node_modules/**/*'
+  - '!build/**/*'
+  - '!**/*.map'
+asarUnpack:
+  - 'dist/native/**/*.node'
+electronFuses:
+  # ARM64 requires a fresh ad-hoc signature after modifying the Electron fuse wire.
+  resetAdHocDarwinSignature: true
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+mac:
+  identity: null
+  category: public.app-category.games
+  minimumSystemVersion: '13.0'
+  artifactName: 'HyperShield-${version}-${arch}-mac.${ext}'
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  extendInfo:
+    NSLocalNetworkUsageDescription: HyperShield connects to other players on your network.
+dmg:
+  title: HyperShield

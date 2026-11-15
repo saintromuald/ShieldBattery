@@ -326,7 +326,9 @@ export class ReleaseManager {
     const candidates = this.candidates(product)
     return product === 'hyperion'
       ? candidates.find(release => release.packageKind === 'archive')
-      : candidates.find(release => release.packageKind === 'appImage')
+      : candidates.find(
+          release => release.packageKind === 'appImage' || release.packageKind === 'macZip',
+        )
   }
 
   private selectedVersion(product: ReleaseProduct): string | undefined {
@@ -690,7 +692,7 @@ export class ReleaseManager {
     })
   }
 
-  /** Relaunches only at the user's explicit request, using the selected staged AppImage. */
+  /** Relaunches only at the user's explicit request, using the selected staged client package. */
   async restartClient(): Promise<void> {
     await this.initialize()
     await this.queues.hypershield
@@ -698,9 +700,10 @@ export class ReleaseManager {
     const record = this.registry.hypershield.find(
       candidate => candidate.releaseId === activeReleaseId,
     )
+    const packageKind = this.platform === 'darwin' ? 'macZip' : 'appImage'
     if (
       !record ||
-      record.packageKind !== 'appImage' ||
+      record.packageKind !== packageKind ||
       !(await validateInstalledRelease(
         this.options.userDataPath,
         'hypershield',
@@ -710,7 +713,7 @@ export class ReleaseManager {
       ))
     ) {
       throw new Error(
-        'No staged HyperShield AppImage is selected. Install a HyperShield release first.',
+        `No staged HyperShield ${packageKind === 'macZip' ? 'Mac ZIP' : 'AppImage'} is selected. Install a HyperShield release first.`,
       )
     }
     const execPath = installedReleaseExecutable(this.options.userDataPath, 'hypershield', record)

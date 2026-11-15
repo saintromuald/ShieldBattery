@@ -20,11 +20,6 @@ export interface NewInstanceNotification {
 export default function (
   loadNotifier: () => Promise<(data: NewInstanceNotification) => void>,
 ): void {
-  // OS X doesn't have a single instance issue
-  if (process.platform === 'darwin') {
-    return
-  }
-
   const instanceName = process.env.SB_SESSION
     ? `${app.name}-${sanitize(process.env.SB_SESSION)}`
     : app.name
@@ -72,9 +67,12 @@ export default function (
         app.quit()
         return
       }
-      if (code !== 'ENOENT') throw err
-      if (process.platform === 'win32') {
+      const staleUnixSocket = process.platform !== 'win32' && code === 'ECONNREFUSED'
+      if (code !== 'ENOENT' && !staleUnixSocket) throw err
+      if (process.platform === 'win32' || staleUnixSocket) {
         try {
+          // A refused Unix connection has no listener accepting this launch. Remove only that stale
+          // endpoint; a successful connection above always notifies the live instance instead.
           fs.unlinkSync(socket)
         } catch (e) {
           if ((e as any).code !== 'ENOENT') {

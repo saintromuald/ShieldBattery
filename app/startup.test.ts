@@ -17,6 +17,7 @@ let originalServer: string | undefined
 
 beforeEach(() => {
   vi.resetModules()
+  vi.clearAllMocks()
   devState.isDev = true
   originalServer = process.env.SB_SERVER
   delete process.env.SB_SERVER
@@ -54,6 +55,17 @@ describe('desktop server default', () => {
     await import('./startup')
 
     expect(process.env.SB_SERVER).toBe('https://play.hypershield.example')
+  })
+
+  it('runs packaged macOS through the single-instance loader instead of returning early', async () => {
+    devState.isDev = false
+    Object.defineProperty(process, 'platform', { configurable: true, value: 'darwin' })
+
+    await import('./startup')
+    const { default: ensureSingleInstance } = await import('./single-instance')
+
+    expect(ensureSingleInstance).toHaveBeenCalledOnce()
+    expect(vi.mocked(ensureSingleInstance).mock.calls[0][0]).toBeTypeOf('function')
   })
 
   it('does not add a server default on Windows', async () => {

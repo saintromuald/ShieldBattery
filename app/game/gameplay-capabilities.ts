@@ -23,7 +23,7 @@ export function hyperionProfileForInstall(
   if (!install.executableSha256 || !/^[0-9a-f]{64}$/.test(install.executableSha256)) {
     throw new Error('The Hyperion installation has no executable identity')
   }
-  if (platform !== 'win32' && platform !== 'linux') {
+  if (platform !== 'win32' && platform !== 'linux' && platform !== 'darwin') {
     throw new Error('Hyperion gameplay is not supported on this operating system')
   }
   if (architecture !== 'x64' && architecture !== 'arm64') {
@@ -31,6 +31,9 @@ export function hyperionProfileForInstall(
   }
   if (platform === 'win32' && architecture !== 'x64') {
     throw new Error('Hyperion gameplay requires an x64 Windows installation')
+  }
+  if (platform === 'darwin' && architecture !== 'arm64') {
+    throw new Error('Hyperion gameplay requires an ARM64 macOS installation')
   }
   const compatibility = install.compatibility
   return {

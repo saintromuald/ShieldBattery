@@ -165,6 +165,23 @@ export class ReplayLibraryService {
     this.startWorker()
   }
 
+  /** Exercises the packaged worker, SQLite writes, and replay-parser module load during CI smoke tests. */
+  async runPackagedSmokeCheck(): Promise<void> {
+    const status = await this.call('status')
+    if (!Number.isSafeInteger(status.totalIndexed) || status.totalIndexed < 0) {
+      throw new Error('replay worker returned an invalid index status')
+    }
+    const playlistId = await this.call('createPlaylist', 'Packaged native smoke check')
+    try {
+      const playlists = await this.call('listPlaylists')
+      if (!playlists.some(playlist => playlist.id === playlistId)) {
+        throw new Error('replay worker did not persist a SQLite write')
+      }
+    } finally {
+      await this.call('deletePlaylist', playlistId)
+    }
+  }
+
   /**
    * Swaps the folders being indexed: updates the stored set (so a worker respawn uses it) and
    * forwards it to the running worker's watcher. Also notifies the renderer, since the folder set is

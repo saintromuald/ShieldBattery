@@ -183,6 +183,9 @@ function normalizeArchitecture(
   if (platform === 'win32') {
     return architecture === 'x64' ? 'x64' : undefined
   }
+  if (platform === 'darwin') {
+    return architecture === 'arm64' ? 'arm64' : undefined
+  }
   if (platform !== 'linux') {
     return undefined
   }
@@ -282,6 +285,29 @@ function selectWindowsHyperionPackage(assets: GitHubReleaseAsset[]): PackageSele
   }
 }
 
+function selectMacHyperionPackage(assets: GitHubReleaseAsset[]): PackageSelection {
+  const archive = assets.find(
+    asset =>
+      typeof asset.name === 'string' &&
+      /^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-[^/]+-mac-arm64\.zip$/i.test(
+        asset.name,
+      ),
+  )
+  if (!archive) {
+    return {
+      assets: [],
+      packageKind: 'none',
+      unavailableReason:
+        'No public Hyperion Shield Zero ZIP package for macOS ARM64 is attached to this release.',
+    }
+  }
+  try {
+    return { assets: requireAssetDigests([makeAsset(archive)]), packageKind: 'archive' }
+  } catch (error) {
+    return { assets: [], packageKind: 'none', unavailableReason: errorMessage(error) }
+  }
+}
+
 function selectHyperionPackage(
   assets: GitHubReleaseAsset[],
   platform: NodeJS.Platform,
@@ -289,6 +315,9 @@ function selectHyperionPackage(
 ): PackageSelection {
   if (platform === 'win32') {
     return selectWindowsHyperionPackage(assets)
+  }
+  if (platform === 'darwin') {
+    return selectMacHyperionPackage(assets)
   }
   const archivePattern = new RegExp(
     `^(?:Hyperion-Shield-Zero|Hyperion-Shield|HyperShield-Shield)-.*linux.*${architecturePattern(architecture)}.*\\.tar\\.gz$`,
@@ -323,32 +352,41 @@ function selectHyperionPackage(
 
 function selectHyperShieldPackage(
   assets: GitHubReleaseAsset[],
+  platform: NodeJS.Platform,
   architecture: 'x64' | 'arm64',
 ): PackageSelection {
-  const appImagePattern = new RegExp(
-    `^HyperShield-.*${architecturePattern(architecture)}.*\\.AppImage$`,
+  const mac = platform === 'darwin'
+  const packagePattern = new RegExp(
+    mac
+      ? `^HyperShield-.*-${architecturePattern(architecture)}-mac\\.zip$`
+      : `^HyperShield-.*${architecturePattern(architecture)}.*\\.AppImage$`,
     'i',
   )
-  const appImage = assets.find(
+  const selected = assets.find(
     asset =>
       typeof asset.name === 'string' &&
-      appImagePattern.test(asset.name) &&
+      packagePattern.test(asset.name) &&
       !/zero/i.test(asset.name),
   )
-  if (!appImage) {
+  if (!selected) {
     return {
       assets: [],
       packageKind: 'none',
-      unavailableReason: `No HyperShield AppImage for Linux ${architecture} is attached to this release.`,
+      unavailableReason: mac
+        ? `No HyperShield ZIP for macOS ${architecture} is attached to this release.`
+        : `No HyperShield AppImage for Linux ${architecture} is attached to this release.`,
     }
   }
   try {
-    return { assets: requireAssetDigests([makeAsset(appImage)]), packageKind: 'appImage' }
+    return {
+      assets: requireAssetDigests([makeAsset(selected)]),
+      packageKind: mac ? 'macZip' : 'appImage',
+    }
   } catch {
     return {
       assets: [],
       packageKind: 'none',
-      unavailableReason: 'The compatible AppImage has an invalid or unsupported SHA-256 digest.',
+      unavailableReason: `The compatible ${mac ? 'Mac ZIP' : 'AppImage'} has an invalid or unsupported SHA-256 digest.`,
     }
   }
 }
@@ -389,7 +427,9 @@ export function toReleaseInfo(
   }
   const normalizedArchitecture = normalizeArchitecture(platform, architecture)
   const supportedProductPlatform =
-    product === 'hyperion' ? platform === 'linux' || platform === 'win32' : platform === 'linux'
+    product === 'hyperion'
+      ? platform === 'linux' || platform === 'win32' || platform === 'darwin'
+      : platform === 'linux' || platform === 'darwin'
   if (!normalizedArchitecture || !supportedProductPlatform) {
     let reason = `Release installation is not available on the ${architecture} processor architecture.`
     if (product === 'hypershield' && platform === 'win32') {
@@ -420,7 +460,11 @@ export function toReleaseInfo(
           platform,
           normalizedArchitecture,
         )
-      : selectHyperShieldPackage(release.assets as GitHubReleaseAsset[], normalizedArchitecture)
+      : selectHyperShieldPackage(
+          release.assets as GitHubReleaseAsset[],
+          platform,
+          normalizedArchitecture,
+        )
   return { ...base, ...selection }
 }
 

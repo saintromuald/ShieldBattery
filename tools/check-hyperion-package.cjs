@@ -9,9 +9,18 @@ const PUBLIC_PRODUCT_NAMES = new Set([
   'Hyperion Shield',
   'HyperShield Shield',
 ])
+const PUBLIC_PLUTO_FILES = new Set([
+  'Data/pluto/pluto-bridge.exe',
+  'Data/pluto/COPYING.BWAPI',
+  'Data/pluto/SOURCE.BWAPI.txt',
+])
+const OFFICIAL_PLUTO_BASENAMES = new Set(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin'])
+const MAC_EXECUTABLE = 'Hyperion.app/Contents/MacOS/Hyperion'
+const MAC_LIBRARY = 'Hyperion.app/Contents/MacOS/libSDL3.0.dylib'
 const FORBIDDEN_SUFFIXES = new Set([
   '.mpq',
   '.dll',
+  '.dylib',
   '.exe',
   '.scm',
   '.scx',
@@ -20,7 +29,6 @@ const FORBIDDEN_SUFFIXES = new Set([
   '.casc',
 ])
 const PLUTO_BRIDGE_RELATIVE = 'Data/pluto/pluto-bridge.exe'
-const FORBIDDEN_PLUTO_PAYLOADS = new Set(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin'])
 
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -96,6 +104,23 @@ function validateElf64(contents, expectedMachine) {
   }
 }
 
+function validateMachOArm64(contents, expectedFileType = 2) {
+  if (contents.byteLength < 32) {
+    throw new Error('the Mach-O header is truncated')
+  }
+  if (contents.readUInt32LE(0) !== 0xfeedfacf) {
+    throw new Error('the 64-bit Mach-O signature is missing')
+  }
+  if (contents.readUInt32LE(4) !== 0x0100000c) {
+    throw new Error('the Mach-O CPU type is not ARM64')
+  }
+  if (contents.readUInt32LE(12) !== expectedFileType) {
+    throw new Error(
+      `the Mach-O file type is not ${expectedFileType === 2 ? 'MH_EXECUTE' : 'MH_DYLIB'}`,
+    )
+  }
+}
+
 function nativeMachine(executablePath) {
   return path.basename(executablePath).toLowerCase().includes('aarch64') ? 183 : 62
 }
@@ -110,6 +135,14 @@ function validateNativeExecutable(executablePath, platform) {
     }
     return undefined
   }
+  if (platform === 'darwin') {
+    try {
+      validateMachOArm64(contents)
+    } catch (error) {
+      return `Hyperion is not an ARM64 Mach-O executable: ${error.message}`
+    }
+    return undefined
+  }
   try {
     validateElf64(contents, nativeMachine(executablePath))
   } catch (error) {
@@ -119,13 +152,26 @@ function validateNativeExecutable(executablePath, platform) {
 }
 
 function checkHyperionPackage(appOutDir, platform = process.platform) {
-  if (platform !== 'linux' && platform !== 'win32') {
+  if (platform === 'mac') {
+    platform = 'darwin'
+  }
+  if (platform !== 'linux' && platform !== 'win32' && platform !== 'darwin') {
     throw new Error(`Hyperion package validation does not support ${platform}.`)
   }
   const windows = platform === 'win32'
-  const executable = windows ? 'Hyperion.exe' : 'Hyperion.x86_64'
-  const library = windows ? 'SDL3.dll' : 'libSDL3.so.0'
-  const resourceDirectory = path.join(appOutDir, 'resources', 'hyperion')
+  const mac = platform === 'darwin'
+  let executable = 'Hyperion.x86_64'
+  let library = 'libSDL3.so.0'
+  if (windows) {
+    executable = 'Hyperion.exe'
+    library = 'SDL3.dll'
+  } else if (mac) {
+    executable = MAC_EXECUTABLE
+    library = MAC_LIBRARY
+  }
+  const resourceDirectory = mac
+    ? path.join(appOutDir, 'Contents', 'Resources', 'hyperion')
+    : path.join(appOutDir, 'resources', 'hyperion')
   const executablePath = path.join(resourceDirectory, executable)
   const problems = []
   const required = [executable, library, 'release.json', 'EDITION.txt', 'Data']
@@ -161,6 +207,12 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
         validatePe32PlusAmd64(fs.readFileSync(libraryPath))
       } catch (error) {
         problems.push(`SDL3.dll is not a PE32+ AMD64 library: ${error.message}`)
+      }
+    } else if (mac) {
+      try {
+        validateMachOArm64(fs.readFileSync(libraryPath), 6)
+      } catch (error) {
+        problems.push(`libSDL3.0.dylib is not an ARM64 Mach-O library: ${error.message}`)
       }
     } else {
       try {
@@ -201,18 +253,21 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
   if (fs.existsSync(resourceDirectory)) {
     for (const filePath of walk(resourceDirectory)) {
       const relative = path.relative(resourceDirectory, filePath).split(path.sep).join('/')
-      const allowedWindowsBinary =
-        windows && (relative === 'Hyperion.exe' || relative === 'SDL3.dll')
-      const allowedPlutoBridge = relative === PLUTO_BRIDGE_RELATIVE
-      const forbiddenPlutoPayload = FORBIDDEN_PLUTO_PAYLOADS.has(
-        path.basename(filePath).toLowerCase(),
-      )
-      if (
-        forbiddenPlutoPayload ||
-        (FORBIDDEN_SUFFIXES.has(path.extname(filePath).toLowerCase()) &&
-          !allowedWindowsBinary &&
-          !allowedPlutoBridge)
-      ) {
+      const basename = path.posix.basename(relative).toLowerCase()
+      if (OFFICIAL_PLUTO_BASENAMES.has(basename)) {
+        problems.push(
+          `official Pluto payload is forbidden; this file is forbidden anywhere in Hyperion packages: ${filePath}`,
+        )
+      }
+      const publicPlutoFile = PUBLIC_PLUTO_FILES.has(relative)
+      if (/^Data\/pluto\//i.test(relative) && !publicPlutoFile) {
+        problems.push(`only the public Pluto bridge and BWAPI notices may be shipped: ${filePath}`)
+      }
+      const allowedNativeBinary =
+        (windows && (relative === 'Hyperion.exe' || relative === 'SDL3.dll')) ||
+        (mac && (relative === MAC_EXECUTABLE || relative === MAC_LIBRARY)) ||
+        relative === PLUTO_BRIDGE_RELATIVE
+      if (FORBIDDEN_SUFFIXES.has(path.extname(filePath).toLowerCase()) && !allowedNativeBinary) {
         problems.push(`proprietary or foreign-platform file is forbidden: ${filePath}`)
       }
     }
@@ -229,6 +284,7 @@ exports.default = async function afterPack(context) {
 exports.checkHyperionPackage = checkHyperionPackage
 exports.validatePe32PlusAmd64 = validatePe32PlusAmd64
 exports.validatePe = validatePe
+exports.validateMachOArm64 = validateMachOArm64
 
 if (require.main === module) {
   try {

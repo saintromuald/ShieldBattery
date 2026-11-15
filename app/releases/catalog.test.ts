@@ -284,6 +284,74 @@ describe('Linux package selection', () => {
   })
 })
 
+describe('macOS package selection', () => {
+  it('selects only the public ARM64 Hyperion ZIP with a published SHA-256', () => {
+    const mac = 'Hyperion-Shield-Zero-v1.0.0-mac-arm64.zip'
+    const result = toReleaseInfo(
+      'hyperion',
+      RELEASE_SOURCES.hyperion[0],
+      release(1, {
+        tag_name: 'hyperion-shield-zero-v1.0.0',
+        assets: [
+          asset('Hyperion-Shield-Zero-v1.0.0-windows-x64.zip'),
+          asset(mac, `sha256:${'c'.repeat(64)}`),
+          asset('Hyperion-Shield-Zero-v1.0.0-mac-x64.zip'),
+        ],
+      }),
+      'darwin',
+      'arm64',
+    )
+
+    expect(result).toMatchObject({ packageKind: 'archive', version: '1.0.0' })
+    expect(result?.assets.map(item => item.name)).toEqual([mac])
+    expect(result?.assets[0].sha256).toBe('c'.repeat(64))
+
+    const missingDigest = toReleaseInfo(
+      'hyperion',
+      RELEASE_SOURCES.hyperion[0],
+      release(2, { assets: [asset(mac, null)] }),
+      'darwin',
+      'arm64',
+    )
+    expect(missingDigest?.packageKind).toBe('none')
+    expect(missingDigest?.unavailableReason).toContain('SHA-256')
+  })
+
+  it('selects the HyperShield Apple Silicon ZIP for explicit staged updates', () => {
+    const mac = 'HyperShield-13.0.0-arm64-mac.zip'
+    const result = toReleaseInfo(
+      'hypershield',
+      RELEASE_SOURCES.hypershield[0],
+      release(1, {
+        tag_name: 'hypershield-v13.0.0',
+        assets: [
+          asset('HyperShield-13.0.0-x86_64.AppImage'),
+          asset(mac),
+          asset('HyperShield-13.0.0-arm64-mac.dmg'),
+          asset('latest-mac.yml'),
+        ],
+      }),
+      'darwin',
+      'arm64',
+    )
+
+    expect(result).toMatchObject({ packageKind: 'macZip', version: '13.0.0' })
+    expect(result?.assets.map(item => item.name)).toEqual([mac])
+  })
+
+  it('does not offer Intel macOS packages', () => {
+    const result = toReleaseInfo(
+      'hypershield',
+      RELEASE_SOURCES.hypershield[0],
+      release(1, { assets: [asset('HyperShield-13.0.0-arm64-mac.zip')] }),
+      'darwin',
+      'x64',
+    )
+    expect(result?.packageKind).toBe('none')
+    expect(result?.unavailableReason).toContain('x64')
+  })
+})
+
 describe('Windows package selection', () => {
   it('prefers the Windows x64 Shield ZIP and tolerates the generic Shield ZIP', () => {
     const specific = 'Hyperion-Shield-Zero-1.0.0-windows-x64.zip'

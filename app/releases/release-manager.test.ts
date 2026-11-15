@@ -17,7 +17,13 @@ import {
   readSelectedHyperionInstall,
   releaseCenterInstallRoot,
 } from './storage'
-import { makeAppImage, makeHyperionZip } from './testing/fixtures'
+import {
+  makeAppImage,
+  makeHyperionZip,
+  makeMachOArm64,
+  makeMacHyperionZip,
+  makeZip,
+} from './testing/fixtures'
 
 vi.mock('electron', () => ({
   app: {
@@ -314,6 +320,40 @@ describe('ReleaseManager installation and selection', () => {
     expect(persisted.products.hyperion.currentReleaseId).toBe(record.releaseId)
     expect(persisted.products.hyperion.installedReleases).toHaveLength(1)
     expect(persisted.products.hypershield.supportsInstallation).toBe(false)
+  })
+
+  it('installs and selects a Mac Hyperion release with its bundle-root working directory', async () => {
+    const contents = makeMacHyperionZip()
+    const name = 'Hyperion-Shield-Zero-2.0.0-mac-arm64.zip'
+    const release = githubRelease('hyperion', 2, '2.0.0', [githubAsset(name, contents)])
+    const manager = new ReleaseManager({
+      appPath,
+      userDataPath,
+      clientVersion: '12.3.13',
+      platform: 'darwin',
+      architecture: 'arm64',
+      fetch: fetchFor([release], { [name]: contents }),
+    })
+
+    const state = await manager.updateLatest('hyperion')
+    expect(state.products.hyperion).toMatchObject({
+      supportsInstallation: true,
+      currentReleaseId: 'github:saintromuald/hyperion-public:2',
+      currentVersion: '2.0.0',
+      operation: 'idle',
+    })
+    const executablePath = installedReleaseExecutable(
+      userDataPath,
+      'hyperion',
+      (await readInstalledRegistry(userDataPath)).hyperion[0],
+    )
+    await expect(
+      readSelectedHyperionInstall(userDataPath, 'darwin', 'arm64'),
+    ).resolves.toMatchObject({
+      executablePath,
+      workingDirectory: path.resolve(executablePath, '../../../..'),
+      fromLatestTracking: true,
+    })
   })
 
   it('prunes damaged inactive installs while keeping valid offline installs activatable', async () => {
@@ -656,6 +696,42 @@ describe('HyperShield staging and automatic updates', () => {
       operation: 'idle',
       selection: 'latest',
     })
+  })
+
+  it('stages and explicitly relaunches the Apple Silicon HyperShield ZIP', async () => {
+    const contents = makeZip([
+      {
+        name: 'HyperShield.app/Contents/MacOS/HyperShield',
+        contents: makeMachOArm64(),
+        executable: true,
+      },
+      { name: 'HyperShield.app/Contents/Info.plist', contents: '<plist><dict/></plist>' },
+      { name: 'HyperShield.app/Contents/Resources/app.asar', contents: 'app fixture' },
+    ])
+    const name = 'HyperShield-13.0.0-arm64-mac.zip'
+    const releases = [githubRelease('hypershield', 1, '13.0.0', [githubAsset(name, contents)])]
+    const manager = new ReleaseManager({
+      appPath,
+      userDataPath,
+      clientVersion: '12.3.13',
+      platform: 'darwin',
+      architecture: 'arm64',
+      fetch: fetchFor(releases, { [name]: contents }),
+    })
+    await manager.setAutomaticUpdates('hyperion', false)
+
+    const state = await manager.checkForAutomaticUpdates()
+    expect(state.products.hypershield).toMatchObject({
+      operation: 'readyToRestart',
+      currentReleaseId: 'github:saintromuald/ShieldBattery:1',
+    })
+    expect(app.relaunch).not.toHaveBeenCalled()
+
+    const record = (await readInstalledRegistry(userDataPath)).hypershield[0]
+    const stagedPath = installedReleaseExecutable(userDataPath, 'hypershield', record)
+    await manager.restartClient()
+    expect(app.relaunch).toHaveBeenCalledExactlyOnceWith({ execPath: stagedPath, args: [] })
+    expect(app.quit).toHaveBeenCalledOnce()
   })
 
   it.skipIf(process.platform !== 'linux')(

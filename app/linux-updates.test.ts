@@ -22,11 +22,11 @@ function findUpdaterCalls(target: string): ts.CallExpression[] {
   return calls
 }
 
-function hasLinuxGuard(node: ts.Node): boolean {
+function hasWindowsGuard(node: ts.Node): boolean {
   for (let current = node.parent; current; current = current.parent) {
     if (
       ts.isIfStatement(current) &&
-      current.expression.getText(sourceFile).includes("process.platform !== 'linux'")
+      current.expression.getText(sourceFile).includes("process.platform === 'win32'")
     ) {
       return true
     }
@@ -34,18 +34,18 @@ function hasLinuxGuard(node: ts.Node): boolean {
   return false
 }
 
-describe('Linux auto-updater isolation', () => {
-  it('does not configure an update feed', () => {
+describe('electron-updater feed isolation', () => {
+  it('configures the generic NSIS feed only on Windows', () => {
     const calls = findUpdaterCalls('autoUpdater.setFeedURL')
 
     expect(calls).toHaveLength(1)
-    expect(calls.every(hasLinuxGuard)).toBe(true)
+    expect(calls.every(hasWindowsGuard)).toBe(true)
   })
 
-  it('guards every update check', () => {
+  it('never queries electron-updater from Linux or macOS', () => {
     const calls = findUpdaterCalls('autoUpdater.checkForUpdates')
 
     expect(calls).toHaveLength(3)
-    expect(calls.every(hasLinuxGuard)).toBe(true)
+    expect(calls.every(hasWindowsGuard)).toBe(true)
   })
 })

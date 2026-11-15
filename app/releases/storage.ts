@@ -9,6 +9,12 @@ import type {
   ReleasePackageKind,
   ReleaseProduct,
 } from '../../common/release-center'
+import {
+  hyperionLibraryPath,
+  hyperionWorkingDirectory,
+  MAC_HYPERION_EXECUTABLE_PATH,
+} from '../game/hyperion/paths'
+import { validateMachOArm64File } from './macho'
 import { validatePe32PlusAmd64File } from './pe'
 
 export const RELEASE_CENTER_DIRECTORY = 'release-center'
@@ -22,6 +28,9 @@ export function supportsReleaseInstallation(
   platform: NodeJS.Platform,
   architecture: string,
 ): boolean {
+  if (platform === 'darwin') {
+    return architecture === 'arm64'
+  }
   if (product === 'hyperion' && platform === 'win32') {
     return architecture === 'x64'
   }
@@ -172,7 +181,8 @@ function isInstalledReleaseRecord(value: unknown): value is InstalledReleaseReco
     typeof value.installedAt === 'string' &&
     (value.packageKind === 'archive' ||
       value.packageKind === 'raw' ||
-      value.packageKind === 'appImage') &&
+      value.packageKind === 'appImage' ||
+      value.packageKind === 'macZip') &&
     typeof value.directoryName === 'string' &&
     typeof value.executablePath === 'string' &&
     typeof value.platform === 'string' &&
@@ -327,6 +337,15 @@ export function installedReleaseExecutable(
   return executablePath
 }
 
+function isMacHyperionExecutable(executablePath: string): boolean {
+  const normalized = path.normalize(executablePath)
+  if (normalized === MAC_HYPERION_EXECUTABLE_PATH) {
+    return true
+  }
+  const segments = normalized.split(path.sep)
+  return segments.length === 5 && path.join(...segments.slice(1)) === MAC_HYPERION_EXECUTABLE_PATH
+}
+
 export async function validateInstalledRelease(
   userDataPath: string,
   product: ReleaseProduct,
@@ -366,7 +385,7 @@ export async function validateInstalledRelease(
     if (!realExecutable.startsWith(`${realDirectory}${path.sep}`)) {
       return false
     }
-    if (platform === 'linux') {
+    if (platform === 'linux' || platform === 'darwin') {
       await fs.access(executablePath, fsConstants.X_OK)
     }
     if (
@@ -377,14 +396,17 @@ export async function validateInstalledRelease(
     }
     if (product === 'hyperion') {
       const windows = platform === 'win32'
+      const mac = platform === 'darwin'
       if (
-        windows &&
-        (record.packageKind !== 'archive' || record.executablePath !== 'Hyperion.exe')
+        (windows &&
+          (record.packageKind !== 'archive' || record.executablePath !== 'Hyperion.exe')) ||
+        (mac &&
+          (record.packageKind !== 'archive' || !isMacHyperionExecutable(record.executablePath)))
       ) {
         return false
       }
-      const workingDirectory = path.dirname(executablePath)
-      const libraryPath = path.join(workingDirectory, windows ? 'SDL3.dll' : 'libSDL3.so.0')
+      const workingDirectory = hyperionWorkingDirectory(executablePath, platform)
+      const libraryPath = hyperionLibraryPath(executablePath, workingDirectory, platform)
       const [library, data] = await Promise.all([
         fs.lstat(libraryPath),
         fs.lstat(path.join(workingDirectory, 'Data')),
@@ -397,24 +419,41 @@ export async function validateInstalledRelease(
       ) {
         return false
       }
-      if (windows) {
-        const [releaseMetadata, edition] = await Promise.all([
-          fs.lstat(path.join(workingDirectory, 'release.json')),
-          fs.lstat(path.join(workingDirectory, 'EDITION.txt')),
-        ])
-        if (
-          !releaseMetadata.isFile() ||
-          releaseMetadata.isSymbolicLink() ||
-          !edition.isFile() ||
-          edition.isSymbolicLink()
-        ) {
+      if (windows || mac) {
+        const requiredMetadata = await Promise.all(
+          ['release.json', 'EDITION.txt', ...(mac ? ['Hyperion.app/Contents/Info.plist'] : [])].map(
+            async name => fs.lstat(path.join(workingDirectory, name)),
+          ),
+        )
+        if (requiredMetadata.some(stat => !stat.isFile() || stat.isSymbolicLink())) {
           return false
         }
-        await Promise.all([
-          validatePe32PlusAmd64File(executablePath),
-          validatePe32PlusAmd64File(libraryPath),
-        ])
+        if (windows) {
+          await Promise.all([
+            validatePe32PlusAmd64File(executablePath),
+            validatePe32PlusAmd64File(libraryPath),
+          ])
+        } else {
+          await Promise.all([
+            validateMachOArm64File(executablePath),
+            validateMachOArm64File(libraryPath, 'dynamicLibrary'),
+          ])
+        }
       }
+    } else if (platform === 'darwin') {
+      const expectedExecutable = path.join('HyperShield.app', 'Contents', 'MacOS', 'HyperShield')
+      if (record.packageKind !== 'macZip' || record.executablePath !== expectedExecutable) {
+        return false
+      }
+      const requiredFiles = await Promise.all(
+        ['Info.plist', 'Resources/app.asar'].map(async name =>
+          fs.lstat(path.join(installDirectory, 'HyperShield.app', 'Contents', name)),
+        ),
+      )
+      if (requiredFiles.some(stat => !stat.isFile() || stat.isSymbolicLink())) {
+        return false
+      }
+      await validateMachOArm64File(executablePath)
     }
     return true
   } catch {
@@ -464,7 +503,7 @@ export async function readSelectedHyperionInstall(
     const executablePath = installedReleaseExecutable(userDataPath, 'hyperion', record)
     return {
       executablePath,
-      workingDirectory: path.dirname(executablePath),
+      workingDirectory: hyperionWorkingDirectory(executablePath, platform),
       fromLatestTracking: preferences.hyperion.selection === 'latest',
       invalid: !valid,
     }
