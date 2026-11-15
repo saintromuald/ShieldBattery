@@ -20,6 +20,7 @@ import { RaceChar } from '../../../common/races'
 import { canUseHyperionForOrdinaryLobbies } from '../../../common/server-config'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
+import { PlutoRuntimeInstaller } from '../../download/pluto-runtime'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ElapsedTime } from '../../matchmaking/elapsed-time'
 import { FilledButton, IconButton, OutlinedButton } from '../../material/button'
@@ -954,6 +955,7 @@ export function RoomRail({
       </RailScroll>
 
       <RailFoot>
+        {isHost && hasPlutoComputer && lifecycle === 'gathering' ? <PlutoRuntimeInstaller /> : null}
         <RailFootContents
           isHost={isHost}
           isViewerReadyEligible={isViewerReadyEligible}
