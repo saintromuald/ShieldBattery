@@ -36,7 +36,67 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  macos-pluto-live:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HYPERION_TAG: ${{ inputs.hyperionTag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install app dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./app
+
+      - name: Download and verify the exact public Hyperion Mac bridge package
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hyperion-package" "$RUNNER_TEMP/hyperion-extracted"
+          gh release download "$HYPERION_TAG" \
+            --repo saintromuald/hyperion-public \
+            --pattern '*-mac-arm64.zip' \
+            --dir "$RUNNER_TEMP/hyperion-package"
+          archive=$(find "$RUNNER_TEMP/hyperion-package" -maxdepth 1 -type f -name '*-mac-arm64.zip' -print -quit)
+          test -n "$archive"
+          gh api "repos/saintromuald/hyperion-public/releases/tags/$HYPERION_TAG" > "$RUNNER_TEMP/hyperion-release.json"
+          ARCHIVE="$archive" RELEASE_JSON="$RUNNER_TEMP/hyperion-release.json" node - <<'NODE'
+          const crypto = require('node:crypto')
+          const fs = require('node:fs')
+          const archive = process.env.ARCHIVE
+          const metadata = JSON.parse(fs.readFileSync(process.env.RELEASE_JSON, 'utf8'))
+          const name = require('node:path').basename(archive)
+          const asset = metadata.assets.find(candidate => candidate.name === name)
+          const actual = crypto.createHash('sha256').update(fs.readFileSync(archive)).digest('hex')
+          if (!asset || asset.digest !== `sha256:${actual}`) {
+            throw new Error(`${name} failed SHA-256 verification: ${asset?.digest ?? 'missing digest'} versus sha256:${actual}`)
+          }
+          NODE
+          ditto -x -k "$archive" "$RUNNER_TEMP/hyperion-extracted"
+          app=$(find "$RUNNER_TEMP/hyperion-extracted" -type d -name Hyperion.app -prune -print -quit)
+          test -n "$app"
+          bridge="$(dirname "$app")/Data/pluto/pluto-bridge.exe"
+          test -f "$bridge"
+          echo "PLUTO_ACCEPTANCE_BRIDGE=$bridge" >> "$GITHUB_ENV"
+
+      - name: Install and verify the real signed Wine/FEX and Pluto downloads
+        env:
+          RUN_PLUTO_MAC_LIVE_ACCEPTANCE: '1'
+          PLUTO_ACCEPTANCE_TEMP: ${{ runner.temp }}
+        run: pnpm vitest run app/game/hyperion/pluto-wine-live-acceptance.test.ts
+
   linux-x64:
+    needs: macos-pluto-live
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
