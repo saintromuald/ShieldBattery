@@ -6,7 +6,7 @@ on:
       hyperionTag:
         description: 'Public Hyperion Shield Zero release to bundle'
         required: true
-        default: 'hyperion-shield-zero-v0.7.2-beta'
+        default: 'hyperion-shield-zero-v0.7.3-beta'
       serverUrl:
         description: 'HyperShield server URL embedded in this client build'
         required: true
