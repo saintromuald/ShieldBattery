@@ -19,6 +19,8 @@ const FORBIDDEN_SUFFIXES = new Set([
   '.grp',
   '.casc',
 ])
+const PLUTO_BRIDGE_RELATIVE = 'Data/pluto/pluto-bridge.exe'
+const FORBIDDEN_PLUTO_PAYLOADS = new Set(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin'])
 
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -26,11 +28,14 @@ function walk(directory) {
     if (entry.isSymbolicLink()) {
       throw new Error(`Hyperion package contains a symbolic link: ${entryPath}`)
     }
+    if (!entry.isDirectory() && !entry.isFile()) {
+      throw new Error(`Hyperion package contains a special file: ${entryPath}`)
+    }
     return entry.isDirectory() ? walk(entryPath) : [entryPath]
   })
 }
 
-function validatePe32PlusAmd64(contents) {
+function readPeHeader(contents) {
   if (contents.byteLength < 64) {
     throw new Error('the DOS header is truncated')
   }
@@ -49,15 +54,30 @@ function validatePe32PlusAmd64(contents) {
   ) {
     throw new Error('the PE signature is missing')
   }
-  if (contents.readUInt16LE(offset + 4) !== 0x8664) {
-    throw new Error('the COFF machine is not AMD64')
-  }
   const optionalHeaderSize = contents.readUInt16LE(offset + 20)
   if (optionalHeaderSize < 2 || offset + 24 + optionalHeaderSize > contents.byteLength) {
     throw new Error('the optional header is truncated')
   }
-  if (contents.readUInt16LE(offset + 24) !== 0x20b) {
+  return {
+    machine: contents.readUInt16LE(offset + 4),
+    optionalHeaderMagic: contents.readUInt16LE(offset + 24),
+  }
+}
+
+function validatePe32PlusAmd64(contents) {
+  const header = readPeHeader(contents)
+  if (header.machine !== 0x8664) {
+    throw new Error('the COFF machine is not AMD64')
+  }
+  if (header.optionalHeaderMagic !== 0x20b) {
     throw new Error('the optional header is not PE32+')
+  }
+}
+
+function validatePe(contents) {
+  const header = readPeHeader(contents)
+  if (header.optionalHeaderMagic !== 0x10b && header.optionalHeaderMagic !== 0x20b) {
+    throw new Error('the optional header is neither PE32 nor PE32+')
   }
 }
 
@@ -164,12 +184,35 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
     }
   }
 
+  const plutoBridgePath = path.join(resourceDirectory, ...PLUTO_BRIDGE_RELATIVE.split('/'))
+  if (fs.existsSync(plutoBridgePath)) {
+    const bridge = fs.lstatSync(plutoBridgePath)
+    if (!bridge.isFile() || bridge.isSymbolicLink()) {
+      problems.push('Data/pluto/pluto-bridge.exe must be a regular file')
+    } else {
+      try {
+        validatePe(fs.readFileSync(plutoBridgePath))
+      } catch (error) {
+        problems.push(`pluto-bridge.exe is not a PE32 or PE32+ binary: ${error.message}`)
+      }
+    }
+  }
+
   if (fs.existsSync(resourceDirectory)) {
     for (const filePath of walk(resourceDirectory)) {
       const relative = path.relative(resourceDirectory, filePath).split(path.sep).join('/')
       const allowedWindowsBinary =
         windows && (relative === 'Hyperion.exe' || relative === 'SDL3.dll')
-      if (FORBIDDEN_SUFFIXES.has(path.extname(filePath).toLowerCase()) && !allowedWindowsBinary) {
+      const allowedPlutoBridge = relative === PLUTO_BRIDGE_RELATIVE
+      const forbiddenPlutoPayload = FORBIDDEN_PLUTO_PAYLOADS.has(
+        path.basename(filePath).toLowerCase(),
+      )
+      if (
+        forbiddenPlutoPayload ||
+        (FORBIDDEN_SUFFIXES.has(path.extname(filePath).toLowerCase()) &&
+          !allowedWindowsBinary &&
+          !allowedPlutoBridge)
+      ) {
         problems.push(`proprietary or foreign-platform file is forbidden: ${filePath}`)
       }
     }
@@ -185,6 +228,7 @@ exports.default = async function afterPack(context) {
 }
 exports.checkHyperionPackage = checkHyperionPackage
 exports.validatePe32PlusAmd64 = validatePe32PlusAmd64
+exports.validatePe = validatePe
 
 if (require.main === module) {
   try {

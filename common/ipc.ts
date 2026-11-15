@@ -18,6 +18,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
+import type { PlutoRuntimeState } from './pluto-runtime'
 import type { ReleaseCenterState, ReleaseChannel, ReleaseProduct } from './release-center'
 import { ReplayChat } from './replays'
 import {
@@ -289,6 +290,11 @@ interface IpcInvokeables {
   pathsGetDocumentsPath: () => Promise<string>
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
   pathsShowItemInFolder: (path: string) => Promise<void>
+
+  /** Reads local Pluto status without network access. */
+  plutoRuntimeGetState: () => Promise<PlutoRuntimeState>
+  /** Starts the official download only in response to the user's explicit install/repair action. */
+  plutoRuntimeInstall: () => Promise<PlutoRuntimeState>
 
   replayParseMetadata: (replayPath: string) => Promise<{
     identity: ReplayIdentity
@@ -580,6 +586,9 @@ interface IpcMainSendables {
    * status fetch.
    */
   replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
+
+  /** A complete snapshot, emitted for Pluto download, verification, and repair changes. */
+  plutoRuntimeChanged: (state: PlutoRuntimeState) => void
 
   /** A complete snapshot, emitted for catalog, preference, download, and installation changes. */
   releaseCenterChanged: (state: ReleaseCenterState) => void

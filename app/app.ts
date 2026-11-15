@@ -56,6 +56,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { GameWindowMinimizer } from './game/game-window-minimizer'
 import { embeddedHyperionPaths } from './game/hyperion/install'
+import { PlutoRuntimeManager } from './game/hyperion/pluto-runtime-manager'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
@@ -649,6 +650,20 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     quitReason ??= 'switching HyperShield client version'
     await releases.restartClient()
   })
+
+  const plutoRuntime = new PlutoRuntimeManager({
+    appPath: app.getAppPath(),
+    userDataPath: app.getPath('userData'),
+    clientVersion: app.getVersion(),
+    onChange: state => {
+      TypedIpcSender.from(mainWindow?.webContents).send('plutoRuntimeChanged', state)
+    },
+  })
+  plutoRuntime.initialize().catch(err => {
+    logger.error(`Error initializing the Pluto runtime: ${getErrorStack(err)}`)
+  })
+  ipcMain.handle('plutoRuntimeGetState', () => plutoRuntime.initialize())
+  ipcMain.handle('plutoRuntimeInstall', () => plutoRuntime.install())
 
   ipcMain.handle('settingsOverwriteBlizzardFile', async () => {
     await scrSettings.writeGameSettingsFile()

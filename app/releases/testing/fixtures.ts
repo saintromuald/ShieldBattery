@@ -35,6 +35,13 @@ export function makePe32PlusAmd64(): Buffer {
   return contents
 }
 
+export function makePe32X86(): Buffer {
+  const contents = makePe32PlusAmd64()
+  contents.writeUInt16LE(0x14c, 0x84)
+  contents.writeUInt16LE(0x10b, 0x98)
+  return contents
+}
+
 export function makeElf64(machine: 'x64' | 'arm64' = 'x64'): Buffer {
   const contents = Buffer.alloc(64)
   contents.set([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0], 0)

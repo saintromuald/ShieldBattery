@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import type { PlutoRuntimeState } from '../../../common/pluto-runtime'
 import {
   GAME_DEFAULTS_PRESET_VALUES,
   getGameDefaultsPresetLabel,
@@ -11,6 +12,7 @@ import {
   GameDefaultsPreset,
 } from '../../../common/settings/local-settings'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
+import { PlutoRuntimeInstaller, type PlutoRuntimeIpc } from '../../download/pluto-runtime'
 import { TextButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { standardEasing } from '../../material/curve-constants'
@@ -62,6 +64,10 @@ const Intro = styled.div`
 
   color: var(--theme-on-surface-variant);
   text-wrap: pretty;
+`
+
+const FirstRunPluto = styled.div`
+  margin-bottom: 20px;
 `
 
 const PresetGrid = styled.div`
@@ -151,7 +157,16 @@ const Footnote = styled.div`
  * should start on. Shown as a modal: the choice also decides what settings added later default to,
  * so it's only dismissable by picking one.
  */
-export function GameDefaultsFirstRunDialog({ close }: CommonDialogProps) {
+export interface GameDefaultsFirstRunDialogProps extends CommonDialogProps {
+  plutoIpcRenderer?: PlutoRuntimeIpc
+  initialPlutoState?: PlutoRuntimeState
+}
+
+export function GameDefaultsFirstRunDialog({
+  close,
+  plutoIpcRenderer,
+  initialPlutoState,
+}: GameDefaultsFirstRunDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -261,6 +276,10 @@ export function GameDefaultsFirstRunDialog({ close }: CommonDialogProps) {
             'default for features we add later.',
         )}
       </Intro>
+
+      <FirstRunPluto>
+        <PlutoRuntimeInstaller ipcRenderer={plutoIpcRenderer} initialState={initialPlutoState} />
+      </FirstRunPluto>
 
       <PresetGrid
         role='radiogroup'

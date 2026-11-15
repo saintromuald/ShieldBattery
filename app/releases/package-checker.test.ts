@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { checkHyperionPackage, validatePe32PlusAmd64 } from '../../tools/check-hyperion-package.cjs'
-import { makeElf64, makePe32PlusAmd64 } from './testing/fixtures'
+import { makeElf64, makePe32PlusAmd64, makePe32X86 } from './testing/fixtures'
 
 let temporaryDirectory: string
 let appOutDir: string
@@ -40,6 +40,23 @@ async function writeWindowsPackage(): Promise<void> {
   await writeMetadata()
 }
 
+async function writeLinuxPackage(): Promise<void> {
+  await fs.mkdir(path.join(resourceDirectory, 'Data'))
+  await fs.writeFile(path.join(resourceDirectory, 'Hyperion.x86_64'), makeElf64(), {
+    mode: 0o755,
+  })
+  await fs.writeFile(path.join(resourceDirectory, 'libSDL3.so.0'), makeElf64())
+  await writeMetadata()
+}
+
+async function writePlutoSupport(bridge: Uint8Array | string = makePe32X86()): Promise<void> {
+  const plutoDirectory = path.join(resourceDirectory, 'Data', 'pluto')
+  await fs.mkdir(plutoDirectory, { recursive: true })
+  await fs.writeFile(path.join(plutoDirectory, 'pluto-bridge.exe'), bridge)
+  await fs.writeFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'BWAPI copying notice')
+  await fs.writeFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'BWAPI source notice')
+}
+
 describe('Hyperion package native validation', () => {
   it('accepts a PE32+ AMD64 header', () => {
     expect(() => validatePe32PlusAmd64(makePe32PlusAmd64())).not.toThrow()
@@ -66,6 +83,41 @@ describe('Hyperion package native validation', () => {
     await writeWindowsPackage()
     expect(() => checkHyperionPackage(appOutDir, 'win32')).not.toThrow()
   })
+
+  it.each(['win32', 'linux'] as const)(
+    'accepts the 32-bit Pluto bridge and BWAPI notices in a %s package',
+    async platform => {
+      if (platform === 'win32') {
+        await writeWindowsPackage()
+      } else {
+        await writeLinuxPackage()
+      }
+      await writePlutoSupport()
+      expect(() => checkHyperionPackage(appOutDir, platform)).not.toThrow()
+
+      await writePlutoSupport('not a PE file')
+      expect(() => checkHyperionPackage(appOutDir, platform)).toThrow(
+        'pluto-bridge.exe is not a PE32 or PE32+ binary',
+      )
+    },
+  )
+
+  it.each(['win32', 'linux'] as const)(
+    'rejects official Pluto payloads and unexpected executables in a %s package',
+    async platform => {
+      if (platform === 'win32') {
+        await writeWindowsPackage()
+      } else {
+        await writeLinuxPackage()
+      }
+      await writePlutoSupport()
+      for (const name of ['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin', 'unexpected.exe']) {
+        await fs.writeFile(path.join(resourceDirectory, 'Data', 'pluto', name), 'forbidden')
+        expect(() => checkHyperionPackage(appOutDir, platform)).toThrow('file is forbidden')
+        await fs.rm(path.join(resourceDirectory, 'Data', 'pluto', name))
+      }
+    },
+  )
 
   it.each(['Hyperion Shield', 'HyperShield Shield'])(
     'continues to accept legacy %s metadata',

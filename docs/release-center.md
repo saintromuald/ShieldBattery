@@ -22,6 +22,30 @@ No mirror is configured at present. The catalog code accepts multiple release so
 
 Downloads are checked against GitHub's published SHA-256 digest when present. Hyperion archives reject links, path traversal, Hyperion Zero Private packages, and bundled game data. Current `Hyperion-Shield-Zero-*` packages and earlier public `Hyperion-Shield-*`/`HyperShield-Shield-*` packages are all recognized. Preferences, catalogs, and installations live under the client's user-data directory in `release-center/`; cached catalogs remain browsable offline.
 
+## Pluto runtime is a release blocker
+
+Pluto AI must be functional in every HyperShield and Hyperion Shield Zero release and
+prerelease. Never ship a selectable Pluto level without the means to start its brain, and never
+treat native integration scenarios alone as installed-package verification.
+
+Until Pluto's author grants redistribution permission, do not bundle or mirror the
+closed-source DLL, inference executable, or weights. Both applications must offer a prominent
+first-run **Download Pluto AI** button and a later repair action. The installer downloads
+`https://github.com/tscmoo/pluto/releases/download/v2.0/pluto-v2.0.zip`, verifies the archive and
+its three payloads against the official hashes. Standalone Hyperion Shield Zero installs them in
+`Data/pluto`; HyperShield installs them in `pluto` under the per-user Hyperion data directory
+passed with `--data` (normally `<userData>/hyperion/pluto`, with the session suffix when present),
+never in the packaged working directory or an AppImage's ephemeral extraction directory.
+Hyperion's own bridge belongs in every package. If redistribution permission is later granted,
+include the complete runtime directly instead.
+
+Redistribution permission is tracked at
+https://github.com/saintromuald/hyperion-public/issues/1; silence is not permission.
+
+Before publishing either channel, run a real packaged-engine Pluto match and a two-client
+multiplayer match with a Pluto slot. Confirm one authoritative inference owner, deterministic
+commands on every peer, consistent results, valid replays, and clean shutdown.
+
 ## Publish Hyperion
 
 Run **Hyperion Shield Zero release** in `saintromuald/hyperion-public` with a unique `hyperion-shield-zero-vX.Y.Z...` tag and either channel. Attach only public Shield packages. Do not attach Hyperion Zero Private or any `Game/` directory.

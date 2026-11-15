@@ -36,6 +36,7 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
+import { PlutoRuntimeInstaller } from './pluto-runtime'
 
 const defaultIpcRenderer = new TypedIpcRenderer()
 
@@ -1180,6 +1181,10 @@ export function ReleaseCenterDialog({
                 </UnsupportedText>
               ) : null}
             </SummaryCard>
+
+            {activeProduct === 'hyperion' ? (
+              <PlutoRuntimeInstaller ipcRenderer={ipcRenderer} showInstallPath={true} />
+            ) : null}
 
             {product.operation === 'readyToRestart' && activeProduct === 'hypershield' ? (
               <RestartBanner>

@@ -27,6 +27,7 @@ import {
 import {
   makeHyperionZip,
   makePe32PlusAmd64,
+  makePe32X86,
   makeZip,
   publicHyperionZipEntries,
 } from './testing/fixtures'
@@ -84,7 +85,19 @@ function windowsArchiveRelease(
   return release
 }
 
-async function makeArchive(withSymlink = false): Promise<Uint8Array> {
+function plutoSupportZipEntries(bridge: Uint8Array | string = makePe32X86()) {
+  return [
+    { name: 'Data/pluto/', kind: 'directory' as const },
+    { name: 'Data/pluto/pluto-bridge.exe', contents: bridge },
+    { name: 'Data/pluto/COPYING.BWAPI', contents: 'BWAPI copying notice' },
+    { name: 'Data/pluto/SOURCE.BWAPI.txt', contents: 'BWAPI source notice' },
+  ]
+}
+
+async function makeArchive(
+  withSymlink = false,
+  plutoBridge?: Uint8Array | string,
+): Promise<Uint8Array> {
   const input = path.join(temporaryDirectory, withSymlink ? 'bad-input' : 'good-input')
   const packageDirectory = path.join(input, 'package')
   await fs.mkdir(path.join(packageDirectory, 'Data'), { recursive: true })
@@ -93,6 +106,13 @@ async function makeArchive(withSymlink = false): Promise<Uint8Array> {
   })
   await fs.writeFile(path.join(packageDirectory, 'libSDL3.so.0'), 'SDL library')
   await fs.writeFile(path.join(packageDirectory, 'Data', 'public.dat'), 'public engine data')
+  if (plutoBridge !== undefined) {
+    const plutoDirectory = path.join(packageDirectory, 'Data', 'pluto')
+    await fs.mkdir(plutoDirectory, { recursive: true })
+    await fs.writeFile(path.join(plutoDirectory, 'pluto-bridge.exe'), plutoBridge)
+    await fs.writeFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'BWAPI copying notice')
+    await fs.writeFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'BWAPI source notice')
+  }
   if (withSymlink) {
     await fs.symlink('Hyperion.x86_64', path.join(packageDirectory, 'linked-executable'))
   }
@@ -312,6 +332,14 @@ describe.skipIf(process.platform !== 'linux')('safe tar extraction', () => {
     expect(() => parseTarListing(listing)).toThrow(message)
   })
 
+  it.each(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin', 'unexpected.exe'])(
+    'rejects Data/pluto/%s in a Linux archive',
+    name => {
+      const listing = `-rw-r--r-- 0/0 1 2026-01-01 00:00 ${JSON.stringify(`package/Data/pluto/${name}`)}`
+      expect(() => parseTarListing(listing)).toThrow('forbidden')
+    },
+  )
+
   it('enforces archive depth, entry, file-size, and cumulative-size limits', () => {
     const fileLine = (name: string, size = 1) =>
       `-rw-r--r-- 0/0 ${size} 2026-01-01 00:00 ${JSON.stringify(name)}`
@@ -370,6 +398,52 @@ describe.skipIf(process.platform !== 'linux')('safe tar extraction', () => {
       releaseCenterInstallRoot(path.join(temporaryDirectory, 'user-data'), 'hyperion'),
     )
     expect(entries).toEqual([record.directoryName])
+  })
+
+  it('installs the PE32 Pluto bridge and BWAPI notices but rejects an invalid bridge', async () => {
+    const contents = await makeArchive(false, makePe32X86())
+    const userDataPath = path.join(temporaryDirectory, 'user-data')
+    const record = await installDownloadedRelease({
+      userDataPath,
+      appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+      product: 'hyperion',
+      release: archiveRelease(contents),
+      platform: 'linux',
+      architecture: 'x64',
+      clientVersion: '1.0.0',
+      fetchImpl: vi
+        .fn()
+        .mockResolvedValue(new Response(Uint8Array.from(contents).buffer, { status: 200 })),
+    })
+    const executablePath = installedReleaseExecutable(userDataPath, 'hyperion', record)
+    const plutoDirectory = path.join(path.dirname(executablePath), 'Data', 'pluto')
+    await expect(fs.readFile(path.join(plutoDirectory, 'pluto-bridge.exe'))).resolves.toEqual(
+      makePe32X86(),
+    )
+    await expect(fs.readFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'utf8')).resolves.toBe(
+      'BWAPI copying notice',
+    )
+    await expect(fs.readFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'utf8')).resolves.toBe(
+      'BWAPI source notice',
+    )
+
+    const invalidContents = await makeArchive(false, 'not a PE file')
+    await expect(
+      installDownloadedRelease({
+        userDataPath: path.join(temporaryDirectory, 'invalid-user-data'),
+        appPath: path.join(temporaryDirectory, 'resources', 'app.asar'),
+        product: 'hyperion',
+        release: archiveRelease(invalidContents),
+        platform: 'linux',
+        architecture: 'x64',
+        clientVersion: '1.0.0',
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(
+            new Response(Uint8Array.from(invalidContents).buffer, { status: 200 }),
+          ),
+      }),
+    ).rejects.toThrow('invalid Pluto AI bridge')
   })
 
   it('rejects archives containing symlinks without publishing an install', async () => {
@@ -438,6 +512,30 @@ describe('secure Windows Hyperion ZIP installation', () => {
     await expect(
       validateInstalledRelease(userDataPath, 'hyperion', record, 'linux', 'x64'),
     ).resolves.toBe(false)
+  })
+
+  it('installs the PE32 Pluto bridge and BWAPI notices but rejects an invalid bridge', async () => {
+    const entries = [...publicHyperionZipEntries(), ...plutoSupportZipEntries()]
+    const { record, userDataPath } = await installWindows(makeHyperionZip(entries))
+    const executablePath = installedReleaseExecutable(userDataPath, 'hyperion', record)
+    const plutoDirectory = path.join(path.dirname(executablePath), 'Data', 'pluto')
+    await expect(fs.readFile(path.join(plutoDirectory, 'pluto-bridge.exe'))).resolves.toEqual(
+      makePe32X86(),
+    )
+    await expect(fs.readFile(path.join(plutoDirectory, 'COPYING.BWAPI'), 'utf8')).resolves.toBe(
+      'BWAPI copying notice',
+    )
+    await expect(fs.readFile(path.join(plutoDirectory, 'SOURCE.BWAPI.txt'), 'utf8')).resolves.toBe(
+      'BWAPI source notice',
+    )
+
+    const invalidEntries = [
+      ...publicHyperionZipEntries(),
+      ...plutoSupportZipEntries('not a PE file'),
+    ]
+    await expect(installWindows(makeHyperionZip(invalidEntries))).rejects.toThrow(
+      'invalid Pluto AI bridge',
+    )
   })
 
   it.each(['Hyperion Shield', 'HyperShield Shield'])(
@@ -531,6 +629,23 @@ describe('secure Windows Hyperion ZIP installation', () => {
       [],
     )
   })
+
+  it.each(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin'])(
+    'rejects official Pluto payload %s without publishing an install',
+    async name => {
+      const userDataPath = path.join(temporaryDirectory, 'user-data')
+      const entries = [
+        ...publicHyperionZipEntries(),
+        { name: `Data/pluto/${name}`, contents: 'official payload' },
+      ]
+      await expect(installWindows(makeHyperionZip(entries))).rejects.toThrow(
+        'forbidden official Pluto payload',
+      )
+      await expect(fs.readdir(releaseCenterInstallRoot(userDataPath, 'hyperion'))).resolves.toEqual(
+        [],
+      )
+    },
+  )
 
   it('requires Data and release metadata at the ZIP root', async () => {
     const withoutData = publicHyperionZipEntries().filter(

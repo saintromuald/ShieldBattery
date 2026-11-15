@@ -9,7 +9,7 @@ import type {
   ReleaseProduct,
   ReleaseProgress,
 } from '../../common/release-center'
-import { validatePe32PlusAmd64File } from './pe'
+import { validatePe32PlusAmd64File, validatePeFile } from './pe'
 import {
   computeFileSha256,
   errorMessage,
@@ -43,6 +43,13 @@ const FORBIDDEN_GAME_EXTENSIONS = new Set([
   '.scm',
   '.scx',
 ])
+const HYPERION_PLUTO_DIRECTORY = 'Data/pluto'
+const HYPERION_PLUTO_BRIDGE = `${HYPERION_PLUTO_DIRECTORY}/pluto-bridge.exe`
+const HYPERION_PLUTO_NOTICES = new Set([
+  `${HYPERION_PLUTO_DIRECTORY}/COPYING.BWAPI`,
+  `${HYPERION_PLUTO_DIRECTORY}/SOURCE.BWAPI.txt`,
+])
+const FORBIDDEN_PLUTO_PAYLOADS = new Set(['pluto.dll', 'pluto_infer.exe', 'pluto_weights.bin'])
 
 export type DownloadProgress = (progress: ReleaseProgress) => void
 
@@ -237,7 +244,7 @@ function validateAssetSizes(assets: readonly ReleaseAsset[]): number {
 
 /** Downloads every required file to private temporary storage and verifies all published digests. */
 export async function downloadReleaseAssets(
-  release: ReleaseInfo,
+  release: Pick<ReleaseInfo, 'assets'>,
   destinationDirectory: string,
   clientVersion: string,
   fetchImpl: typeof globalThis.fetch,
@@ -297,6 +304,24 @@ function unsafeWindowsSegment(segment: string): boolean {
   return /[. ]$/.test(segment) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(segment)
 }
 
+function normalizedArchivePath(name: string): string {
+  return name
+    .split('/')
+    .filter(segment => segment && segment !== '.')
+    .join('/')
+}
+
+function isHyperionPlutoSupportPath(name: string): boolean {
+  const normalized = normalizedArchivePath(name)
+  return (
+    normalized === HYPERION_PLUTO_BRIDGE ||
+    normalized.endsWith(`/${HYPERION_PLUTO_BRIDGE}`) ||
+    [...HYPERION_PLUTO_NOTICES].some(
+      notice => normalized === notice || normalized.endsWith(`/${notice}`),
+    )
+  )
+}
+
 function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linux'): void {
   const name = entry.name
   if (!name || name.includes('\0') || name.includes('\\')) {
@@ -323,6 +348,10 @@ function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linu
   ) {
     throw new Error(`Hyperion archive contains an invalid or excessive file size: ${name}`)
   }
+  if (meaningfulSegments.some(segment => FORBIDDEN_PLUTO_PAYLOADS.has(segment.toLowerCase()))) {
+    throw new Error(`Hyperion archive contains a forbidden official Pluto payload: ${name}`)
+  }
+  const allowedPlutoSupport = isHyperionPlutoSupportPath(name)
   for (const segment of meaningfulSegments) {
     const lower = segment.toLowerCase()
     if (lower === 'game' || lower === 'zero' || /^(?:zero|game)[._-]/i.test(segment)) {
@@ -335,7 +364,8 @@ function validateArchiveEntry(entry: TarEntry, platform: NodeJS.Platform = 'linu
     const allowedWindowsBinary = name === 'Hyperion.exe' || name === 'SDL3.dll'
     if (
       FORBIDDEN_GAME_EXTENSIONS.has(extension) &&
-      !(platform === 'win32' && allowedWindowsBinary)
+      !(platform === 'win32' && allowedWindowsBinary) &&
+      !allowedPlutoSupport
     ) {
       throw new Error(
         `Hyperion archive contains a forbidden executable, library, or game data: ${name}`,
@@ -437,6 +467,51 @@ async function validateExtractedTree(
     }
   }
   return files
+}
+
+function validateHyperionPlutoSupportLocation(
+  stagingDirectory: string,
+  workingDirectory: string,
+  files: readonly string[],
+): void {
+  for (const file of files) {
+    if (!isHyperionPlutoSupportPath(file)) {
+      continue
+    }
+    const relative = path
+      .relative(workingDirectory, path.join(stagingDirectory, file))
+      .split(path.sep)
+      .join('/')
+    if (relative !== HYPERION_PLUTO_BRIDGE && !HYPERION_PLUTO_NOTICES.has(relative)) {
+      throw new Error(
+        `Hyperion package Pluto support files must be in the selected engine's Data/pluto directory: ${file}`,
+      )
+    }
+  }
+}
+
+async function validateOptionalHyperionPlutoBridge(workingDirectory: string): Promise<void> {
+  const bridgePath = path.join(workingDirectory, ...HYPERION_PLUTO_BRIDGE.split('/'))
+  const stat = await fs.lstat(bridgePath).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined
+    }
+    throw error
+  })
+  if (!stat) {
+    return
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error('Hyperion package Pluto AI bridge is not a regular file.')
+  }
+  try {
+    await validatePeFile(bridgePath)
+  } catch (error) {
+    throw new Error(
+      `Hyperion package contains an invalid Pluto AI bridge: ${errorMessage(error)}`,
+      { cause: error },
+    )
+  }
 }
 
 async function extractHyperionArchive(archivePath: string, destination: string): Promise<void> {
@@ -556,7 +631,8 @@ async function stageWindowsHyperion(
     },
     entry => validateArchiveEntry(entry, 'win32'),
   )
-  await validateExtractedTree(stagingDirectory, 'win32')
+  const files = await validateExtractedTree(stagingDirectory, 'win32')
+  validateHyperionPlutoSupportLocation(stagingDirectory, stagingDirectory, files)
   const requiredFiles = ['Hyperion.exe', 'SDL3.dll', 'release.json', 'EDITION.txt']
   for (const name of requiredFiles) {
     const stat = await fs.lstat(path.join(stagingDirectory, name)).catch(() => undefined)
@@ -569,6 +645,7 @@ async function stageWindowsHyperion(
     throw new Error('Hyperion ZIP must include Data at its root.')
   }
   await validateWindowsReleaseMetadata(stagingDirectory)
+  await validateOptionalHyperionPlutoBridge(stagingDirectory)
   try {
     await Promise.all([
       validatePe32PlusAmd64File(path.join(stagingDirectory, 'Hyperion.exe')),
@@ -641,6 +718,8 @@ async function stageHyperion(
   ) {
     throw new Error('Hyperion archive must include libSDL3.so.0 and Data beside its executable.')
   }
+  validateHyperionPlutoSupportLocation(stagingDirectory, workingDirectory, files)
+  await validateOptionalHyperionPlutoBridge(workingDirectory)
   await fs.chmod(executablePath, 0o755)
   return executables[0]
 }

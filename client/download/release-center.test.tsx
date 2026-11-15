@@ -3,6 +3,7 @@ import i18next from 'i18next'
 import { ReactNode } from 'react'
 import { initReactI18next } from 'react-i18next'
 import { beforeAll, describe, expect, test, vi } from 'vitest'
+import type { PlutoRuntimeState } from '../../common/pluto-runtime'
 import {
   ProductReleaseState,
   ReleaseCenterState,
@@ -86,8 +87,25 @@ function makeState(): ReleaseCenterState {
   }
 }
 
-function makeIpc(state = makeState()) {
-  const invoke = vi.fn().mockResolvedValue(state)
+function makePlutoState(overrides: Partial<PlutoRuntimeState> = {}): PlutoRuntimeState {
+  return {
+    version: '2.0',
+    supported: true,
+    installed: false,
+    installPath: '/home/test/.config/hypershield/hyperion/pluto',
+    operation: 'idle',
+    statusMessage: 'Pluto AI is not installed. Download it to enable Pluto opponents.',
+    ...overrides,
+  }
+}
+
+function makeIpc(state = makeState(), plutoState = makePlutoState()) {
+  const invoke = vi.fn((channel: string) => {
+    if (channel === 'plutoRuntimeGetState' || channel === 'plutoRuntimeInstall') {
+      return Promise.resolve(plutoState)
+    }
+    return Promise.resolve(state)
+  })
   return {
     invoke,
     ipcRenderer: { invoke } as unknown as ReleaseCenterIpc,
@@ -241,6 +259,24 @@ describe('client/download/release-center', () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('releaseCenterInstall', 'hyperion', 'stable-2'),
     )
+  })
+
+  test('offers Pluto AI repair in the Hyperion tab through its explicit IPC action', async () => {
+    const state = makeState()
+    const plutoState = makePlutoState({
+      installed: true,
+      statusMessage: 'Pluto AI 2.0 is installed and verified.',
+    })
+    const { invoke, ipcRenderer } = makeIpc(state, plutoState)
+    renderReleaseCenter(state, ipcRenderer)
+
+    const repair = await screen.findByRole('button', { name: 'Repair Pluto AI' })
+    expect(
+      screen.getByText('Installation folder: /home/test/.config/hypershield/hyperion/pluto'),
+    ).toBeDefined()
+    fireEvent.click(repair)
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('plutoRuntimeInstall'))
   })
 
   test('opens an accessible release center and restores focus to the system-bar trigger', async () => {

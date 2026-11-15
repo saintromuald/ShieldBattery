@@ -2574,6 +2574,29 @@
       "markAsRead": "Mark as read"
     }
   },
+  "plutoRuntime": {
+    "actions": {
+      "download": "Download Pluto AI",
+      "repair": "Repair Pluto AI",
+      "tryAgain": "Try again"
+    },
+    "description": "Enable Pluto-controlled opponents with the separate closed-source runtime. The {{size}} download comes only from the author’s official GitHub release; HyperShield does not bundle or mirror it.",
+    "errors": {
+      "install": "Pluto AI could not be installed. Try again.",
+      "load": "Could not check the Pluto AI installation. Try again.",
+      "unavailable": "Pluto AI installation is available only in the HyperShield desktop app."
+    },
+    "installPath": "Installation folder: {{path}}",
+    "progress": {
+      "label": "Pluto AI download progress",
+      "speed": "{{speed}}/s"
+    },
+    "status": {
+      "loading": "Checking the Pluto AI installation…",
+      "starting": "Starting the Pluto AI download…"
+    },
+    "title": "Pluto AI {{version}}"
+  },
   "policy": {
     "acceptableUse": "Acceptable use",
     "acceptableUseAllCaps": "Acceptable Use Policy",

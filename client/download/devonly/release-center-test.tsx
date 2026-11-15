@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import type { PlutoRuntimeState } from '../../../common/pluto-runtime'
 import {
   ProductReleaseState,
   ReleaseCenterState,
@@ -195,8 +196,18 @@ const PREVIEW_STATE: ReleaseCenterState = {
   },
 }
 
+const PREVIEW_PLUTO_STATE: PlutoRuntimeState = {
+  version: '2.0',
+  supported: true,
+  installed: true,
+  installPath: '/home/player/.local/share/HyperShield/hyperion/pluto',
+  operation: 'idle',
+  statusMessage: 'Pluto AI 2.0 is installed and verified.',
+}
+
 const previewIpc = {
-  invoke: () => Promise.resolve(PREVIEW_STATE),
+  invoke: (channel: string) =>
+    Promise.resolve(channel.startsWith('plutoRuntime') ? PREVIEW_PLUTO_STATE : PREVIEW_STATE),
 } as unknown as ReleaseCenterIpc
 
 const PreviewPage = styled.div`
