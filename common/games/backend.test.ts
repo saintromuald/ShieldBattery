@@ -84,7 +84,7 @@ test('normalizes native feature order for cross-seat comparison', () => {
   const profile = hyperionProfileCompatibility({
     adapterProtocol: 1,
     engineBuild: 'build',
-    simRevision: 22,
+    simRevision: 23,
     modId: 'bw',
     modFingerprint: 'a'.repeat(40),
     dataFingerprint: '1234abcd',

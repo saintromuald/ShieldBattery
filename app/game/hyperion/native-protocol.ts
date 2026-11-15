@@ -54,7 +54,7 @@ export interface HyperionRuleConfiguration {
 export interface HyperionCompatibility {
   adapterProtocol: 1
   engineBuild: string
-  simRevision: 22
+  simRevision: 23
   rules: HyperionRuleSet
   modId: string
   modFingerprint: string
@@ -140,6 +140,11 @@ export interface HyperionNativeManifest extends NetcodeV2Setup {
   hyperion: HyperionGameManifest
 }
 
+/** Returns the formation's stable Pluto owner, retaining the host fallback for older setups. */
+export function plutoInferenceOwnerUserId(setup: GameSetup): SbUserId | undefined {
+  return setup.plutoOwnerUserId ?? setup.host.userId
+}
+
 /**
  * Builds a canonical team lockstep manifest, or a custom Melee/FFA manifest with one Pluto AI.
  *
@@ -213,6 +218,9 @@ export function makeHyperionManifest(
   if (humanPlayers.some(player => player.ai !== undefined)) {
     throw new Error('Hyperion AI profiles belong only to computer slots')
   }
+  if (!customMelee && setup.plutoOwnerUserId !== undefined) {
+    throw new Error('Hyperion Pluto inference owners require a Pluto computer')
+  }
 
   const resolvedLocalUserId = resolveLocalUserId(netcodeSetup, localUserId)
   const players = humanPlayers.map(player => [player.userId, player] as const)
@@ -261,9 +269,10 @@ export function makeHyperionManifest(
   let ai: HyperionManifestAi | undefined
   if (customMelee) {
     const computer = computerPlayers[0]
-    const owner = slots.find(slot => slot.host)
+    const ownerUserId = plutoInferenceOwnerUserId(setup)
+    const owner = slots.find(slot => slot.userId === ownerUserId)
     if (!owner) {
-      throw new Error('Hyperion Pluto inference requires an authenticated human host')
+      throw new Error('Hyperion Pluto inference requires an authenticated human owner')
     }
     if (computer.race === undefined) {
       throw new Error('Hyperion Pluto computers must have a race')
@@ -638,6 +647,12 @@ function validateAi(
   if (isRecord(compatibility) && compatibility.rules !== 'hyperion') {
     errors.push('hyperion.ai requires Hyperion rules so the AI level is retained in replays')
   }
+  if (
+    isRecord(compatibility) &&
+    (!Array.isArray(compatibility.features) || !compatibility.features.includes('plutoComputer'))
+  ) {
+    errors.push('hyperion.ai requires explicit plutoComputer engine compatibility')
+  }
 }
 
 function validateMap(value: unknown, errors: string[]): void {
@@ -663,8 +678,8 @@ function validateCompatibility(value: unknown, errors: string[]): void {
     errors.push('hyperion.compatibility.adapterProtocol must be 1')
   }
   validateNonEmptyString(value.engineBuild, 'hyperion.compatibility.engineBuild', errors)
-  if (value.simRevision !== 22) {
-    errors.push('hyperion.compatibility.simRevision must be 22')
+  if (value.simRevision !== 23) {
+    errors.push('hyperion.compatibility.simRevision must be 23')
   }
   if (value.rules !== 'classic' && value.rules !== 'hyperion') {
     errors.push("hyperion.compatibility.rules must be 'classic' or 'hyperion'")

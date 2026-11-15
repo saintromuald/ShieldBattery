@@ -12,7 +12,7 @@ const INSTALL: HyperionInstall = {
   compatibility: {
     adapterProtocol: 1,
     engineBuild: 'hyperion-test',
-    simRevision: 22,
+    simRevision: 23,
     rules: 'classic',
     modId: 'bw',
     modFingerprint: 'b'.repeat(40),

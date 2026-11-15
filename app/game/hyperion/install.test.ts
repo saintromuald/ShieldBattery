@@ -33,7 +33,7 @@ const DOWNLOADED_EXECUTABLE_SHA256 =
 const COMPATIBILITY: HyperionCompatibility = {
   adapterProtocol: 1,
   engineBuild: 'Hyperion-v0.7.1-beta',
-  simRevision: 22,
+  simRevision: 23,
   rules: 'classic',
   modId: '',
   modFingerprint: 'b'.repeat(40),
@@ -197,7 +197,11 @@ describe('embeddedHyperionPaths', () => {
 describe('readEmbeddedHyperionInstall', () => {
   it('loads compatibility from the exact shipped executable and creates private native data', async () => {
     const { appPath, paths } = await stageExecutable()
-    const probe = vi.fn(async () => COMPATIBILITY)
+    const probedCompatibility: HyperionCompatibility = {
+      ...COMPATIBILITY,
+      features: ['plutoComputer'],
+    }
+    const probe = vi.fn(async () => probedCompatibility)
 
     const install = await readEmbeddedHyperionInstall({
       appPath,
@@ -213,7 +217,7 @@ describe('readEmbeddedHyperionInstall', () => {
       ...paths,
       gameDataPath: '/games/StarCraft',
       executableSha256: BUNDLED_EXECUTABLE_SHA256,
-      compatibility: COMPATIBILITY,
+      compatibility: probedCompatibility,
     })
     expect(probe).toHaveBeenCalledExactlyOnceWith(
       paths.executablePath,
@@ -539,7 +543,7 @@ describe('readEmbeddedHyperionInstall', () => {
         architecture: 'x64',
         probe: async () => ({ ...COMPATIBILITY, simRevision: 21 }),
       }),
-    ).rejects.toThrow('simRevision must be 22')
+    ).rejects.toThrow('simRevision must be 23')
   })
 })
 

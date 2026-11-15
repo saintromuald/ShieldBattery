@@ -78,6 +78,11 @@ export interface GameSetup {
   gameSubType: number
   slots: PlayerInfo[]
   host: PlayerInfo
+  /**
+   * The authenticated human who runs shared Pluto inference. This server-distributed selection is
+   * independent of the lobby host; older setups without it retain the host as the owner.
+   */
+  plutoOwnerUserId?: SbUserId
   users: SbUser[]
   /** For matchmaking, each player's standing in the match's mode going into the game. */
   ranks?: GamePlayerRank[]

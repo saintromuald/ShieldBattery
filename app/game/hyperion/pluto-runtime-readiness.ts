@@ -9,7 +9,7 @@ const PLUTO_PAYLOAD_SHA256: Readonly<Record<string, string>> = {
 }
 
 const RUNTIME_ERROR =
-  'Pluto AI must be installed and verified on the lobby host. Install or repair Pluto AI in Release Center, then rejoin the lobby.'
+  'Pluto AI must be installed and verified on the selected inference owner. Install or repair Pluto AI in Release Center, then rejoin the lobby.'
 
 /** Verifies only the inference owner's local runtime; guests never call this check. */
 export async function assertPlutoRuntimeReady(

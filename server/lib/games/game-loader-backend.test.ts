@@ -49,7 +49,7 @@ function capabilities(
     hyperion: {
       adapterProtocol: 1,
       engineBuild: 'hyperion-test',
-      simRevision: 22,
+      simRevision: 23,
       modId: 'bw',
       modFingerprint: 'b'.repeat(40),
       dataFingerprint: '0123abcd',

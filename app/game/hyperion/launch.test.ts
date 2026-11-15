@@ -39,7 +39,7 @@ const PRIVATE_KEY = 'private-key-test-value'
 const COMPATIBILITY: HyperionCompatibility = {
   adapterProtocol: 1,
   engineBuild: 'hyperion-test-build',
-  simRevision: 22,
+  simRevision: 23,
   rules: 'classic',
   modId: '',
   modFingerprint: 'b'.repeat(40),
@@ -193,7 +193,7 @@ describe('parseHyperionInstall', () => {
         executablePath: '/hyperion',
         compatibility: { ...COMPATIBILITY, simRevision: 21 },
       }),
-    ).toThrow('simRevision must be 22')
+    ).toThrow('simRevision must be 23')
   })
 })
 

@@ -33,12 +33,17 @@ const MAP_PATH = '/maps/fighting-spirit.scx'
 const COMPATIBILITY: HyperionCompatibility = {
   adapterProtocol: 1,
   engineBuild: 'hyperion-test-build',
-  simRevision: 22,
+  simRevision: 23,
   rules: 'classic',
   modId: 'hyperion-classic',
   modFingerprint: 'b'.repeat(40),
   dataFingerprint: '0123abcd',
   rollback: false,
+}
+
+const PLUTO_COMPATIBILITY: HyperionCompatibility = {
+  ...COMPATIBILITY,
+  features: ['plutoComputer'],
 }
 
 function makePlayer(playerId: number, userId: typeof HOST_USER_ID, race: RaceChar): PlayerInfo {
@@ -144,7 +149,7 @@ function makePlutoManifest(gameType = GameType.Melee): HyperionNativeManifest {
     makePlutoGameSetup(gameType),
     makeNetcodeSetup(),
     MAP_PATH,
-    COMPATIBILITY,
+    PLUTO_COMPATIBILITY,
     HOST_USER_ID,
   )
 }
@@ -212,7 +217,7 @@ describe('makeHyperionManifest', () => {
       makePlutoGameSetup(),
       netcode,
       MAP_PATH,
-      COMPATIBILITY,
+      PLUTO_COMPATIBILITY,
       HOST_USER_ID,
     )
 
@@ -258,6 +263,63 @@ describe('makeHyperionManifest', () => {
     expect(manifest.hyperion.compatibility.rules).toBe('hyperion')
   })
 
+  it('selects an explicit Pluto owner deterministically without changing the host', () => {
+    const setup = makePlutoGameSetup()
+    setup.plutoOwnerUserId = GUEST_USER_ID
+    const reversedNetcode = makeNetcodeSetup()
+    reversedNetcode.roster.reverse()
+
+    const hostManifest = makeHyperionManifest(
+      setup,
+      makeNetcodeSetup(),
+      MAP_PATH,
+      PLUTO_COMPATIBILITY,
+      HOST_USER_ID,
+    )
+    const guestManifest = makeHyperionManifest(
+      setup,
+      reversedNetcode,
+      MAP_PATH,
+      PLUTO_COMPATIBILITY,
+      GUEST_USER_ID,
+    )
+
+    expect(validateHyperionManifest(hostManifest)).toEqual([])
+    expect(validateHyperionManifest(guestManifest)).toEqual([])
+    expect(hostManifest.hyperion.ai?.ownerRpSlot).toBe(1)
+    expect(guestManifest.hyperion.ai).toEqual(hostManifest.hyperion.ai)
+    expect(guestManifest.hyperion.slots).toEqual(hostManifest.hyperion.slots)
+    expect(hostManifest.hyperion.slots.map(slot => slot.host)).toEqual([true, false])
+    expect(hostManifest.hyperion.localUserId).toBe(HOST_USER_ID)
+    expect(guestManifest.hyperion.localUserId).toBe(GUEST_USER_ID)
+  })
+
+  it('rejects a Pluto owner outside the authenticated roster or without a Pluto computer', () => {
+    const unknownOwner = makePlutoGameSetup()
+    unknownOwner.plutoOwnerUserId = makeSbUserId(999)
+    expect(() =>
+      makeHyperionManifest(
+        unknownOwner,
+        makeNetcodeSetup(),
+        MAP_PATH,
+        PLUTO_COMPATIBILITY,
+        HOST_USER_ID,
+      ),
+    ).toThrow('Hyperion Pluto inference requires an authenticated human owner')
+
+    const noComputer = makeGameSetup()
+    noComputer.plutoOwnerUserId = GUEST_USER_ID
+    expect(() =>
+      makeHyperionManifest(
+        noComputer,
+        makeNetcodeSetup(),
+        MAP_PATH,
+        PLUTO_COMPATIBILITY,
+        HOST_USER_ID,
+      ),
+    ).toThrow('Hyperion Pluto inference owners require a Pluto computer')
+  })
+
   it('ignores open and closed seats from real lobby PlayerInfo output', () => {
     const setup = makePlutoGameSetup()
     const lobby = {
@@ -293,7 +355,7 @@ describe('makeHyperionManifest', () => {
       setup,
       makeNetcodeSetup(),
       MAP_PATH,
-      COMPATIBILITY,
+      PLUTO_COMPATIBILITY,
       HOST_USER_ID,
     )
 
@@ -499,6 +561,13 @@ describe('validateHyperionManifest', () => {
     expect(validateHyperionManifest(manifest)).toEqual([])
   })
 
+  it.each([22, 24])('rejects unsupported simulation revision %i', simRevision => {
+    const manifest = makeValidManifest()
+    manifest.hyperion.compatibility.simRevision = simRevision as 23
+
+    expectViolation(manifest, 'hyperion.compatibility.simRevision must be 23')
+  })
+
   it('accepts uppercase hexadecimal in the 8-character data fingerprint', () => {
     const manifest = makeValidManifest()
     manifest.hyperion.compatibility.dataFingerprint = 'ABCD0123'
@@ -525,6 +594,13 @@ describe('validateHyperionManifest', () => {
       manifest,
       'hyperion.compatibility.features must contain unique known native features',
     )
+  })
+
+  it('requires the engine to explicitly advertise Pluto for an AI manifest', () => {
+    const manifest = makePlutoManifest()
+    delete manifest.hyperion.compatibility.features
+
+    expectViolation(manifest, 'hyperion.ai requires explicit plutoComputer engine compatibility')
   })
 
   it('rejects mutators with classic rules', () => {
@@ -887,13 +963,6 @@ describe('validateHyperionManifest', () => {
         m.hyperion.compatibility.engineBuild = ''
       },
       message: 'hyperion.compatibility.engineBuild must be a non-empty string',
-    },
-    {
-      name: 'simulation revision',
-      mutate: m => {
-        m.hyperion.compatibility.simRevision = 21
-      },
-      message: 'hyperion.compatibility.simRevision must be 22',
     },
     {
       name: 'rules',

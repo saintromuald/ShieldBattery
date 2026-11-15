@@ -35,7 +35,7 @@ matchmaking variants; every other legacy game remains SC:R. GraphQL exposes the 
 | Hyperion Rule 1/Rule 2 supported formats                                                                                                                                           | Hyperion is mandatory with exact QoL/anti-meta semantics. Rule 3 remains disabled.                                                        |
 | Ordinary matchmaking with a canonical shape and matching capabilities                                                                                                              | Hyperion preferred with explicitly resolved **Classic** rules. Matchmaking IDs, MMR, divisions, map pools, and preferences are unchanged. |
 | Custom lobby with the same canonical shape and no unsupported options                                                                                                              | Hyperion preferred with the lobby's resolved rules/options preserved.                                                                     |
-| Custom Melee/FFA with at least two humans and exactly one explicit Pluto computer, locked alliances, and `plutoComputer` on every participant | Hyperion is required. The authoritative host alone needs the verified runtime; guests receive the same AI-owned commands without installing Pluto. |
+| Custom Melee/FFA with at least two humans and exactly one explicit Pluto computer, locked alliances, and `plutoComputer` on every participant | Hyperion is required. The selected inference owner alone needs the verified runtime; every other participant receives the same AI-owned commands without installing Pluto. |
 | UMS, Classic computers, observers, unsupported Melee/FFA or team layouts, unlocked alliances, arbitrary/open slots, EUD or unsupported maps/mods, rollback-only, or local-only games | Whole-session SC:R compatibility while native support is absent, provided every participant can use SC:R. |
 | Hyperion-only rules/mutators when native play is unavailable or incompatible                                                                                                       | Reject/requeue before registration with `hyperionOnly`; never fall back to different gameplay.                                            |
 | No backend capable of preserving semantics for every participant                                                                                                                   | Reject/requeue before registration with an actionable reason.                                                                             |
@@ -51,8 +51,9 @@ A Pluto custom formation is the deliberate exception to the all-human canonical 
 relay roster stays authenticated, while one AI slot uses the first free native player ID, carries no
 user ID or credentials, and records `userId: null` in results. The launch fixes one human inference
 owner and rejects extra Pluto slots. Open/closed map seats that are not participants do not enter the
-manifest. Adding Pluto explicitly locks Melee alliances and must not silently downgrade to Classic
-when the map or layout changes.
+manifest. The server-distributed `plutoOwnerUserId` selects that owner independently of the host;
+older setups retain the host as the deterministic fallback. Adding Pluto explicitly locks Melee
+alliances and must not silently downgrade to Classic when the map or layout changes.
 
 ### Participant compatibility requirements
 

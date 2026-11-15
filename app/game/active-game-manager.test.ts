@@ -263,7 +263,7 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     compatibility: {
       adapterProtocol: 1,
       engineBuild: 'hyperion-test-build',
-      simRevision: 22,
+      simRevision: 23,
       rules: 'classic',
       modId: '',
       modFingerprint: 'b'.repeat(40),
@@ -344,8 +344,13 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     return config
   }
 
-  function plutoConfigFor(gameId: string, localUserId = hostId): GameLaunchConfig {
+  function plutoConfigFor(
+    gameId: string,
+    localUserId = hostId,
+    plutoOwnerUserId?: SbUserId,
+  ): GameLaunchConfig {
     const config = withResolvedHyperion(hyperionConfigFor(gameId), { ruleSet: 'hyperion' })
+    config.setup.plutoOwnerUserId = plutoOwnerUserId
     config.localUser =
       localUserId === hostId
         ? { id: hostId, name: 'HostPlayer', created: 0 }
@@ -590,9 +595,9 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
   })
 
-  it('requires a verified Pluto runtime only on the authoritative host', async () => {
+  it('requires a verified Pluto runtime on the default host owner', async () => {
     const failure = new Error(
-      'Pluto AI must be installed and verified on the lobby host. Install or repair Pluto AI in Release Center, then rejoin the lobby.',
+      'Pluto AI must be installed and verified on the selected inference owner. Install or repair Pluto AI in Release Center, then rejoin the lobby.',
     )
     const checkPlutoRuntime = vi.fn(async () => Promise.reject(failure))
     const launch = vi.fn()
@@ -625,6 +630,49 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     manager.setGameConfig(plutoConfigFor('pluto-guest-without-runtime', guestId))
     const pubkey = manager.generateNetcodeV2SessionKeys()
     manager.setNetcodeV2Setup('pluto-guest-without-runtime', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+    expect(checkPlutoRuntime).not.toHaveBeenCalled()
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  })
+
+  it('checks the Pluto runtime on an explicit non-host inference owner', async () => {
+    const checkPlutoRuntime = vi.fn(async () => {})
+    let launchedOptions: HyperionLaunchOptions | undefined
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      launchedOptions = options
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, { install, checkPlutoRuntime })
+
+    manager.setGameConfig(plutoConfigFor('pluto-guest-owner', guestId, guestId))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('pluto-guest-owner', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+    expect(checkPlutoRuntime).toHaveBeenCalledTimes(1)
+    expect(launchedOptions!.setup.plutoOwnerUserId).toBe(guestId)
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  })
+
+  it('does not require a host runtime when another human owns Pluto inference', async () => {
+    const checkPlutoRuntime = vi.fn(async () => {
+      throw new Error('a non-owner host must not need the runtime')
+    })
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, { install, checkPlutoRuntime })
+
+    manager.setGameConfig(plutoConfigFor('pluto-host-not-owner', hostId, guestId))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('pluto-host-not-owner', hyperionNetcodeFor(pubkey))
 
     await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
     expect(checkPlutoRuntime).not.toHaveBeenCalled()

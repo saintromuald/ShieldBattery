@@ -53,7 +53,7 @@ function nativeProfile(
   return {
     adapterProtocol: 1,
     engineBuild: '0.7.1-beta+09603340',
-    simRevision: 22,
+    simRevision: 23,
     modId: 'bw',
     modFingerprint: 'a'.repeat(40),
     dataFingerprint: '1234abcd',
@@ -221,7 +221,7 @@ describe('selectGameBackend', () => {
 
   test.each([
     ['engineBuild', 'different-build'],
-    ['simRevision', 23],
+    ['simRevision', 24],
     ['adapterProtocol', 2],
     ['modFingerprint', 'b'.repeat(40)],
     ['dataFingerprint', 'deadbeef'],

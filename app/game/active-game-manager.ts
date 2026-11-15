@@ -62,6 +62,7 @@ import {
   launchHyperionProcess,
   launchHyperionReplayProcess,
 } from './hyperion/launch'
+import { plutoInferenceOwnerUserId } from './hyperion/native-protocol'
 import { assertPlutoRuntimeReady } from './hyperion/pluto-runtime-readiness'
 import { hyperionRuleConfigurationForMatchmakingType } from './hyperion/rules'
 import { MapStore } from './map-store'
@@ -707,7 +708,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       const hasPlutoComputer = setup.slots.some(
         slot => slot.type === SlotType.Computer && slot.ai?.level === 'pluto',
       )
-      if (hasPlutoComputer && setup.host.userId === config.localUser.id) {
+      if (hasPlutoComputer && plutoInferenceOwnerUserId(setup) === config.localUser.id) {
         await (this.hyperionBackend.checkPlutoRuntime ?? assertPlutoRuntimeReady)(hyperionDataPath)
       }
       const mapPath = this.mapStore.getPath(map.hash, map.mapData.format)
