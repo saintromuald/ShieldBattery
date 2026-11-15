@@ -39,6 +39,17 @@ never in the packaged working directory or an AppImage's ephemeral extraction di
 Hyperion's own bridge belongs in every package. If redistribution permission is later granted,
 include the complete runtime directly instead.
 
+On Apple Silicon macOS 26.4 or later, HyperShield's action also obtains any missing or invalid
+signed MetalSharp Wine 6.0 dependency from MetalSharp's official GitHub release before downloading
+Pluto.
+The 1,356,725,682-byte archive is hash-checked and extracted with `ditto`; its strict/deep signature,
+Developer ID identity, Wine 11 identity, provisioning profiles, cross-architecture entitlements,
+ARM64 loaders, and i386/ARM64 FEX layout are verified before atomic publication. HyperShield owns the
+copy at `$HOME/Library/Application Support/Hyperion/MetalSharp-Wine-6.0.app`, passes its
+`Contents/MacOS/wine` as `HYPERION_PLUTO_WINE`, and never replaces a system Wine installation. Do
+not bundle or mirror this archive in application packages or source repositories. Repairs preserve
+Pluto configuration, logs, and bandit state.
+
 Redistribution permission is tracked at
 https://github.com/saintromuald/hyperion-public/issues/1; silence is not permission.
 
@@ -86,5 +97,5 @@ The macOS CI job verifies final ad-hoc signatures and smoke-tests the exact gene
 
 - **Linux x86-64:** shipped and verified.
 - **Windows x64:** shipped and independently verified as a prerelease. The NSIS installer and Hyperion ZIP are published with 600-turn, result, replay, per-user install, and live update-feed checks.
-- **macOS Apple Silicon:** packaging and native installation supported; release workflow smoke checks run on macOS CI. Full gameplay and any Pluto bridge behavior still require Apple Silicon runtime verification.
+- **macOS Apple Silicon:** packaging and native installation supported; release workflow smoke checks run on macOS CI. CI run 43758320180 passed real Pluto commands and inference with MetalSharp Wine 6.0 on macOS 26.7.2. Full packaged-client gameplay, matchmaking, results, replays, and two-client Pluto acceptance still require Apple Silicon verification.
 - **macOS Intel:** not supported by these packages.

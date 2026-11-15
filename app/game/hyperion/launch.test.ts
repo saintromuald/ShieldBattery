@@ -22,6 +22,7 @@ import {
   parseHyperionInstall,
 } from './launch'
 import { HyperionCompatibility } from './native-protocol'
+import { metalSharpWineAppPath, metalSharpWineExecutablePath } from './pluto-wine-runtime'
 
 vi.mock('node:child_process', async importOriginal => ({
   ...(await importOriginal<typeof import('node:child_process')>()),
@@ -302,6 +303,37 @@ describe('launchHyperionProcess', () => {
 
     child.exit(0xc0000005)
     await expect(launched.proc.waitForExit()).resolves.toBe(0xc0000005)
+  })
+
+  it('points Apple Silicon Hyperion at only the app-managed MetalSharp Wine executable', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    vi.spyOn(process, 'arch', 'get').mockReturnValue('arm64')
+    vi.spyOn(os, 'homedir').mockReturnValue('/Users/pluto-test')
+    vi.stubEnv('HYPERION_PLUTO_WINE', '/usr/local/bin/poisoned-system-wine')
+    const child = new FakeChild()
+    const spawn = fakeSpawn(child)
+    const launched = await launchHyperionProcess(makeOptions(), spawn)
+
+    const expectedApp = metalSharpWineAppPath('/Users/pluto-test')
+    expect(spawn.mock.calls[0][2].env.HYPERION_PLUTO_WINE).toBe(
+      metalSharpWineExecutablePath(expectedApp),
+    )
+    expect(spawn.mock.calls[0][2].env.HYPERION_PLUTO_WINE).toBe(
+      '/Users/pluto-test/Library/Application Support/Hyperion/MetalSharp-Wine-6.0.app/Contents/MacOS/wine',
+    )
+    child.exit(0)
+    await launched.proc.waitForExit()
+  })
+
+  it('does not give Linux or Windows Hyperion an inherited Wine override', async () => {
+    vi.stubEnv('HYPERION_PLUTO_WINE', '/usr/local/bin/poisoned-system-wine')
+    const child = new FakeChild()
+    const spawn = fakeSpawn(child)
+    const launched = await launchHyperionProcess(makeOptions(), spawn)
+
+    expect(spawn.mock.calls[0][2].env).not.toHaveProperty('HYPERION_PLUTO_WINE')
+    child.exit(0)
+    await launched.proc.waitForExit()
   })
 
   it('omits the native result credential when the seat cannot report', async () => {

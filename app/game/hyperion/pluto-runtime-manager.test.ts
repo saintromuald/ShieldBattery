@@ -2,10 +2,14 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PLUTO_RUNTIME_DOWNLOAD_BYTES } from '../../../common/pluto-runtime'
+import {
+  PLUTO_MACOS_DOWNLOAD_BYTES,
+  PLUTO_RUNTIME_DOWNLOAD_BYTES,
+} from '../../../common/pluto-runtime'
 import { makePe32X86 } from '../../releases/testing/fixtures'
 import type { InstallPlutoRuntimeOptions } from './pluto-runtime-installer'
 import { PlutoRuntimeManager } from './pluto-runtime-manager'
+import { metalSharpWineAppPath } from './pluto-wine-runtime'
 
 vi.mock('../../logger', () => ({ default: { warning: vi.fn() } }))
 vi.mock('electron', () => ({
@@ -94,6 +98,70 @@ describe('PlutoRuntimeManager', () => {
           ([state]) =>
             state.progress?.bytesTransferred === 123 &&
             state.progress.totalBytes === PLUTO_RUNTIME_DOWNLOAD_BYTES,
+        ),
+      ).toBe(true)
+    },
+  )
+
+  it.each([false, true])(
+    'uses the exact Apple Silicon dependency bytes and installs Wine only when needed (valid Wine: %s)',
+    async wineInstalled => {
+      const isWineRuntimeInstalled = vi.fn(async () => wineInstalled)
+      const installRuntime = vi.fn(async (options: InstallPlutoRuntimeOptions) => {
+        options.onDownloaded?.()
+      })
+      const homeDirectory = path.join(temporaryDirectory, 'home')
+      const onChange = vi.fn()
+      const manager = new PlutoRuntimeManager({
+        ...managerOptions(installRuntime),
+        platform: 'darwin',
+        architecture: 'arm64',
+        systemVersion: '26.7.2',
+        homeDirectory,
+        isWineRuntimeInstalled,
+        onChange,
+      })
+
+      const initial = await manager.initialize()
+      const expectedBytes = wineInstalled
+        ? PLUTO_RUNTIME_DOWNLOAD_BYTES
+        : PLUTO_MACOS_DOWNLOAD_BYTES
+      expect(initial).toMatchObject({
+        supported: true,
+        installed: false,
+        usesMetalSharpWine: true,
+        downloadBytes: expectedBytes,
+      })
+      expect(initial.installPath).toBe(
+        path.join(temporaryDirectory, 'user-data', 'hyperion-test_session', 'pluto'),
+      )
+
+      const installed = await manager.install()
+      const expectedWineApp = metalSharpWineAppPath(homeDirectory)
+      expect(isWineRuntimeInstalled).toHaveBeenCalledWith(expectedWineApp, undefined)
+      expect(installRuntime).toHaveBeenCalledWith(
+        expect.objectContaining({
+          installMetalSharpWine: wineInstalled
+            ? undefined
+            : { destination: expectedWineApp, runner: undefined },
+        }),
+      )
+      const downloading = installRuntime.mock.calls[0][0]
+      expect(downloading.installMetalSharpWine?.destination).toBe(
+        wineInstalled ? undefined : expectedWineApp,
+      )
+      expect(installed).toMatchObject({
+        installed: true,
+        operation: 'idle',
+        downloadBytes: PLUTO_RUNTIME_DOWNLOAD_BYTES,
+      })
+      expect(installed.statusMessage).toContain('MetalSharp Wine 6.0')
+      expect(
+        onChange.mock.calls.some(
+          ([state]) =>
+            state.operation === 'downloading' &&
+            state.progress?.bytesTransferred === 0 &&
+            state.progress.totalBytes === expectedBytes,
         ),
       ).toBe(true)
     },
@@ -197,9 +265,42 @@ describe('PlutoRuntimeManager', () => {
     const initial = await manager.initialize()
     expect(initial.supported).toBe(false)
     expect(initial.installPath).toBeUndefined()
-    expect(initial.unsupportedReason).toContain('Linux x64 and Windows x64 only')
+    expect(initial.unsupportedReason).toContain(
+      'Linux x64, Windows x64, and Apple Silicon macOS 26.4 or later only',
+    )
     const result = await manager.install()
     expect(result.operation).toBe('error')
+    expect(installRuntime).not.toHaveBeenCalled()
+  })
+
+  it('supports the macOS 26.4 cross-architecture boundary', async () => {
+    const manager = new PlutoRuntimeManager({
+      ...managerOptions(vi.fn(async () => {})),
+      platform: 'darwin',
+      architecture: 'arm64',
+      systemVersion: '26.4',
+      isWineRuntimeInstalled: vi.fn(async () => true),
+    })
+
+    expect((await manager.initialize()).supported).toBe(true)
+  })
+
+  it.each(['26.3.9', '15.7', '25.9'])('refuses Pluto setup on macOS %s', async systemVersion => {
+    const installRuntime = vi.fn(async () => {})
+    const isWineRuntimeInstalled = vi.fn(async () => false)
+    const manager = new PlutoRuntimeManager({
+      ...managerOptions(installRuntime),
+      platform: 'darwin',
+      architecture: 'arm64',
+      systemVersion,
+      isWineRuntimeInstalled,
+    })
+
+    const initial = await manager.initialize()
+    expect(initial.supported).toBe(false)
+    expect(initial.unsupportedReason).toContain('requires macOS 26.4 or later')
+    expect(isWineRuntimeInstalled).not.toHaveBeenCalled()
+    expect((await manager.install()).operation).toBe('error')
     expect(installRuntime).not.toHaveBeenCalled()
   })
 })

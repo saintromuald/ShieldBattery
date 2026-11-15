@@ -19,11 +19,13 @@ export function sanitizedHyperionEnvironment({
   serverUrl,
   events = false,
   hidden = false,
+  plutoWine,
 }: {
   resultCode?: string
   serverUrl?: string
   events?: boolean
   hidden?: boolean
+  plutoWine?: string
 } = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env }
   for (const key of Object.keys(env)) {
@@ -36,6 +38,7 @@ export function sanitizedHyperionEnvironment({
   if (events) env.HYPERION_SB_EVENTS = '1'
   if (resultCode) env.HYPERION_SB_RESULT_CODE = resultCode
   if (serverUrl) env.HYPERION_SB_SERVER_URL = serverUrl
+  if (plutoWine) env.HYPERION_PLUTO_WINE = plutoWine
   return env
 }
 

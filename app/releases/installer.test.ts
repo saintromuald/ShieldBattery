@@ -294,6 +294,27 @@ describe('release downloads', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  it('allows a caller-specific larger asset without changing the default cap', async () => {
+    const release = archiveRelease(new Uint8Array([1]))
+    release.assets[0].size = MAX_ASSET_BYTES + 1
+    const fetchImpl = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+
+    await expect(
+      downloadReleaseAssets(
+        release,
+        path.join(temporaryDirectory, 'downloads'),
+        '1.0.0',
+        fetchImpl,
+        () => {},
+        { maxAssetBytes: MAX_ASSET_BYTES + 1 },
+      ),
+    ).rejects.toThrow('GitHub returned 503 Unavailable')
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(MAX_ASSET_BYTES).toBe(1024 * 1024 * 1024)
+  })
+
   it('times out a stalled connection and aborts its request', async () => {
     vi.useFakeTimers()
     let signal: AbortSignal | undefined

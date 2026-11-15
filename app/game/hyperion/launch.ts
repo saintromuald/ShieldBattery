@@ -15,6 +15,7 @@ import {
   makeHyperionManifest,
   parseHyperionCompatibility,
 } from './native-protocol'
+import { metalSharpWineAppPath, metalSharpWineExecutablePath } from './pluto-wine-runtime'
 
 export interface HyperionInstall {
   executablePath: string
@@ -314,6 +315,10 @@ export async function launchHyperionProcess(
         resultCode: eligibleResultCode,
         serverUrl: eligibleResultCode ? options.resultContext.serverUrl : undefined,
         events: true,
+        plutoWine:
+          process.platform === 'darwin' && process.arch === 'arm64'
+            ? metalSharpWineExecutablePath(metalSharpWineAppPath())
+            : undefined,
       }),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,

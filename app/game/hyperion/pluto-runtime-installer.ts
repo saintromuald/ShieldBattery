@@ -12,6 +12,11 @@ import {
 } from '../../releases/storage'
 import { extractHyperionZip, type ZipEntry } from '../../releases/zip'
 import { embeddedHyperionPaths } from './install'
+import {
+  installMetalSharpWineArchive,
+  type InstallMetalSharpWineArchiveOptions,
+  METALSHARP_WINE_ARCHIVE_ASSET,
+} from './pluto-wine-runtime'
 
 export const PLUTO_ARCHIVE_ASSET = {
   name: 'pluto-v2.0.zip',
@@ -374,11 +379,17 @@ export interface InstallPlutoRuntimeOptions {
   activeBridgePath: string
   clientVersion: string
   fetchImpl?: typeof globalThis.fetch
+  /** Set only after the manager finds the app-managed Apple Silicon runtime missing or invalid. */
+  installMetalSharpWine?: Pick<InstallMetalSharpWineArchiveOptions, 'destination' | 'runner'>
   onProgress?: DownloadProgress
   onDownloaded?: () => void
+  /** Host-side test seams; production retains the verified downloader and signed installer. */
+  downloadAssets?: typeof downloadReleaseAssets
+  installWineArchive?: (options: InstallMetalSharpWineArchiveOptions) => Promise<void>
+  expectedHashes?: PlutoPayloadHashes
 }
 
-/** Downloads Pluto only when called by the explicit-install manager action. */
+/** Downloads all required dependencies only when called by the explicit-install manager action. */
 export async function installPlutoRuntime(options: InstallPlutoRuntimeOptions): Promise<void> {
   // Bridge validation is deliberately complete before any network request or download directory is
   // created. A Hyperion package problem must be repaired through Release Center first.
@@ -386,18 +397,31 @@ export async function installPlutoRuntime(options: InstallPlutoRuntimeOptions): 
   await fs.mkdir(options.dataPath, { recursive: true, mode: 0o700 })
   const downloadDirectory = await fs.mkdtemp(path.join(options.dataPath, '.pluto-download-'))
   try {
-    const downloaded = await downloadReleaseAssets(
-      { assets: [PLUTO_ARCHIVE_ASSET] },
+    const assets = options.installMetalSharpWine
+      ? [METALSHARP_WINE_ARCHIVE_ASSET, PLUTO_ARCHIVE_ASSET]
+      : [PLUTO_ARCHIVE_ASSET]
+    const downloaded = await (options.downloadAssets ?? downloadReleaseAssets)(
+      { assets },
       downloadDirectory,
       options.clientVersion,
       options.fetchImpl ?? globalThis.fetch,
       options.onProgress ?? (() => {}),
+      options.installMetalSharpWine ? { maxAssetBytes: METALSHARP_WINE_ARCHIVE_ASSET.size } : {},
     )
     options.onDownloaded?.()
+    let plutoArchiveIndex = 0
+    if (options.installMetalSharpWine) {
+      await (options.installWineArchive ?? installMetalSharpWineArchive)({
+        archivePath: downloaded[0].path,
+        ...options.installMetalSharpWine,
+      })
+      plutoArchiveIndex = 1
+    }
     await installPlutoArchive({
-      archivePath: downloaded[0].path,
+      archivePath: downloaded[plutoArchiveIndex].path,
       destination: options.installPath,
       activeBridgePath: options.activeBridgePath,
+      expectedHashes: options.expectedHashes,
     })
   } finally {
     await fs.rm(downloadDirectory, { recursive: true, force: true }).catch(() => {})

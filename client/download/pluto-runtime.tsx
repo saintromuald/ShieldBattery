@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
+  METALSHARP_WINE_DOWNLOAD_BYTES,
   PLUTO_RUNTIME_DOWNLOAD_BYTES,
   PLUTO_RUNTIME_VERSION,
   type PlutoRuntimeState,
@@ -256,11 +257,22 @@ export function PlutoRuntimeInstaller({
             })}
           </RuntimeTitle>
           <RuntimeDescription>
-            {t(
-              'plutoRuntime.description',
-              'Enable Pluto-controlled opponents with the separate closed-source runtime. The {{size}} download comes only from the author’s official GitHub release; HyperShield does not bundle or mirror it.',
-              { size: prettyBytes(PLUTO_RUNTIME_DOWNLOAD_BYTES) },
-            )}
+            {runtimeState?.usesMetalSharpWine
+              ? t(
+                  'plutoRuntime.descriptionMac',
+                  'Enable Pluto-controlled opponents with the separate closed-source Pluto runtime. Pluto AI is a {{plutoSize}} download; Apple Silicon macOS 26.4 or later also requires the official signed MetalSharp Wine 6.0 runtime ({{wineSize}}) when it is missing or damaged. Downloads come only from the authors’ official GitHub releases; HyperShield does not bundle or mirror them.',
+                  {
+                    plutoSize: prettyBytes(PLUTO_RUNTIME_DOWNLOAD_BYTES),
+                    wineSize: prettyBytes(METALSHARP_WINE_DOWNLOAD_BYTES),
+                  },
+                )
+              : t(
+                  'plutoRuntime.description',
+                  'Enable Pluto-controlled opponents with the separate closed-source runtime. The {{size}} download comes only from the author’s official GitHub release; HyperShield does not bundle or mirror it.',
+                  {
+                    size: prettyBytes(runtimeState?.downloadBytes ?? PLUTO_RUNTIME_DOWNLOAD_BYTES),
+                  },
+                )}
           </RuntimeDescription>
         </RuntimeCopy>
       </RuntimeHeader>

@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { assertPlutoRuntimeReady } from './pluto-runtime-readiness'
+import { metalSharpWineAppPath, metalSharpWineExecutablePath } from './pluto-wine-runtime'
 
 const HASHES: Readonly<Record<string, string>> = {
   'pluto.dll': '603fea2f77a4b652f29b832c2977cf5bc9d83bbcb927febd04499220020ce3bc',
@@ -34,6 +35,22 @@ describe('assertPlutoRuntimeReady', () => {
 
     await expect(assertPlutoRuntimeReady(dataPath, hashFile, 'win32')).resolves.toBeUndefined()
     expect(hashFile).toHaveBeenCalledTimes(3)
+  })
+
+  it('requires the app-managed Wine executable for Apple Silicon readiness', async () => {
+    const hashFile = vi.fn(async (filePath: string) => HASHES[path.basename(filePath)]!)
+    const homeDirectory = path.join(dataPath, 'home')
+
+    await expect(
+      assertPlutoRuntimeReady(dataPath, hashFile, 'darwin', homeDirectory),
+    ).rejects.toThrow('Install or repair Pluto AI in Release Center')
+
+    const winePath = metalSharpWineExecutablePath(metalSharpWineAppPath(homeDirectory))
+    await fs.mkdir(path.dirname(winePath), { recursive: true })
+    await fs.writeFile(winePath, 'wine', { mode: 0o755 })
+    await expect(
+      assertPlutoRuntimeReady(dataPath, hashFile, 'darwin', homeDirectory),
+    ).resolves.toBeUndefined()
   })
 
   it('rejects a missing or modified owner payload with a useful setup error', async () => {

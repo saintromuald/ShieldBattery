@@ -3,7 +3,12 @@ import { existsSync, promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PLUTO_RUNTIME_DOWNLOAD_BYTES } from '../../../common/pluto-runtime'
+import {
+  METALSHARP_WINE_DOWNLOAD_BYTES,
+  PLUTO_MACOS_DOWNLOAD_BYTES,
+  PLUTO_RUNTIME_DOWNLOAD_BYTES,
+} from '../../../common/pluto-runtime'
+import type { downloadReleaseAssets } from '../../releases/installer'
 import { computeFileSha256 } from '../../releases/storage'
 import { makePe32X86, makeZip, type ZipFixtureEntry } from '../../releases/testing/fixtures'
 import {
@@ -17,6 +22,11 @@ import {
   resolvePlutoBridgePath,
   stagePlutoRuntimeArchive,
 } from './pluto-runtime-installer'
+import {
+  type InstallMetalSharpWineArchiveOptions,
+  METALSHARP_WINE_ARCHIVE_ASSET,
+  metalSharpWineAppPath,
+} from './pluto-wine-runtime'
 
 vi.mock('../../logger', () => ({ default: { warning: vi.fn() } }))
 vi.mock('electron', () => ({
@@ -387,5 +397,73 @@ describe('Pluto runtime archive installation', () => {
 
     expect(await fs.readFile(path.join(installPath, 'known-good-marker'), 'utf8')).toBe('keep me')
     expect((await fs.readdir(installPath)).sort()).toEqual(['known-good-marker'])
+  })
+
+  it('installs MetalSharp Wine before Pluto in one action and preserves Pluto support state', async () => {
+    const installPath = destination()
+    await fs.mkdir(path.join(installPath, 'pluto'), { recursive: true })
+    await fs.mkdir(path.join(installPath, 'bwapi-data'), { recursive: true })
+    await fs.writeFile(path.join(installPath, 'pluto.dll'), 'old DLL')
+    await fs.writeFile(path.join(installPath, 'pluto', 'pluto_config.json'), 'keep config')
+    await fs.writeFile(path.join(installPath, 'pluto_infer.log'), 'keep log')
+    await fs.writeFile(path.join(installPath, 'bwapi-data', 'bandit.json'), 'keep bandit')
+    const wineApp = metalSharpWineAppPath(temporaryDirectory)
+    const wineArchive = path.join(temporaryDirectory, 'wine-archive.zip')
+    await fs.writeFile(wineArchive, 'mocked verified Wine archive')
+    const plutoArchive = await writeArchive()
+    const progress = vi.fn()
+    const onDownloaded = vi.fn()
+    const downloadAssets = vi.fn<typeof downloadReleaseAssets>(async (...args) => {
+      const [release, , , , onProgress, limits] = args
+      expect(release.assets).toEqual([METALSHARP_WINE_ARCHIVE_ASSET, PLUTO_ARCHIVE_ASSET])
+      expect(limits).toEqual({ maxAssetBytes: METALSHARP_WINE_DOWNLOAD_BYTES })
+      onProgress({
+        bytesTransferred: PLUTO_MACOS_DOWNLOAD_BYTES,
+        totalBytes: PLUTO_MACOS_DOWNLOAD_BYTES,
+      })
+      return [
+        { asset: METALSHARP_WINE_ARCHIVE_ASSET, path: wineArchive },
+        { asset: PLUTO_ARCHIVE_ASSET, path: plutoArchive },
+      ]
+    })
+    const installWineArchive = vi.fn(async (options: InstallMetalSharpWineArchiveOptions) => {
+      expect(options).toEqual({ archivePath: wineArchive, destination: wineApp })
+      expect(await fs.readFile(path.join(installPath, 'pluto.dll'), 'utf8')).toBe('old DLL')
+      await fs.mkdir(wineApp, { recursive: true })
+      await fs.writeFile(path.join(wineApp, 'installed'), 'signed app')
+    })
+
+    await installPlutoRuntime({
+      dataPath: path.dirname(installPath),
+      installPath,
+      activeBridgePath,
+      clientVersion: '12.3.14',
+      installMetalSharpWine: { destination: wineApp },
+      onProgress: progress,
+      onDownloaded,
+      downloadAssets,
+      installWineArchive,
+      expectedHashes: TEST_HASHES,
+    })
+
+    expect(downloadAssets).toHaveBeenCalledOnce()
+    expect(onDownloaded).toHaveBeenCalledOnce()
+    expect(installWineArchive).toHaveBeenCalledOnce()
+    expect(progress).toHaveBeenCalledWith({
+      bytesTransferred: PLUTO_MACOS_DOWNLOAD_BYTES,
+      totalBytes: PLUTO_MACOS_DOWNLOAD_BYTES,
+    })
+    expect(await isPlutoRuntimeInstalled(installPath, TEST_HASHES)).toBe(true)
+    expect(await fs.readFile(path.join(installPath, 'pluto.dll'), 'utf8')).toBe(
+      PAYLOAD_CONTENTS['pluto.dll'],
+    )
+    expect(await fs.readFile(path.join(installPath, 'pluto', 'pluto_config.json'), 'utf8')).toBe(
+      'keep config',
+    )
+    expect(await fs.readFile(path.join(installPath, 'pluto_infer.log'), 'utf8')).toBe('keep log')
+    expect(await fs.readFile(path.join(installPath, 'bwapi-data', 'bandit.json'), 'utf8')).toBe(
+      'keep bandit',
+    )
+    expect(await fs.readFile(path.join(wineApp, 'installed'), 'utf8')).toBe('signed app')
   })
 })

@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { PLUTO_RUNTIME_DOWNLOAD_BYTES, type PlutoRuntimeState } from '../../common/pluto-runtime'
+import {
+  PLUTO_MACOS_DOWNLOAD_BYTES,
+  PLUTO_RUNTIME_DOWNLOAD_BYTES,
+  type PlutoRuntimeState,
+} from '../../common/pluto-runtime'
 import { PlutoRuntimeInstaller, type PlutoRuntimeIpc } from './pluto-runtime'
 
 function makeState(overrides: Partial<PlutoRuntimeState> = {}): PlutoRuntimeState {
@@ -76,6 +80,34 @@ describe('PlutoRuntimeInstaller', () => {
     expect(
       (screen.getByRole('button', { name: 'Download Pluto AI' }) as HTMLButtonElement).disabled,
     ).toBe(true)
+  })
+
+  it('describes the large signed Apple Silicon dependency and combined byte progress honestly', () => {
+    const { ipcRenderer } = makeIpc()
+    render(
+      <PlutoRuntimeInstaller
+        initialState={makeState({
+          usesMetalSharpWine: true,
+          downloadBytes: PLUTO_MACOS_DOWNLOAD_BYTES,
+          operation: 'downloading',
+          statusMessage: 'Downloading MetalSharp Wine 6.0 and Pluto AI 2.0…',
+          progress: {
+            bytesTransferred: PLUTO_MACOS_DOWNLOAD_BYTES / 2,
+            totalBytes: PLUTO_MACOS_DOWNLOAD_BYTES,
+          },
+        })}
+        loadInitialState={false}
+        ipcRenderer={ipcRenderer}
+      />,
+    )
+
+    expect(screen.getByText(/Apple Silicon macOS 26\.4 or later/)).toBeDefined()
+    expect(
+      screen.getByText(/official signed MetalSharp Wine 6\.0 runtime \(1\.36 GB\)/),
+    ).toBeDefined()
+    expect(screen.getByText(/Pluto AI is a 310 MB download/)).toBeDefined()
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50')
+    expect(screen.getByText('833 MB / 1.67 GB')).toBeDefined()
   })
 
   it('surfaces IPC failures and allows a deliberate retry', async () => {

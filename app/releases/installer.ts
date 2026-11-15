@@ -229,7 +229,11 @@ async function downloadAsset(
   }
 }
 
-function validateAssetSizes(assets: readonly ReleaseAsset[]): number {
+function validateAssetSizes(
+  assets: readonly ReleaseAsset[],
+  maxAssetBytes: number,
+  maxReleaseBytes: number,
+): number {
   if (!assets.length) {
     throw new Error('Release does not advertise any downloadable assets.')
   }
@@ -238,11 +242,11 @@ function validateAssetSizes(assets: readonly ReleaseAsset[]): number {
     if (!Number.isSafeInteger(asset.size) || asset.size < 0) {
       throw new Error(`${asset.name} has an invalid advertised size.`)
     }
-    if (asset.size > MAX_ASSET_BYTES) {
-      throw new Error(`${asset.name} exceeds the ${MAX_ASSET_BYTES}-byte per-file download limit.`)
+    if (asset.size > maxAssetBytes) {
+      throw new Error(`${asset.name} exceeds the ${maxAssetBytes}-byte per-file download limit.`)
     }
-    if (asset.size > MAX_RELEASE_BYTES - totalBytes) {
-      throw new Error(`Release assets exceed the ${MAX_RELEASE_BYTES}-byte total download limit.`)
+    if (asset.size > maxReleaseBytes - totalBytes) {
+      throw new Error(`Release assets exceed the ${maxReleaseBytes}-byte total download limit.`)
     }
     totalBytes += asset.size
   }
@@ -256,8 +260,13 @@ export async function downloadReleaseAssets(
   clientVersion: string,
   fetchImpl: typeof globalThis.fetch,
   onProgress: DownloadProgress,
+  limits: { maxAssetBytes?: number; maxReleaseBytes?: number } = {},
 ): Promise<DownloadedAsset[]> {
-  const totalBytes = validateAssetSizes(release.assets)
+  const totalBytes = validateAssetSizes(
+    release.assets,
+    limits.maxAssetBytes ?? MAX_ASSET_BYTES,
+    limits.maxReleaseBytes ?? MAX_RELEASE_BYTES,
+  )
   await fs.mkdir(destinationDirectory, { recursive: true, mode: 0o700 })
   const downloaded: DownloadedAsset[] = []
   let precedingBytes = 0

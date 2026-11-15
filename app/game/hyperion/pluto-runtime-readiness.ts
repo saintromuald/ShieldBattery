@@ -1,6 +1,8 @@
 import { promises as fs, constants as fsConstants } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { computeFileSha256 } from '../../releases/storage'
+import { metalSharpWineAppPath, metalSharpWineExecutablePath } from './pluto-wine-runtime'
 
 const PLUTO_PAYLOAD_SHA256: Readonly<Record<string, string>> = {
   'pluto.dll': '603fea2f77a4b652f29b832c2977cf5bc9d83bbcb927febd04499220020ce3bc',
@@ -16,6 +18,7 @@ export async function assertPlutoRuntimeReady(
   hyperionDataPath: string,
   hashFile: (filePath: string) => Promise<string> = computeFileSha256,
   platform: NodeJS.Platform = process.platform,
+  homeDirectory: string = os.homedir(),
 ): Promise<void> {
   const installRoot = path.join(hyperionDataPath, 'pluto')
   try {
@@ -34,6 +37,11 @@ export async function assertPlutoRuntimeReady(
     }
     if (platform === 'linux') {
       await fs.access(path.join(installRoot, 'pluto', 'pluto_infer.exe'), fsConstants.X_OK)
+    } else if (platform === 'darwin') {
+      await fs.access(
+        metalSharpWineExecutablePath(metalSharpWineAppPath(homeDirectory)),
+        fsConstants.X_OK,
+      )
     }
   } catch (error) {
     throw new Error(RUNTIME_ERROR, { cause: error })
