@@ -442,7 +442,7 @@ function addPlayerAndControlledSlots(
   const slots = team.slots.map((currentSlot, currentSlotIndex) => {
     if (currentSlotIndex === slotIndex) return player
     if (player.type === SlotType.Computer) {
-      return createComputer(player.race)
+      return createComputer(player.race, player.ai)
     } else {
       // If the human player is joining empty controlled team, check if the currentSlot is `closed`,
       // in which case create a `controlledClosed` type of slot in its place. This type of slot is
@@ -1391,11 +1391,11 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   if (!keepsLayout && !isUms(next.gameType)) {
     // UMS computers are part of the map, so they come back with the layout rather than from the
     // lobby that preceded it.
-    const races = getLobbySlots(lobby)
+    const computers = getLobbySlots(lobby)
       .filter(slot => slot.type === SlotType.Computer)
-      .map(slot => slot.race)
+      .map(slot => ({ race: slot.race, ai: slot.ai }))
     let placed = 0
-    while (placed < races.length) {
+    while (placed < computers.length) {
       // A controlled team is built around the humans in it and only holds computers as a whole
       // team of them, so in those game types computers get a seat by claiming a team that is
       // still empty; once none is left the remaining computers have nowhere to go. (The general
@@ -1408,7 +1408,8 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
         break
       }
       const before = countComputers(updated)
-      updated = addPlayer(updated, seat[0], seat[1], createComputer(races[placed]))
+      const computer = computers[placed]
+      updated = addPlayer(updated, seat[0], seat[1], createComputer(computer.race, computer.ai))
       // Adding a computer to an empty team in team melee/ffa fills the rest of that team with
       // computers, which stands in for as many of the ones still to be placed.
       placed += Math.max(1, countComputers(updated) - before)

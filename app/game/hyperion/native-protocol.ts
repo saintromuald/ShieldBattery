@@ -1,6 +1,8 @@
+import { HYPERION_NATIVE_FEATURES, HyperionNativeFeature } from '../../../common/games/backend'
 import { GameSetup } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { NetcodeV2Setup } from '../../../common/games/netcode-v2'
+import { SlotType } from '../../../common/lobbies/slot'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 
@@ -19,6 +21,20 @@ export interface HyperionManifestSlot {
   name: string
   race: RaceChar
   host: boolean
+}
+
+export interface HyperionManifestAiSlot {
+  stormId: number
+  bwPlayerId: number
+  name: 'Pluto'
+  race: RaceChar
+  level: 'pluto'
+}
+
+export interface HyperionManifestAi {
+  /** The authenticated human's relay slot whose process owns Pluto inference. */
+  ownerRpSlot: number
+  slots: HyperionManifestAiSlot[]
 }
 
 export interface HyperionManifestMap {
@@ -44,6 +60,8 @@ export interface HyperionCompatibility {
   modFingerprint: string
   dataFingerprint: string
   rollback: false
+  /** Optional native capabilities explicitly reported by this exact engine build. */
+  features?: HyperionNativeFeature[]
 }
 
 export function parseHyperionCompatibility(value: unknown): HyperionCompatibility {
@@ -59,7 +77,7 @@ export interface HyperionGameManifest {
   protocol: 1
   gameId: string
   name: string
-  gameType: 'oneVOne' | 'topVBottom'
+  gameType: 'oneVOne' | 'topVBottom' | 'melee' | 'freeForAll'
   gameSubType: number
   /** An unsigned 32-bit simulation seed. */
   seed: number
@@ -67,7 +85,9 @@ export interface HyperionGameManifest {
   speed: number
   disableAllianceChanges: true
   localUserId: SbUserId
+  /** Authenticated human participants only; computers are described separately by `ai`. */
   slots: HyperionManifestSlot[]
+  ai?: HyperionManifestAi
   map: HyperionManifestMap
   compatibility: HyperionCompatibility
   /** Rule 2's seeded anti-meta start; no other mutator is accepted. */
@@ -104,6 +124,15 @@ function expectedPlayerCount(gameType: GameType, gameSubType: number): number | 
   return undefined
 }
 
+function isCustomMelee(gameType: GameType): boolean {
+  return gameType === GameType.Melee || gameType === GameType.FreeForAll
+}
+
+function nativeGameType(gameType: GameType): HyperionGameManifest['gameType'] {
+  if (gameType === GameType.FreeForAll) return 'freeForAll'
+  return gameType as HyperionGameManifest['gameType']
+}
+
 /** The netcode launch handoff with the additional settings consumed by the native adapter. */
 export interface HyperionNativeManifest extends NetcodeV2Setup {
   /** Unlike the optional netcode handoff field, the serialized manifest always includes this. */
@@ -112,7 +141,7 @@ export interface HyperionNativeManifest extends NetcodeV2Setup {
 }
 
 /**
- * Builds a native manifest for a two-, four-, or six-player lockstep game.
+ * Builds a canonical team lockstep manifest, or a custom Melee/FFA manifest with one Pluto AI.
  *
  * `localUserId` should be supplied from the launch config's local user. It can be omitted only
  * when the personalized netcode roster identifies its recipient with exactly one `homeRegion`.
@@ -126,15 +155,23 @@ export function makeHyperionManifest(
   localUserId?: SbUserId,
   ruleConfiguration: HyperionRuleConfiguration = { ruleSet: 'hyperion', antiMeta: false },
 ): HyperionNativeManifest {
-  if (setup.gameType !== GameType.OneVsOne && setup.gameType !== GameType.TopVsBottom) {
-    throw new Error('Hyperion manifests support only GameType.OneVsOne and GameType.TopVsBottom')
+  const customMelee = isCustomMelee(setup.gameType)
+  if (
+    setup.gameType !== GameType.OneVsOne &&
+    setup.gameType !== GameType.TopVsBottom &&
+    !customMelee
+  ) {
+    throw new Error('Hyperion manifests support only canonical teams and custom Melee/Free for all')
   }
   const expectedPlayers = expectedPlayerCount(setup.gameType, setup.gameSubType)
   if (
     (setup.gameType === GameType.OneVsOne && setup.gameSubType !== 0) ||
-    (setup.gameType === GameType.TopVsBottom && ![2, 3].includes(setup.gameSubType))
+    (setup.gameType === GameType.TopVsBottom && ![2, 3].includes(setup.gameSubType)) ||
+    (customMelee && setup.gameSubType !== 0)
   ) {
-    throw new Error('Hyperion team manifests require 2v2 or 3v3, and 1v1 requires gameSubType 0')
+    throw new Error(
+      'Hyperion team manifests require 2v2 or 3v3; 1v1 and custom Melee require gameSubType 0',
+    )
   }
   if (!setup.disableAllianceChanges) {
     throw new Error('Hyperion manifests require alliance changes to be disabled')
@@ -142,17 +179,48 @@ export function makeHyperionManifest(
   if (!('mapData' in setup.map)) {
     throw new Error('Hyperion manifests require map information, not a replay')
   }
-  if (setup.slots.length !== expectedPlayers) {
-    throw new Error(`Hyperion manifests require exactly ${expectedPlayers} GameSetup slots`)
+
+  const humanPlayers = setup.slots.filter(player => player.type === SlotType.Human)
+  const computerPlayers = setup.slots.filter(player => player.type === SlotType.Computer)
+  const unoccupiedPlayers = setup.slots.filter(
+    player => player.type === SlotType.Open || player.type === SlotType.Closed,
+  )
+  const accountedSlotCount =
+    humanPlayers.length + computerPlayers.length + (customMelee ? unoccupiedPlayers.length : 0)
+  if (accountedSlotCount !== setup.slots.length) {
+    throw new Error(
+      customMelee
+        ? 'Hyperion custom Melee accepts humans, one Pluto computer, and unoccupied seats'
+        : 'Hyperion GameSetup slots must contain only humans and an optional computer',
+    )
+  }
+  if (unoccupiedPlayers.some(player => player.ai !== undefined)) {
+    throw new Error('Hyperion AI profiles belong only to computer slots')
+  }
+  if (customMelee) {
+    if (
+      computerPlayers.length !== 1 ||
+      computerPlayers[0].ai?.level !== 'pluto' ||
+      humanPlayers.length < 2
+    ) {
+      throw new Error(
+        'Hyperion custom Melee manifests require at least two humans and exactly one Pluto computer',
+      )
+    }
+  } else if (computerPlayers.length > 0 || setup.slots.length !== expectedPlayers) {
+    throw new Error(`Hyperion manifests require exactly ${expectedPlayers} human GameSetup slots`)
+  }
+  if (humanPlayers.some(player => player.ai !== undefined)) {
+    throw new Error('Hyperion AI profiles belong only to computer slots')
   }
 
   const resolvedLocalUserId = resolveLocalUserId(netcodeSetup, localUserId)
-  const players = setup.slots.map(player => [player.userId, player] as const)
+  const players = humanPlayers.map(player => [player.userId, player] as const)
   if (players.some(([userId]) => userId === undefined)) {
-    throw new Error('Hyperion GameSetup slots must all have user IDs')
+    throw new Error('Hyperion human GameSetup slots must all have user IDs')
   }
   const playerByUserId = new Map(players)
-  if (playerByUserId.size !== setup.slots.length) {
+  if (playerByUserId.size !== humanPlayers.length) {
     throw new Error('Hyperion GameSetup slots must have unique user IDs')
   }
   const userById = new Map(setup.users.map(user => [user.id, user]))
@@ -170,19 +238,49 @@ export function makeHyperionManifest(
       if (setup.gameType === GameType.TopVsBottom && player.teamId === undefined) {
         throw new Error('Hyperion team slots must have team IDs')
       }
+      let teamId = index
+      if (setup.gameType === GameType.TopVsBottom) {
+        teamId = player.teamId!
+      } else if (customMelee) {
+        teamId = 0
+      }
 
       return {
         rpSlot: rosterEntry.slot,
         stormId: rosterEntry.slot,
         bwPlayerId: rosterEntry.slot,
         userId: rosterEntry.userId,
-        teamId: setup.gameType === GameType.TopVsBottom ? player.teamId! : index,
+        teamId,
         name: nativeName(user.name, `Player ${rosterEntry.userId}`),
         race: player.race,
         host: setup.host.userId === rosterEntry.userId,
       }
     })
     .sort((a, b) => a.rpSlot - b.rpSlot)
+
+  let ai: HyperionManifestAi | undefined
+  if (customMelee) {
+    const computer = computerPlayers[0]
+    const owner = slots.find(slot => slot.host)
+    if (!owner) {
+      throw new Error('Hyperion Pluto inference requires an authenticated human host')
+    }
+    if (computer.race === undefined) {
+      throw new Error('Hyperion Pluto computers must have a race')
+    }
+    ai = {
+      ownerRpSlot: owner.rpSlot,
+      slots: [
+        {
+          stormId: slots.length,
+          bwPlayerId: slots.length,
+          name: 'Pluto',
+          race: computer.race,
+          level: 'pluto',
+        },
+      ],
+    }
+  }
 
   const manifest: HyperionNativeManifest = {
     token: netcodeSetup.token,
@@ -199,13 +297,14 @@ export function makeHyperionManifest(
       protocol: 1,
       gameId: setup.gameId,
       name: nativeGameName(setup.name),
-      gameType: setup.gameType,
+      gameType: nativeGameType(setup.gameType),
       gameSubType: setup.gameSubType,
       seed: setup.seed,
       speed: 6,
       disableAllianceChanges: true,
       localUserId: resolvedLocalUserId,
       slots,
+      ...(ai ? { ai } : {}),
       map: {
         format: setup.map.mapData.format,
         hash: setup.map.hash,
@@ -271,17 +370,24 @@ export function validateHyperionManifest(manifest: unknown): string[] {
   }
   validateNonEmptyString(hyperion.gameId, 'hyperion.gameId', errors)
   validateName(hyperion.name, 'hyperion.name', errors)
-  if (hyperion.gameType !== GameType.OneVsOne && hyperion.gameType !== GameType.TopVsBottom) {
-    errors.push("hyperion.gameType must be 'oneVOne' or 'topVBottom'")
+  const customMelee = hyperion.gameType === 'melee' || hyperion.gameType === 'freeForAll'
+  const gameType =
+    hyperion.gameType === 'freeForAll' ? GameType.FreeForAll : (hyperion.gameType as GameType)
+  if (
+    hyperion.gameType !== GameType.OneVsOne &&
+    hyperion.gameType !== GameType.TopVsBottom &&
+    !customMelee
+  ) {
+    errors.push("hyperion.gameType must be 'oneVOne', 'topVBottom', 'melee', or 'freeForAll'")
   }
-  const expectedPlayers = expectedPlayerCount(
-    hyperion.gameType as GameType,
-    hyperion.gameSubType as number,
-  )
-  if (expectedPlayers === undefined) {
-    errors.push('hyperion.gameSubType must be 0 for 1v1 or 2/3 for team play')
+  const expectedPlayers = expectedPlayerCount(gameType, hyperion.gameSubType as number)
+  if (
+    (!customMelee && expectedPlayers === undefined) ||
+    (customMelee && hyperion.gameSubType !== 0)
+  ) {
+    errors.push('hyperion.gameSubType must be 0 for 1v1/Melee or 2/3 for team play')
   }
-  validateRoster(manifest.roster, errors, expectedPlayers)
+  validateRoster(manifest.roster, errors, customMelee ? undefined : expectedPlayers)
   if (!isUint32(hyperion.seed)) {
     errors.push('hyperion.seed must be an unsigned 32-bit integer')
   }
@@ -304,13 +410,14 @@ export function validateHyperionManifest(manifest: unknown): string[] {
   validateSlots(
     hyperion.slots,
     hyperion.localUserId,
-    expectedPlayers,
-    hyperion.gameType as GameType,
+    customMelee ? undefined : expectedPlayers,
+    gameType,
     errors,
   )
   validateMap(hyperion.map, errors)
   validateCompatibility(hyperion.compatibility, errors)
   validateRuleConfiguration(hyperion as unknown as HyperionGameManifest, errors)
+  validateAi(hyperion.ai, hyperion.slots, customMelee, hyperion.compatibility, errors)
   validateRosterMatchesSlots(manifest.roster, hyperion.slots, errors)
 
   return errors
@@ -377,6 +484,9 @@ function validateSlots(
   if (expectedPlayers !== undefined && value.length !== expectedPlayers) {
     errors.push(`hyperion.slots must contain exactly ${expectedPlayers} entries`)
   }
+  if (isCustomMelee(gameType) && (value.length < 2 || value.length > 7)) {
+    errors.push('hyperion.slots must contain 2 through 7 authenticated humans for Pluto Melee')
+  }
 
   const validSlots = value.filter(isRecord)
   for (const [index, slot] of value.entries()) {
@@ -390,9 +500,15 @@ function validateSlots(
         errors.push(`hyperion.slots[${index}].${field} must be an unsigned 32-bit integer`)
       }
     }
-    if (isUint32(slot.rpSlot) && isUint32(slot.teamId) && expectedPlayers !== undefined) {
-      const teamSize = gameType === GameType.TopVsBottom ? expectedPlayers / 2 : 1
-      if (slot.teamId !== Math.floor(slot.rpSlot / teamSize)) {
+    if (isUint32(slot.rpSlot) && isUint32(slot.teamId)) {
+      let expectedTeam: number | undefined
+      if (isCustomMelee(gameType)) {
+        expectedTeam = 0
+      } else if (expectedPlayers !== undefined) {
+        const teamSize = gameType === GameType.TopVsBottom ? expectedPlayers / 2 : 1
+        expectedTeam = Math.floor(slot.rpSlot / teamSize)
+      }
+      if (expectedTeam !== undefined && slot.teamId !== expectedTeam) {
         errors.push(`hyperion.slots[${index}].teamId does not match the canonical team layout`)
       }
     }
@@ -400,10 +516,12 @@ function validateSlots(
       errors.push(`hyperion.slots[${index}].userId must be positive`)
     }
     for (const field of ['rpSlot', 'stormId', 'bwPlayerId'] as const) {
-      if (isUint32(slot[field]) && slot[field] >= (expectedPlayers ?? 6)) {
-        errors.push(
-          `hyperion.slots[${index}].${field} must be between 0 and ${(expectedPlayers ?? 6) - 1}`,
-        )
+      const upperBound = expectedPlayers ?? 8
+      if (isUint32(slot[field]) && slot[field] >= upperBound) {
+        errors.push(`hyperion.slots[${index}].${field} must be between 0 and ${upperBound - 1}`)
+      }
+      if (isUint32(slot[field]) && slot[field] !== index) {
+        errors.push(`hyperion.slots[${index}].${field} must equal its contiguous slot index`)
       }
     }
     if (
@@ -453,6 +571,72 @@ function validateSlots(
     !validSlots.some(slot => slot.userId === localUserId)
   ) {
     errors.push('hyperion.localUserId must belong to one of hyperion.slots')
+  }
+}
+
+function validateAi(
+  value: unknown,
+  humanSlots: unknown,
+  customMelee: boolean,
+  compatibility: unknown,
+  errors: string[],
+): void {
+  if (value === undefined) {
+    if (customMelee) {
+      errors.push('hyperion.ai must contain exactly one Pluto computer for custom Melee')
+    }
+    return
+  }
+  if (!customMelee) {
+    errors.push('hyperion.ai is supported only for custom Melee and Free for all')
+  }
+  if (!isRecord(value)) {
+    errors.push('hyperion.ai must be an object')
+    return
+  }
+  if (!isUint32(value.ownerRpSlot)) {
+    errors.push('hyperion.ai.ownerRpSlot must be an unsigned 32-bit integer')
+  } else if (
+    !Array.isArray(humanSlots) ||
+    !humanSlots.some(slot => isRecord(slot) && slot.rpSlot === value.ownerRpSlot)
+  ) {
+    errors.push('hyperion.ai.ownerRpSlot must identify an authenticated human slot')
+  }
+
+  if (!Array.isArray(value.slots) || value.slots.length !== 1) {
+    errors.push('hyperion.ai.slots must contain exactly one Pluto computer')
+    return
+  }
+  const computer = value.slots[0]
+  if (!isRecord(computer)) {
+    errors.push('hyperion.ai.slots[0] must be an object')
+    return
+  }
+  for (const field of ['stormId', 'bwPlayerId'] as const) {
+    if (!isUint32(computer[field])) {
+      errors.push(`hyperion.ai.slots[0].${field} must be an unsigned 32-bit integer`)
+    }
+  }
+  const firstFreeSlot = Array.isArray(humanSlots) ? humanSlots.length : -1
+  if (
+    firstFreeSlot < 0 ||
+    firstFreeSlot >= 8 ||
+    computer.stormId !== firstFreeSlot ||
+    computer.bwPlayerId !== firstFreeSlot
+  ) {
+    errors.push('hyperion.ai.slots[0] must occupy the first free classic slot below 8')
+  }
+  if (computer.name !== 'Pluto') {
+    errors.push("hyperion.ai.slots[0].name must be 'Pluto'")
+  }
+  if (typeof computer.race !== 'string' || !VALID_RACES.has(computer.race)) {
+    errors.push('hyperion.ai.slots[0].race must be one of z, t, p, or r')
+  }
+  if (computer.level !== 'pluto') {
+    errors.push("hyperion.ai.slots[0].level must be 'pluto'")
+  }
+  if (isRecord(compatibility) && compatibility.rules !== 'hyperion') {
+    errors.push('hyperion.ai requires Hyperion rules so the AI level is retained in replays')
   }
 }
 
@@ -506,6 +690,18 @@ function validateCompatibility(value: unknown, errors: string[]): void {
   if (value.rollback !== false) {
     errors.push('hyperion.compatibility.rollback must be false')
   }
+  if (
+    value.features !== undefined &&
+    (!Array.isArray(value.features) ||
+      value.features.some(
+        feature =>
+          typeof feature !== 'string' ||
+          !(HYPERION_NATIVE_FEATURES as readonly string[]).includes(feature),
+      ) ||
+      new Set(value.features).size !== value.features.length)
+  ) {
+    errors.push('hyperion.compatibility.features must contain unique known native features')
+  }
 }
 
 function validateRuleConfiguration(value: HyperionGameManifest, errors: string[]): void {
@@ -527,6 +723,9 @@ function validateRuleConfiguration(value: HyperionGameManifest, errors: string[]
 function validateRosterMatchesSlots(roster: unknown, slots: unknown, errors: string[]): void {
   if (!Array.isArray(roster) || !Array.isArray(slots)) {
     return
+  }
+  if (roster.length !== slots.length) {
+    errors.push('roster and hyperion.slots must contain the same authenticated humans')
   }
   const rosterEntries = roster.filter(isRecord)
   for (const [index, slot] of slots.entries()) {

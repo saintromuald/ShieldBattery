@@ -1,9 +1,11 @@
+import { coerce, gte } from 'semver'
 import {
   CLIENT_GAMEPLAY_CAPABILITY_PROTOCOL,
   ClientGameplayCapabilities,
   GameplayBackendPolicy,
   HYPERION_NATIVE_FEATURES,
   HyperionCapabilityProfile,
+  HyperionNativeFeature,
 } from '../../common/games/backend'
 import { checkShieldBatteryFiles } from '../check-shieldbattery-files'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -13,6 +15,25 @@ import { HyperionInstall } from './hyperion/launch'
 export interface GameplayCapabilitySnapshot {
   capabilities: ClientGameplayCapabilities
   hyperionInstall?: HyperionInstall
+}
+
+// 0.7.3 and older have no multiplayer Pluto envelope/direct-pipe contract. Newer builds must also
+// explicitly report the feature so an arbitrary future executable cannot opt in accidentally.
+const PLUTO_MIN_ENGINE_VERSION = '0.7.4'
+
+export function nativeFeaturesForInstall(install: HyperionInstall): HyperionNativeFeature[] {
+  const features: HyperionNativeFeature[] = HYPERION_NATIVE_FEATURES.filter(
+    feature => feature !== 'plutoComputer',
+  )
+  const engineVersion = coerce(install.compatibility.engineBuild)
+  if (
+    engineVersion &&
+    gte(engineVersion, PLUTO_MIN_ENGINE_VERSION) &&
+    install.compatibility.features?.includes('plutoComputer')
+  ) {
+    features.push('plutoComputer')
+  }
+  return features
 }
 
 export function hyperionProfileForInstall(
@@ -43,7 +64,7 @@ export function hyperionProfileForInstall(
     modId: compatibility.modId,
     modFingerprint: compatibility.modFingerprint,
     dataFingerprint: compatibility.dataFingerprint.toLowerCase(),
-    features: [...HYPERION_NATIVE_FEATURES],
+    features: nativeFeaturesForInstall(install),
     platform,
     architecture,
     executableSha256: install.executableSha256,

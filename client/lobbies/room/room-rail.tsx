@@ -3,17 +3,21 @@ import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { isTeamType } from '../../../common/games/game-type'
+import { GameplayBackendPolicy } from '../../../common/games/backend'
+import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   canAddObservers,
   canRemoveObservers,
   findSlotByUserId,
+  getLobbySlots,
   hasOpposingSides,
   isUms,
+  Lobby,
   Team,
 } from '../../../common/lobbies'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { RaceChar } from '../../../common/races'
+import { canUseHyperionForOrdinaryLobbies } from '../../../common/server-config'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -25,6 +29,7 @@ import { Popover } from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
 import { useMentionFilterClick } from '../../messaging/mention-hooks'
 import { useAppSelector } from '../../redux-hooks'
+import { getServerConfig } from '../../server-config-storage'
 import {
   bodyMedium,
   headlineMedium,
@@ -54,6 +59,7 @@ export enum SlotAction {
   Close = 'close',
   Open = 'open',
   AddComputer = 'addComputer',
+  AddPlutoComputer = 'addPlutoComputer',
   Kick = 'kick',
   Ban = 'ban',
   MakeObserver = 'makeObserver',
@@ -390,6 +396,17 @@ const FullWidthFilledButton = styled(FilledButton)`
   width: 100%;
 `
 
+export function canAddPlutoComputer(lobby: Lobby, ordinaryHyperionLobbyEnabled: boolean): boolean {
+  return (
+    ordinaryHyperionLobbyEnabled &&
+    lobby.backendPolicy !== GameplayBackendPolicy.ScrCompatibility &&
+    (lobby.gameType === GameType.Melee || lobby.gameType === GameType.FreeForAll) &&
+    !getLobbySlots(lobby).some(
+      slot => slot.type === SlotType.Computer || slot.type === SlotType.UmsComputer,
+    )
+  )
+}
+
 /** What the lobby's layout allows of the host, beyond what any one slot says for itself. */
 interface SlotMenuLimits {
   /**
@@ -397,6 +414,8 @@ interface SlotMenuLimits {
    * map itself, so no lobby playing one accepts a computer anywhere.
    */
   lobbyTakesComputers: boolean
+  /** Whether this Melee/FFA formation has room for its single opt-in Pluto computer. */
+  lobbyTakesPlutoComputers: boolean
   /** Whether an observer seat is free for someone to be moved into. */
   canMakeObserver: boolean
   /** Whether a player seat is free for an observer to be moved into. */
@@ -430,7 +449,7 @@ interface SlotRowProps {
  * than to the lobby, and moving someone between the player seats and the observer seats needs a
  * free seat on the other side.
  */
-function hostActionsFor(
+export function hostActionsFor(
   slot: Slot,
   isObserverTeam: boolean,
   limits: SlotMenuLimits,
@@ -508,6 +527,12 @@ function hostActionsFor(
       t('lobbies.slots.addComputer', 'Add computer'),
       () => onSlotAction(SlotAction.AddComputer, slot.id),
     ])
+    if (limits.lobbyTakesPlutoComputers) {
+      actions.push([
+        t('lobbies.slots.addPlutoComputer', 'Add Pluto computer'),
+        () => onSlotAction(SlotAction.AddPlutoComputer, slot.id),
+      ])
+    }
   }
 
   return actions
@@ -661,7 +686,9 @@ function SlotRow({
           <DragHandle data-slot-drag-handle>
             <ComputerIcon icon='smart_toy' size={20} />
           </DragHandle>
-          <RowName>{t('game.playerName.computer', 'Computer')}</RowName>
+          <RowName>
+            {slot.ai?.level === 'pluto' ? 'Pluto' : t('game.playerName.computer', 'Computer')}
+          </RowName>
           <RowTrailing data-slot-controls>
             <RaceControl
               race={slot.race}
@@ -804,6 +831,7 @@ export function RoomRail({
   const isViewerReadyEligible = eligible.includes(viewerId)
   const isViewerReady = readyUsers.has(viewerId)
   const hasTwoSides = hasOpposingSides(lobby)
+  const hasPlutoComputer = getLobbySlots(lobby).some(slot => slot.ai?.level === 'pluto')
 
   const playerTeams: Team[] = []
   let observerTeam: Team | undefined
@@ -825,7 +853,11 @@ export function RoomRail({
     isHost,
     lifecycle,
     limits: {
-      lobbyTakesComputers: !isUms(lobby.gameType),
+      lobbyTakesComputers: !isUms(lobby.gameType) && !hasPlutoComputer,
+      lobbyTakesPlutoComputers: canAddPlutoComputer(
+        lobby,
+        canUseHyperionForOrdinaryLobbies(getServerConfig()),
+      ),
       canMakeObserver: canAddObservers(lobby),
       canRemoveObserver: canRemoveObservers(lobby),
     },

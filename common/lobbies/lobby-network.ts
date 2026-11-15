@@ -178,6 +178,11 @@ export interface LobbySlotRequest extends LobbyClientRequest {
   slotId: string
 }
 
+/** Adds either an ordinary Classic computer or an explicitly selected AI implementation. */
+export interface AddComputerRequest extends LobbySlotRequest {
+  aiLevel?: 'pluto'
+}
+
 /** The body of a request to set the race of a single slot of a lobby. */
 export interface SetLobbyRaceRequest extends LobbySlotRequest {
   race: RaceChar

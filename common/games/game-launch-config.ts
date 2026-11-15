@@ -1,4 +1,4 @@
-import { SlotType } from '../lobbies/slot'
+import { ComputerAiProfile, SlotType } from '../lobbies/slot'
 import { MapInfoJson } from '../maps'
 import { MatchmakingDivision, MatchmakingType } from '../matchmaking'
 import { BwTurnRate, BwUserLatency } from '../network'
@@ -35,6 +35,8 @@ export interface PlayerInfo {
   type: SlotType
   /** The BW id of the type of this slot. */
   typeId: number
+  /** The selected computer implementation. Absence retains the ordinary Classic AI. */
+  ai?: ComputerAiProfile
 }
 
 export interface ReplayMapInfo {

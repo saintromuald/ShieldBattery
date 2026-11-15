@@ -14,6 +14,11 @@ export enum SlotType {
   Closed = 'closed',
 }
 
+/** An explicitly selected non-Classic implementation for a computer slot. */
+export interface ComputerAiProfile {
+  readonly level: 'pluto'
+}
+
 export interface Slot {
   readonly type: SlotType
   readonly userId?: SbUserId
@@ -24,6 +29,8 @@ export interface Slot {
   readonly hasForcedRace: boolean
   readonly playerId: number
   readonly typeId: number
+  /** The selected computer implementation. Absence retains the ordinary Classic AI. */
+  readonly ai?: ComputerAiProfile
   /**
    * The home game-server region this occupant selected when they joined, if any. Set only on slots
    * a human occupies (`human`/`observer`); used to home their netcode v2 relay at session create.
@@ -81,7 +88,7 @@ export function createHuman(
   }
 }
 
-export function createComputer(race: RaceChar = 'r'): Slot {
+export function createComputer(race: RaceChar = 'r', ai?: ComputerAiProfile): Slot {
   return {
     type: SlotType.Computer,
     race,
@@ -90,6 +97,7 @@ export function createComputer(race: RaceChar = 'r'): Slot {
     hasForcedRace: false,
     playerId: 0,
     typeId: 0,
+    ...(ai ? { ai: { ...ai } } : {}),
   }
 }
 

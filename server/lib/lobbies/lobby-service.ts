@@ -1336,6 +1336,13 @@ export class LobbyService {
     const nextVisibility = visibility ?? current.visibility
     const mapInfo = fetchedMap ?? current.map!
     const nextGameType = gameType ?? current.gameType
+    const hasPlutoComputer = getLobbySlots(current).some(slot => slot.ai?.level === 'pluto')
+    if (hasPlutoComputer && nextGameType === GameType.Melee && lockedAlliances === false) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        'Pluto requires alliance changes to remain disabled in Melee',
+      )
+    }
     // Only team game types are configured by a sub-type, so carrying one over from a type that had
     // one would leave the lobby describing a configuration it doesn't have.
     const nextGameSubType = isTeamType(nextGameType) ? (gameSubType ?? current.gameSubType) : 0
@@ -1662,10 +1669,12 @@ export class LobbyService {
     client,
     lobbyId,
     slotId,
+    ai,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
     slotId: string
+    ai?: Slots.ComputerAiProfile
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
@@ -1676,6 +1685,23 @@ export class LobbyService {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.InvalidGameType,
         'invalid game type: ' + lobby.gameType,
+      )
+    }
+    if (ai && lobby.gameType !== GameType.Melee && lobby.gameType !== GameType.FreeForAll) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidGameType,
+        'Pluto computers require Melee or Free for all',
+      )
+    }
+
+    const existingComputers = getLobbySlots(lobby).filter(
+      slot => slot.type === SlotType.Computer || slot.type === SlotType.UmsComputer,
+    )
+    const hasPluto = existingComputers.some(slot => slot.ai?.level === 'pluto')
+    if ((ai && existingComputers.length > 0) || (!ai && hasPluto)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        'a Pluto computer must be the lobby’s only computer',
       )
     }
 
@@ -1695,10 +1721,22 @@ export class LobbyService {
       )
     }
 
-    const computer = Slots.createComputer()
-    const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
+    const computer = Slots.createComputer('r', ai)
+    let updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
+    const locksAlliancesForPluto = ai && lobby.gameType === GameType.Melee && !lobby.lockedAlliances
+    if (locksAlliancesForPluto) {
+      updated = { ...updated, lockedAlliances: true }
+      this.readyUsers.delete(updated.id)
+    }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
+    if (locksAlliancesForPluto) {
+      this._publishTo(updated, {
+        type: 'settingsChange',
+        changedSettings: ['lockedAlliances'],
+        lobby: updated,
+      })
+    }
   }
 
   changeSlot({

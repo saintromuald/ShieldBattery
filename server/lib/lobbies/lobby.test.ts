@@ -2674,6 +2674,34 @@ describe('Lobbies - settings changes', () => {
     expect(updated.teams[2].slots[0].type).toBe('umsComputer')
   })
 
+  test('should preserve an explicit Pluto AI profile when rebuilding the lobby layout', () => {
+    let lobby = createLobby({
+      name: 'Pluto settings',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+      lockedAlliances: true,
+    })
+    lobby = addHumans(lobby, 1)
+    lobby = addPlayer(lobby, 0, 2, createComputer('p', { level: 'pluto' }))
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { numSlots: 6 }))
+    const plutoInfos = getPlayerInfos(updated).filter(player => player.ai?.level === 'pluto')
+
+    expect(plutoInfos).toHaveLength(1)
+    expect(plutoInfos[0]).toMatchObject({
+      type: 'computer',
+      race: 'p',
+      ai: { level: 'pluto' },
+      userId: undefined,
+    })
+    expect(getPlayerInfos(updated).filter(player => player.type === 'computer')).toHaveLength(1)
+  })
+
   test('should drop the computers a smaller layout has no room for', () => {
     let lobby = createLobby({
       name: 'Comp stomp',

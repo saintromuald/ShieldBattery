@@ -62,6 +62,7 @@ import {
   launchHyperionProcess,
   launchHyperionReplayProcess,
 } from './hyperion/launch'
+import { assertPlutoRuntimeReady } from './hyperion/pluto-runtime-readiness'
 import { hyperionRuleConfigurationForMatchmakingType } from './hyperion/rules'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
@@ -193,6 +194,8 @@ export class ActiveGameManagerHyperionBackend {
   launch?: typeof launchHyperionProcess
   launchReplay?: typeof launchHyperionReplayProcess
   readReplayMetadata?: typeof parseReplayMetadata
+  /** Owner-only local verification; tests can inject a readiness probe without a runtime. */
+  checkPlutoRuntime?: (hyperionDataPath: string) => Promise<void>
 }
 
 export type ActiveGameManagerEvents = {
@@ -701,6 +704,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         install.dataPath ??
         embeddedHyperionPaths(app.getAppPath(), app.getPath('userData'), process.env.SB_SESSION)
           .dataPath
+      const hasPlutoComputer = setup.slots.some(
+        slot => slot.type === SlotType.Computer && slot.ai?.level === 'pluto',
+      )
+      if (hasPlutoComputer && setup.host.userId === config.localUser.id) {
+        await (this.hyperionBackend.checkPlutoRuntime ?? assertPlutoRuntimeReady)(hyperionDataPath)
+      }
       const mapPath = this.mapStore.getPath(map.hash, map.mapData.format)
       // A prior formation's scratch recording is never a candidate for this launch. Waiting for
       // its preservation first also prevents a fast requeue from deleting a write still in flight.

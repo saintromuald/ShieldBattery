@@ -327,6 +327,8 @@ export interface GameSetupFormProps {
   mapQueueSection?: React.ReactNode
   /** Maps to offer as one-click picks below the map card, in display order. */
   recentMaps?: ReadonlyArray<SbMapId>
+  /** Keeps Melee's alliance lock visible and mandatory while a Pluto computer is seated. */
+  plutoLocksAlliances?: boolean
   ref?: React.Ref<GameSetupFormHandle>
 }
 
@@ -348,6 +350,7 @@ export function GameSetupForm({
   visibilitySection,
   mapQueueSection,
   recentMaps,
+  plutoLocksAlliances = false,
   ref,
 }: GameSetupFormProps) {
   const { t } = useTranslation()
@@ -564,12 +567,23 @@ export function GameSetupForm({
                 inputProps={{ tabIndex: 0 }}
               />
               {gameTypeAllowsAllianceChanges(gameType) ? (
-                <CheckBox
-                  {...bindCheckable('lockedAlliances')}
-                  label={t('lobbies.createLobby.lockedAlliances', 'Lock alliances')}
-                  disabled={disabled}
-                  inputProps={{ tabIndex: 0 }}
-                />
+                <AdvancedOption>
+                  <CheckBox
+                    {...bindCheckable('lockedAlliances')}
+                    checked={plutoLocksAlliances || getInputValue('lockedAlliances')}
+                    label={t('lobbies.createLobby.lockedAlliances', 'Lock alliances')}
+                    disabled={disabled || plutoLocksAlliances}
+                    inputProps={{ tabIndex: 0 }}
+                  />
+                  {plutoLocksAlliances ? (
+                    <AdvancedOptionCaption>
+                      {t(
+                        'lobbies.createLobby.plutoAllianceLock',
+                        'Pluto requires locked alliances in Melee.',
+                      )}
+                    </AdvancedOptionCaption>
+                  ) : null}
+                </AdvancedOption>
               ) : null}
             </OptionsRow>
           </Section>

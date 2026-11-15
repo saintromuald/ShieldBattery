@@ -5,6 +5,7 @@ import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyVisibility } from '../../common/lobbies'
 import {
+  AddComputerRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -23,6 +24,7 @@ import {
   UpdateLobbySettingsRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { ComputerAiProfile } from '../../common/lobbies/slot'
 import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
@@ -197,8 +199,18 @@ function currentLobbySlotRequest(
   )
 }
 
-export function addComputer(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
-  return currentLobbySlotRequest('add-computer', slotId, spec)
+export function addComputer(
+  slotId: string,
+  spec: RequestHandlingSpec<void>,
+  ai?: ComputerAiProfile,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/add-computer`, {
+      method: 'POST',
+      body: encodeBodyAsParams<AddComputerRequest>({ clientId, slotId, aiLevel: ai?.level }),
+      signal: spec.signal,
+    }),
+  )
 }
 
 export function changeSlot(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {

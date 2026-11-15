@@ -37,6 +37,7 @@ describe('collectGameplayCapabilities', () => {
       executableSha256: 'c'.repeat(64),
     })
     expect(snapshot.capabilities.scrAvailable).toBe(false)
+    expect(snapshot.capabilities.hyperion?.features).not.toContain('plutoComputer')
     expect(snapshot.hyperionInstall).toBe(INSTALL)
     expect(checkScr).not.toHaveBeenCalled()
   })
@@ -86,6 +87,49 @@ describe('collectGameplayCapabilities', () => {
 })
 
 describe('hyperionProfileForInstall', () => {
+  it('never advertises Pluto for 0.7.3, even if an unexpected feature field is present', () => {
+    const profile = hyperionProfileForInstall(
+      {
+        ...INSTALL,
+        compatibility: {
+          ...INSTALL.compatibility,
+          engineBuild: 'Hyperion-v0.7.3-beta',
+          features: ['plutoComputer'],
+        },
+      },
+      'linux',
+      'x64',
+    )
+
+    expect(profile.features).not.toContain('plutoComputer')
+  })
+
+  it('requires both a post-0.7.3 build and explicit engine Pluto compatibility', () => {
+    const withoutFeature = hyperionProfileForInstall(
+      {
+        ...INSTALL,
+        compatibility: { ...INSTALL.compatibility, engineBuild: 'Hyperion-v0.7.4-beta' },
+      },
+      'linux',
+      'x64',
+    )
+    const withFeature = hyperionProfileForInstall(
+      {
+        ...INSTALL,
+        compatibility: {
+          ...INSTALL.compatibility,
+          engineBuild: 'Hyperion-v0.7.4-beta',
+          features: ['plutoComputer'],
+        },
+      },
+      'win32',
+      'x64',
+    )
+
+    expect(withoutFeature.features).not.toContain('plutoComputer')
+    expect(withFeature.features).toContain('plutoComputer')
+  })
+
   it('rejects unsupported Windows architectures', () => {
     expect(() => hyperionProfileForInstall(INSTALL, 'win32', 'arm64')).toThrow('x64 Windows')
   })

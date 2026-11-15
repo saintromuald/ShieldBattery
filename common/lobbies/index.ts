@@ -240,6 +240,7 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
       playerId: slot.playerId,
       type: slot.type,
       typeId: slot.typeId,
+      ...(slot.ai ? { ai: { ...slot.ai } } : {}),
       teamId: lobby.teams[teamIndex]?.teamId ?? 0,
     }))
 }

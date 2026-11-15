@@ -6,6 +6,7 @@ import { GameplayBackendPolicy } from '../../../common/games/backend'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
 import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
+  AddComputerRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -122,6 +123,12 @@ const lobbyOutcomeBody = Joi.object<SendLobbyOutcomeRequest>({
 const lobbySlotBody = Joi.object<LobbySlotRequest>({
   clientId: clientIdSchema,
   slotId: Joi.string().required(),
+})
+
+const addComputerBody = Joi.object<AddComputerRequest>({
+  clientId: clientIdSchema,
+  slotId: Joi.string().required(),
+  aiLevel: Joi.string().valid('pluto'),
 })
 
 /**
@@ -431,10 +438,15 @@ export class LobbyApi {
   @httpPost('/:lobbyId/add-computer')
   @httpBefore(...authedAction)
   async addComputer(ctx: RouterContext): Promise<void> {
-    const { params, body } = validateRequest(ctx, { params: lobbyIdParams, body: lobbySlotBody })
+    const { params, body } = validateRequest(ctx, { params: lobbyIdParams, body: addComputerBody })
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
-    this.lobbyService.addComputer({ client, lobbyId: params.lobbyId, slotId: body.slotId })
+    this.lobbyService.addComputer({
+      client,
+      lobbyId: params.lobbyId,
+      slotId: body.slotId,
+      ai: body.aiLevel ? { level: body.aiLevel } : undefined,
+    })
   }
 
   @httpPost('/:lobbyId/change-slot')

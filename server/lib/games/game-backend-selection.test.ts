@@ -10,7 +10,14 @@ import {
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
-import { SlotType } from '../../../common/lobbies/slot'
+import { getPlayerInfos, Lobby } from '../../../common/lobbies'
+import {
+  createClosed,
+  createComputer,
+  createHuman,
+  createOpen,
+  SlotType,
+} from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -123,6 +130,26 @@ function lobbyInput(overrides: Partial<GameBackendSelectionInput> = {}): GameBac
     } as GameConfig,
     ...overrides,
   }
+}
+
+function plutoInput(gameType = GameType.Melee): GameBackendSelectionInput {
+  const input = lobbyInput()
+  input.gameConfig.gameType = gameType
+  input.gameConfig.gameSubType = 0
+  input.gameConfig.lockedAlliances = true
+  input.gameConfig.teams = [
+    [...input.gameConfig.teams.flat(), { id: makeSbUserId(0), race: 'z', isComputer: true }],
+  ]
+  input.playerInfos.push({
+    id: 'pluto',
+    race: 'z',
+    playerId: 0,
+    teamId: 0,
+    type: SlotType.Computer,
+    typeId: 0,
+    ai: { level: 'pluto' },
+  })
+  return input
 }
 
 function expectSelectionError(input: GameBackendSelectionInput, detail?: string) {
@@ -286,6 +313,144 @@ describe('selectGameBackend', () => {
     input.policy = { ...POLICY, rollbackEnabled: true }
     input.players[1].capabilities = undefined
     expect(selectGameBackend(input).simulation).toBe('rollback')
+  })
+
+  test.each([GameType.Melee, GameType.FreeForAll])(
+    'allows exactly one Pluto computer in custom %s with two authenticated humans',
+    gameType => {
+      const input = plutoInput(gameType)
+
+      expect(missingDetail(input)).toBeUndefined()
+      expect(selectGameBackend(input)).toMatchObject({
+        backend: GameplayBackend.Hyperion,
+        reason: GameplayBackendSelectionReason.HyperionOnly,
+        rules: { ruleSet: 'hyperion' },
+        transport: 'netcodeV2',
+        simulation: 'lockstep',
+        replay: { format: 'hxRS', playbackBackend: GameplayBackend.Hyperion },
+      })
+      expect(input.playerInfos.at(-1)).not.toHaveProperty('userId')
+    },
+  )
+
+  test('accepts real lobby PlayerInfo output with open and closed seats', () => {
+    const input = plutoInput()
+    const lobby = {
+      teams: [
+        {
+          name: '',
+          teamId: 0,
+          isObserver: false,
+          slots: [
+            createHuman(USERS[0], 'z'),
+            createOpen(),
+            createComputer('p', { level: 'pluto' }),
+            createClosed(),
+            createHuman(USERS[1], 't'),
+            createOpen(),
+          ],
+          hiddenSlots: [],
+        },
+      ],
+    } as Partial<Lobby> as Lobby
+    input.playerInfos = getPlayerInfos(lobby)
+
+    expect(input.playerInfos.map(player => player.type)).toEqual([
+      SlotType.Human,
+      SlotType.Open,
+      SlotType.Computer,
+      SlotType.Closed,
+      SlotType.Human,
+      SlotType.Open,
+    ])
+    expect(missingDetail(input)).toBeUndefined()
+    expect(selectGameBackend(input).backend).toBe(GameplayBackend.Hyperion)
+  })
+
+  test('refuses unlocked Melee rather than silently enabling alliance locking', () => {
+    const input = plutoInput()
+    input.gameConfig.lockedAlliances = false
+
+    expect(missingDetail(input)).toBe('unlockedAlliances')
+    expect(expectSelectionError(input).reason).toBe(GameplayBackendSelectionReason.HyperionOnly)
+  })
+
+  test('retains SC:R routing for a Classic computer in custom Melee', () => {
+    const input = plutoInput()
+    delete input.playerInfos.at(-1)!.ai
+
+    expect(missingDetail(input)).toBe('computers')
+    expect(selectGameBackend(input)).toMatchObject({
+      backend: GameplayBackend.Scr,
+      reason: GameplayBackendSelectionReason.MissingNativeFeature,
+      rules: { ruleSet: 'classic' },
+    })
+  })
+
+  test('rejects multiple Pluto computers rather than partially translating the formation', () => {
+    const input = plutoInput()
+    input.playerInfos.push({ ...input.playerInfos.at(-1)!, id: 'pluto-2' })
+    input.gameConfig.teams[0].push({ id: makeSbUserId(0), race: 'p', isComputer: true })
+
+    expect(missingDetail(input)).toBe('computers')
+    expect(expectSelectionError(input).reason).toBe(GameplayBackendSelectionReason.HyperionOnly)
+  })
+
+  test('requires at least two authenticated humans for multiplayer Pluto', () => {
+    const input = plutoInput()
+    input.players = input.players.slice(0, 1)
+    input.playerInfos = [input.playerInfos[0], input.playerInfos.at(-1)!]
+    input.gameConfig.teams = [[input.gameConfig.teams[0][0], input.gameConfig.teams[0].at(-1)!]]
+
+    expect(missingDetail(input)).toBe('localOnly')
+    expect(expectSelectionError(input).reason).toBe(GameplayBackendSelectionReason.HyperionOnly)
+  })
+
+  test('rejects Pluto outside custom Melee/FFA', () => {
+    const input = plutoInput(GameType.OneVsOne)
+
+    expect(missingDetail(input)).toBe('computers')
+    expect(expectSelectionError(input).reason).toBe(GameplayBackendSelectionReason.HyperionOnly)
+  })
+
+  test('does not enable Pluto computers in matchmaking', () => {
+    const input = matchmakingInput(MatchmakingType.Hyperion1v1Rule1)
+    input.playerInfos[1] = {
+      ...input.playerInfos[1],
+      userId: undefined,
+      type: SlotType.Computer,
+      typeId: 0,
+      ai: { level: 'pluto' },
+    }
+    input.gameConfig.teams[0][1].isComputer = true
+
+    expect(missingDetail(input)).toBe('computers')
+    expect(expectSelectionError(input).reason).toBe(GameplayBackendSelectionReason.HyperionOnly)
+  })
+
+  test('requires every engine to advertise Pluto support', () => {
+    const input = plutoInput()
+    input.players = input.players.map(player => ({
+      ...player,
+      capabilities: capabilities({
+        hyperion: nativeProfile({
+          features: [...HYPERION_NATIVE_FEATURES].filter(feature => feature !== 'plutoComputer'),
+        }),
+      }),
+    }))
+
+    expect(expectSelectionError(input, 'incompatibleNativeProfile').reason).toBe(
+      GameplayBackendSelectionReason.HyperionOnly,
+    )
+  })
+
+  test('does not allow explicit SC:R compatibility to turn Pluto into Classic AI', () => {
+    const input = plutoInput()
+    input.gameConfig.requestedBackendPolicy = GameplayBackendPolicy.ScrCompatibility
+
+    expect(expectSelectionError(input, 'explicitCompatibility').reason).toBe(
+      GameplayBackendSelectionReason.HyperionOnly,
+    )
   })
 
   test.each([

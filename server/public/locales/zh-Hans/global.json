@@ -1745,6 +1745,7 @@
       "mapPlayerCount_other": "{{count}}名玩家",
       "mapRequired": "选择要玩的地图",
       "optionsHeader": "选项",
+      "plutoAllianceLock": "Pluto 要求在对战中锁定同盟。",
       "recentMapsHeader": "最近使用的地图",
       "selectMap": "选择地图",
       "slotsHeader": "槽位",
@@ -2002,6 +2003,7 @@
     },
     "slots": {
       "addComputer": "添加电脑玩家",
+      "addPlutoComputer": "添加 Pluto 电脑玩家",
       "banPlayer": "封禁 {{user}}",
       "closeSlot": "关闭空位",
       "kickPlayer": "踢出 {{user}}",

@@ -1814,6 +1814,7 @@
       "mapPlayerCount_other": "{{count}} игрока",
       "mapRequired": "Выберите карту для игры",
       "optionsHeader": "Параметры",
+      "plutoAllianceLock": "Для Pluto в стычке союзы должны быть закреплены.",
       "recentMapsHeader": "Недавние карты",
       "selectMap": "Выберите карту",
       "slotsHeader": "Слоты",
@@ -2089,6 +2090,7 @@
     },
     "slots": {
       "addComputer": "Добавить компьютер",
+      "addPlutoComputer": "Добавить компьютер Pluto",
       "banPlayer": "Забанить {{user}}",
       "closeSlot": "Закрыть слот",
       "kickPlayer": "Кикнуть {{user}}",

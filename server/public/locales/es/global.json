@@ -1791,6 +1791,7 @@
       "mapPlayerCount_other": "{{count}} jugadores",
       "mapRequired": "Selecciona un mapa para jugar",
       "optionsHeader": "Opciones",
+      "plutoAllianceLock": "Pluto requiere alianzas bloqueadas en Melee.",
       "recentMapsHeader": "Mapas recientes",
       "selectMap": "Seleccionar mapa",
       "slotsHeader": "Espacios",
@@ -2060,6 +2061,7 @@
     },
     "slots": {
       "addComputer": "Agregar computadora",
+      "addPlutoComputer": "Agregar computadora Pluto",
       "banPlayer": "Banear {{user}}",
       "closeSlot": "Cerrar espacio",
       "kickPlayer": "Expulsar {{user}}",

@@ -1745,6 +1745,7 @@
       "mapPlayerCount_other": "{{count}}인용",
       "mapRequired": "플레이할 맵을 선택해 주세요",
       "optionsHeader": "옵션",
+      "plutoAllianceLock": "Pluto는 섬멸전에서 동맹 고정이 필요합니다.",
       "recentMapsHeader": "최근 맵",
       "selectMap": "맵 선택",
       "slotsHeader": "슬롯",
@@ -2002,6 +2003,7 @@
     },
     "slots": {
       "addComputer": "컴퓨터 추가",
+      "addPlutoComputer": "Pluto 컴퓨터 추가",
       "banPlayer": "{{user}} 차단",
       "closeSlot": "슬롯 닫기",
       "kickPlayer": "{{user}} 강퇴",

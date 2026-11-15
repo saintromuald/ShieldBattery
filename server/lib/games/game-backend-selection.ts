@@ -126,22 +126,94 @@ function expectedPlayerCount(gameConfig: GameConfig): number | undefined {
   return undefined
 }
 
+function isCustomMelee(gameConfig: GameConfig): boolean {
+  return gameConfig.gameType === GameType.Melee || gameConfig.gameType === GameType.FreeForAll
+}
+
+function hasPlutoComputer(playerInfos: ReadonlyArray<PlayerInfo>): boolean {
+  return playerInfos.some(
+    player => player.type === SlotType.Computer && player.ai?.level === 'pluto',
+  )
+}
+
 /** Returns the first native-envelope violation, or undefined when the formation is canonical. */
 export function missingNativeFeature(
   input: Omit<GameBackendSelectionInput, 'policy'>,
 ): string | undefined {
   const { gameConfig, players, playerInfos, map } = input
+  const customMelee = isCustomMelee(gameConfig)
   const expected = expectedPlayerCount(gameConfig)
-  if (expected === undefined) return 'gameType'
+  if ((!customMelee && expected === undefined) || (customMelee && gameConfig.gameSubType !== 0)) {
+    return 'gameType'
+  }
   if (players.length <= 1) return 'localOnly'
   if ((gameConfig.observers?.length ?? 0) > 0) return 'observers'
-  if (gameConfig.teams.some(team => team.some(player => player.isComputer))) return 'computers'
-  if (playerInfos.length !== expected || players.length !== expected) return 'arbitrarySlots'
-  if (playerInfos.some(player => player.type !== SlotType.Human || player.userId === undefined)) {
+
+  const configPlayers = gameConfig.teams.flat()
+  const configComputerCount = configPlayers.filter(player => player.isComputer).length
+  const humanInfos = playerInfos.filter(player => player.type === SlotType.Human)
+  const computerInfos = playerInfos.filter(
+    player => player.type === SlotType.Computer || player.type === SlotType.UmsComputer,
+  )
+  const plutoInfos = computerInfos.filter(
+    player => player.type === SlotType.Computer && player.ai?.level === 'pluto',
+  )
+  const hasOnlyPlutoSlotTypes = playerInfos.every(
+    player =>
+      player.type === SlotType.Human ||
+      player.type === SlotType.Computer ||
+      player.type === SlotType.Open ||
+      player.type === SlotType.Closed,
+  )
+  const occupiedInfoCount = humanInfos.length + computerInfos.length
+  const validPlutoFormation =
+    customMelee &&
+    gameConfig.gameSource === GameSource.Lobby &&
+    hasOnlyPlutoSlotTypes &&
+    computerInfos.length === 1 &&
+    plutoInfos.length === 1 &&
+    configComputerCount === 1 &&
+    configPlayers.length === occupiedInfoCount
+  if (customMelee) {
+    // Arbitrary all-human and Classic-computer Melee formations retain their existing SC:R route.
+    if (!validPlutoFormation) {
+      return computerInfos.length > 0 || configComputerCount > 0 ? 'computers' : 'gameType'
+    }
+  } else if (
+    computerInfos.length > 0 ||
+    configComputerCount > 0 ||
+    playerInfos.some(player => player.ai !== undefined)
+  ) {
+    return 'computers'
+  }
+
+  if (customMelee && gameConfig.gameType === GameType.Melee && !gameConfig.lockedAlliances) {
+    return 'unlockedAlliances'
+  }
+
+  const expectedHumans = customMelee ? players.length : expected!
+  const expectedSlots = expectedHumans + (customMelee ? 1 : 0)
+  if (
+    (customMelee ? occupiedInfoCount : playerInfos.length) !== expectedSlots ||
+    humanInfos.length !== expectedHumans ||
+    players.length !== expectedHumans ||
+    (customMelee && (players.length < 2 || expectedSlots > 8))
+  ) {
     return 'arbitrarySlots'
   }
-  if (new Set(playerInfos.map(player => player.userId)).size !== expected) return 'arbitrarySlots'
-  if (new Set(players.map(player => player.userId)).size !== expected) return 'arbitrarySlots'
+  if (humanInfos.some(player => player.userId === undefined || player.ai !== undefined)) {
+    return 'arbitrarySlots'
+  }
+  if (new Set(humanInfos.map(player => player.userId)).size !== expectedHumans) {
+    return 'arbitrarySlots'
+  }
+  const participantIds = new Set(players.map(player => player.userId))
+  if (
+    participantIds.size !== expectedHumans ||
+    humanInfos.some(player => !participantIds.has(player.userId!))
+  ) {
+    return 'arbitrarySlots'
+  }
   if (gameConfig.gameType === GameType.TopVsBottom) {
     if (gameConfig.lockedAlliances !== true) return 'unlockedAlliances'
     if (
@@ -227,7 +299,10 @@ function nativeStageAllows(gameConfig: GameConfig, policy: GameplaySelectionPoli
   return policy.stage === HyperionRolloutStage.Default
 }
 
-function requiredNativeFeatures(rules: GameplayRules): HyperionNativeFeature[] {
+function requiredNativeFeatures(
+  rules: GameplayRules,
+  plutoComputer: boolean,
+): HyperionNativeFeature[] {
   return [
     'allHumanCanonicalTeams',
     'fastest',
@@ -236,11 +311,18 @@ function requiredNativeFeatures(rules: GameplayRules): HyperionNativeFeature[] {
     'verifiedScmScx',
     rules.ruleSet === 'classic' ? 'classicRules' : 'hyperionRules',
     ...(rules.mutators?.antiMeta === 1 ? (['antiMeta'] as const) : []),
+    ...(plutoComputer ? (['plutoComputer'] as const) : []),
   ]
 }
 
-function profileSupports(profile: ResolvedHyperionProfile, rules: GameplayRules): boolean {
-  return requiredNativeFeatures(rules).every(feature => profile.features.includes(feature))
+function profileSupports(
+  profile: ResolvedHyperionProfile,
+  rules: GameplayRules,
+  plutoComputer: boolean,
+): boolean {
+  return requiredNativeFeatures(rules, plutoComputer).every(feature =>
+    profile.features.includes(feature),
+  )
 }
 
 function scrRouting(
@@ -301,10 +383,16 @@ function requireScrFallback(
 export function selectGameBackend(input: GameBackendSelectionInput): ResolvedGameplayRouting {
   if (input.gameConfig.gameplay) return input.gameConfig.gameplay
 
-  const rules = requestedGameplayRules(input.gameConfig)
-  validateRequestedRules(rules)
+  const requestedRules = requestedGameplayRules(input.gameConfig)
+  validateRequestedRules(requestedRules)
+  const plutoComputer = hasPlutoComputer(input.playerInfos)
+  // Pluto needs Hyperion's AI-level replay/runtime contract, even though ordinary custom games
+  // default to Classic rules. It must never degrade into a Classic computer through SC:R fallback.
+  const rules: GameplayRules =
+    plutoComputer && requestedRules.ruleSet === 'classic' ? { ruleSet: 'hyperion' } : requestedRules
   const policy = requestedPolicy(input.gameConfig, input.players)
-  const hyperionOnly = isHyperionMatchmaking(input.gameConfig) || rulesAreHyperionOnly(rules)
+  const hyperionOnly =
+    isHyperionMatchmaking(input.gameConfig) || rulesAreHyperionOnly(rules) || plutoComputer
 
   if (policy === GameplayBackendPolicy.ScrCompatibility) {
     return requireScrFallback(
@@ -326,7 +414,7 @@ export function selectGameBackend(input: GameBackendSelectionInput): ResolvedGam
   }
 
   const nativeProfile = commonNativeProfile(input.players)
-  const nativeCompatible = !!nativeProfile && profileSupports(nativeProfile, rules)
+  const nativeCompatible = !!nativeProfile && profileSupports(nativeProfile, rules, plutoComputer)
   if (nativeStageAllows(input.gameConfig, input.policy) && nativeCompatible) {
     return nativeSelection(input, policy, rules, nativeProfile!, hyperionOnly)
   }

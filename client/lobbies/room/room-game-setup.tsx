@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
+import { GameType } from '../../../common/games/game-type'
+import { getLobbySlots, hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
   changesGameSettings,
   LobbyChangedSetting,
@@ -122,6 +123,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
         ref={formRef}
         model={initialModel}
         recentMaps={recentMaps}
+        plutoLocksAlliances={
+          lobby.gameType === GameType.Melee &&
+          getLobbySlots(lobby).some(slot => slot.ai?.level === 'pluto')
+        }
         nameSection={
           <TextField
             value={name}

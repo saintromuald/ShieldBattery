@@ -3,7 +3,14 @@ import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { NetcodeV2Setup } from '../../../common/games/netcode-v2'
-import { SlotType } from '../../../common/lobbies/slot'
+import { getPlayerInfos, Lobby } from '../../../common/lobbies'
+import {
+  createClosed,
+  createComputer,
+  createHuman,
+  createOpen,
+  SlotType,
+} from '../../../common/lobbies/slot'
 import { MapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -113,6 +120,35 @@ function makeManifestWithRuleConfiguration(
   )
 }
 
+function makePlutoGameSetup(gameType = GameType.Melee): GameSetup {
+  const setup = makeGameSetup()
+  setup.gameType = gameType
+  setup.gameSubType = 0
+  setup.slots.forEach(slot => {
+    slot.teamId = 0
+  })
+  setup.slots.push({
+    id: 'pluto',
+    race: 'p',
+    playerId: 0,
+    teamId: 0,
+    type: SlotType.Computer,
+    typeId: 0,
+    ai: { level: 'pluto' },
+  })
+  return setup
+}
+
+function makePlutoManifest(gameType = GameType.Melee): HyperionNativeManifest {
+  return makeHyperionManifest(
+    makePlutoGameSetup(gameType),
+    makeNetcodeSetup(),
+    MAP_PATH,
+    COMPATIBILITY,
+    HOST_USER_ID,
+  )
+}
+
 function expectViolation(manifest: HyperionNativeManifest, message: string): void {
   expect(validateHyperionManifest(manifest)).toContain(message)
 }
@@ -165,6 +201,131 @@ describe('makeHyperionManifest', () => {
       compatibility: { ...COMPATIBILITY, rules: 'hyperion' },
     })
     expect(manifest.hyperion).not.toHaveProperty('mutators')
+    expect(manifest.hyperion).not.toHaveProperty('ai')
+  })
+
+  it('emits the exact Pluto AI object while keeping both human rosters unchanged', () => {
+    const netcode = makeNetcodeSetup()
+    const originalRoster = structuredClone(netcode.roster)
+
+    const manifest = makeHyperionManifest(
+      makePlutoGameSetup(),
+      netcode,
+      MAP_PATH,
+      COMPATIBILITY,
+      HOST_USER_ID,
+    )
+
+    expect(validateHyperionManifest(manifest)).toEqual([])
+    expect(manifest.roster).toEqual(originalRoster)
+    expect(manifest.hyperion.slots).toEqual([
+      {
+        rpSlot: 0,
+        stormId: 0,
+        bwPlayerId: 0,
+        userId: HOST_USER_ID,
+        teamId: 0,
+        name: 'HostPlayer',
+        race: 'z',
+        host: true,
+      },
+      {
+        rpSlot: 1,
+        stormId: 1,
+        bwPlayerId: 1,
+        userId: GUEST_USER_ID,
+        teamId: 0,
+        name: 'GuestPlayer',
+        race: 't',
+        host: false,
+      },
+    ])
+    expect(manifest.hyperion.ai).toEqual({
+      ownerRpSlot: 0,
+      slots: [
+        {
+          stormId: 2,
+          bwPlayerId: 2,
+          name: 'Pluto',
+          race: 'p',
+          level: 'pluto',
+        },
+      ],
+    })
+    expect(manifest.hyperion.ai!.slots[0]).not.toHaveProperty('userId')
+    expect(manifest.hyperion.ai!.slots[0]).not.toHaveProperty('resultCode')
+    expect(manifest.hyperion.gameType).toBe('melee')
+    expect(manifest.hyperion.compatibility.rules).toBe('hyperion')
+  })
+
+  it('ignores open and closed seats from real lobby PlayerInfo output', () => {
+    const setup = makePlutoGameSetup()
+    const lobby = {
+      teams: [
+        {
+          name: '',
+          teamId: 0,
+          isObserver: false,
+          slots: [
+            createOpen(),
+            createHuman(HOST_USER_ID, 'z'),
+            createClosed(),
+            createComputer('p', { level: 'pluto' }),
+            createHuman(GUEST_USER_ID, 't'),
+            createOpen(),
+          ],
+          hiddenSlots: [],
+        },
+      ],
+    } as Partial<Lobby> as Lobby
+    setup.slots = getPlayerInfos(lobby)
+    setup.host = setup.slots.find(slot => slot.userId === HOST_USER_ID)!
+
+    expect(setup.slots.map(slot => slot.type)).toEqual([
+      SlotType.Open,
+      SlotType.Human,
+      SlotType.Closed,
+      SlotType.Computer,
+      SlotType.Human,
+      SlotType.Open,
+    ])
+    const manifest = makeHyperionManifest(
+      setup,
+      makeNetcodeSetup(),
+      MAP_PATH,
+      COMPATIBILITY,
+      HOST_USER_ID,
+    )
+
+    expect(validateHyperionManifest(manifest)).toEqual([])
+    expect(manifest.hyperion.slots.map(slot => slot.userId)).toEqual([HOST_USER_ID, GUEST_USER_ID])
+    expect(manifest.hyperion.ai).toMatchObject({
+      ownerRpSlot: 0,
+      slots: [{ stormId: 2, bwPlayerId: 2, level: 'pluto' }],
+    })
+    expect(manifest.roster).toHaveLength(2)
+  })
+
+  it('maps ShieldBattery FFA to the native freeForAll game type', () => {
+    const manifest = makePlutoManifest(GameType.FreeForAll)
+
+    expect(validateHyperionManifest(manifest)).toEqual([])
+    expect(manifest.hyperion.gameType).toBe('freeForAll')
+    expect(manifest.hyperion.slots.every(slot => slot.teamId === 0)).toBe(true)
+  })
+
+  it('rejects Classic or multiple computers instead of silently changing their AI profile', () => {
+    const classic = makePlutoGameSetup()
+    delete classic.slots.at(-1)!.ai
+    expect(() =>
+      makeHyperionManifest(classic, makeNetcodeSetup(), MAP_PATH, COMPATIBILITY, HOST_USER_ID),
+    ).toThrow('exactly one Pluto computer')
+
+    const multiple = makePlutoGameSetup()
+    multiple.slots.push({ ...multiple.slots.at(-1)!, id: 'pluto-2' })
+    expect(() =>
+      makeHyperionManifest(multiple, makeNetcodeSetup(), MAP_PATH, COMPATIBILITY, HOST_USER_ID),
+    ).toThrow('exactly one Pluto computer')
   })
 
   it.each(['', 'ShieldBattery Matchmaking', 'ShieldBattery Lobby', 'g'.repeat(25), 'é'.repeat(13)])(
@@ -266,17 +427,26 @@ describe('makeHyperionManifest', () => {
     expect(manifest.rollback).toBe(false)
   })
 
-  it('rejects game types other than GameType.OneVsOne', () => {
+  it('rejects game types outside canonical teams and custom Melee/FFA', () => {
     const setup = makeGameSetup()
-    setup.gameType = GameType.Melee
+    setup.gameType = GameType.TeamMelee
 
     expect(() =>
       makeHyperionManifest(setup, makeNetcodeSetup(), MAP_PATH, COMPATIBILITY, HOST_USER_ID),
-    ).toThrow('Hyperion manifests support only GameType.OneVsOne')
+    ).toThrow('Hyperion manifests support only canonical teams and custom Melee/Free for all')
   })
 
   it('rejects a setup that permits alliance changes', () => {
     const setup = makeGameSetup()
+    setup.disableAllianceChanges = false
+
+    expect(() =>
+      makeHyperionManifest(setup, makeNetcodeSetup(), MAP_PATH, COMPATIBILITY, HOST_USER_ID),
+    ).toThrow('Hyperion manifests require alliance changes to be disabled')
+  })
+
+  it('rejects unlocked Melee instead of silently locking it in the native manifest', () => {
+    const setup = makePlutoGameSetup()
     setup.disableAllianceChanges = false
 
     expect(() =>
@@ -343,6 +513,20 @@ describe('validateHyperionManifest', () => {
     expect(validateHyperionManifest(manifest)).toEqual([])
   })
 
+  it('validates optional engine feature advertisements without requiring them', () => {
+    const manifest = makeValidManifest()
+    expect(validateHyperionManifest(manifest)).toEqual([])
+
+    manifest.hyperion.compatibility.features = ['plutoComputer']
+    expect(validateHyperionManifest(manifest)).toEqual([])
+
+    manifest.hyperion.compatibility.features = ['plutoComputer', 'plutoComputer']
+    expectViolation(
+      manifest,
+      'hyperion.compatibility.features must contain unique known native features',
+    )
+  })
+
   it('rejects mutators with classic rules', () => {
     const classic = makeValidManifest()
     classic.hyperion.compatibility.rules = 'classic'
@@ -360,6 +544,82 @@ describe('validateHyperionManifest', () => {
     manifest.hyperion.mutators = mutators as any
 
     expectViolation(manifest, 'hyperion.mutators must contain exactly antiMeta: 1 when present')
+  })
+
+  it('accepts another authenticated human as the stable Pluto inference owner', () => {
+    const manifest = makePlutoManifest()
+    manifest.hyperion.ai!.ownerRpSlot = 1
+
+    expect(validateHyperionManifest(manifest)).toEqual([])
+  })
+
+  it.each([
+    {
+      name: 'multiple AI slots',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.hyperion.ai!.slots.push({
+          ...manifest.hyperion.ai!.slots[0],
+          stormId: 3,
+          bwPlayerId: 3,
+        })
+      },
+      message: 'hyperion.ai.slots must contain exactly one Pluto computer',
+    },
+    {
+      name: 'an AI owner outside the human roster',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.hyperion.ai!.ownerRpSlot = 2
+      },
+      message: 'hyperion.ai.ownerRpSlot must identify an authenticated human slot',
+    },
+    {
+      name: 'an AI slot that is not first free',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.hyperion.ai!.slots[0].stormId = 3
+        manifest.hyperion.ai!.slots[0].bwPlayerId = 3
+      },
+      message: 'hyperion.ai.slots[0] must occupy the first free classic slot below 8',
+    },
+    {
+      name: 'mismatched AI slot identifiers',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.hyperion.ai!.slots[0].stormId = 3
+      },
+      message: 'hyperion.ai.slots[0] must occupy the first free classic slot below 8',
+    },
+    {
+      name: 'a non-Pluto AI level',
+      mutate: (manifest: HyperionNativeManifest) => {
+        ;(manifest.hyperion.ai!.slots[0] as any).level = 'classic'
+      },
+      message: "hyperion.ai.slots[0].level must be 'pluto'",
+    },
+    {
+      name: 'Classic rules that would discard the AI level',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.hyperion.compatibility.rules = 'classic'
+      },
+      message: 'hyperion.ai requires Hyperion rules so the AI level is retained in replays',
+    },
+    {
+      name: 'an AI credential in the authenticated roster',
+      mutate: (manifest: HyperionNativeManifest) => {
+        manifest.roster.push({ slot: 2, userId: makeSbUserId(999), homeRelayId: 7 })
+      },
+      message: 'roster and hyperion.slots must contain the same authenticated humans',
+    },
+  ])('rejects $name', ({ mutate, message }) => {
+    const manifest = makePlutoManifest()
+    mutate(manifest)
+
+    expectViolation(manifest, message)
+  })
+
+  it('rejects an AI object on a canonical human-only formation', () => {
+    const manifest = makeValidManifest()
+    manifest.hyperion.ai = structuredClone(makePlutoManifest().hyperion.ai)
+
+    expectViolation(manifest, 'hyperion.ai is supported only for custom Melee and Free for all')
   })
 
   it('returns an error rather than throwing for a non-object input', () => {
@@ -381,16 +641,16 @@ describe('validateHyperionManifest', () => {
     {
       name: 'game type',
       mutate: m => {
-        m.hyperion.gameType = GameType.Melee
+        m.hyperion.gameType = GameType.TeamMelee
       },
-      message: "hyperion.gameType must be 'oneVOne' or 'topVBottom'",
+      message: "hyperion.gameType must be 'oneVOne', 'topVBottom', 'melee', or 'freeForAll'",
     },
     {
       name: 'game subtype',
       mutate: m => {
         m.hyperion.gameSubType = 1
       },
-      message: 'hyperion.gameSubType must be 0 for 1v1 or 2/3 for team play',
+      message: 'hyperion.gameSubType must be 0 for 1v1/Melee or 2/3 for team play',
     },
     {
       name: 'negative seed',

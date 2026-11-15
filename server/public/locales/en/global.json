@@ -1798,6 +1798,7 @@
       "mapPlayerCount_other": "{{count}} players",
       "mapRequired": "Select a map to play",
       "optionsHeader": "Options",
+      "plutoAllianceLock": "Pluto requires locked alliances in Melee.",
       "recentMapsHeader": "Recent maps",
       "scrCompatibility": "SC:R compatibility",
       "selectMap": "Select map",
@@ -2065,6 +2066,7 @@
     },
     "slots": {
       "addComputer": "Add computer",
+      "addPlutoComputer": "Add Pluto computer",
       "banPlayer": "Ban {{user}}",
       "closeSlot": "Close slot",
       "kickPlayer": "Kick {{user}}",

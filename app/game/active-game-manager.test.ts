@@ -344,6 +344,29 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
     return config
   }
 
+  function plutoConfigFor(gameId: string, localUserId = hostId): GameLaunchConfig {
+    const config = withResolvedHyperion(hyperionConfigFor(gameId), { ruleSet: 'hyperion' })
+    config.localUser =
+      localUserId === hostId
+        ? { id: hostId, name: 'HostPlayer', created: 0 }
+        : { id: guestId, name: 'GuestPlayer', created: 0 }
+    config.setup.gameType = GameType.Melee
+    config.setup.matchmakingType = undefined
+    config.setup.slots.forEach(slot => {
+      slot.teamId = 0
+    })
+    config.setup.slots.push({
+      id: 'pluto',
+      race: 'p',
+      playerId: 0,
+      teamId: 0,
+      type: SlotType.Computer,
+      typeId: 0,
+      ai: { level: 'pluto' },
+    })
+    return config
+  }
+
   function hyperionNetcodeFor(clientPubkey: string): NetcodeV2ServerSetup {
     return {
       token: 'session-token-test-value',
@@ -370,6 +393,7 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
       readInstall?: (options?: { gameDataPath?: string }) => Promise<HyperionInstall>
       launchReplay?: (options: any) => Promise<any>
       readReplayMetadata?: (filePath: string) => Promise<any>
+      checkPlutoRuntime?: (hyperionDataPath: string) => Promise<void>
     } = { install },
   ) {
     const mapStore = {
@@ -562,6 +586,48 @@ describe('ActiveGameManager Hyperion sidecar launch', () => {
       ruleSet: 'hyperion',
       antiMeta: true,
     })
+    process.resolveExit(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  })
+
+  it('requires a verified Pluto runtime only on the authoritative host', async () => {
+    const failure = new Error(
+      'Pluto AI must be installed and verified on the lobby host. Install or repair Pluto AI in Release Center, then rejoin the lobby.',
+    )
+    const checkPlutoRuntime = vi.fn(async () => Promise.reject(failure))
+    const launch = vi.fn()
+    const { manager } = makeHarness(launch, { install, checkPlutoRuntime })
+    const statuses: any[] = []
+
+    manager.on('gameStatus', status => statuses.push(status))
+    manager.setGameConfig(plutoConfigFor('pluto-owner-not-ready'))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('pluto-owner-not-ready', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(checkPlutoRuntime).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(checkPlutoRuntime).toHaveBeenCalledWith(expect.stringContaining('hyperion'))
+    expect(launch).not.toHaveBeenCalled()
+    expect(statuses).toContainEqual(expect.objectContaining({ state: 'error', extra: failure }))
+  })
+
+  it('allows a guest without a Pluto runtime to launch a shared multiplayer formation', async () => {
+    const checkPlutoRuntime = vi.fn(async () => {
+      throw new Error('a guest must not need the runtime')
+    })
+    let process!: ReturnType<typeof launchResult>
+    const launch = vi.fn(async (options: HyperionLaunchOptions) => {
+      process = launchResult(options)
+      return process.result
+    })
+    const { manager } = makeHarness(launch, { install, checkPlutoRuntime })
+
+    manager.setGameConfig(plutoConfigFor('pluto-guest-without-runtime', guestId))
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setNetcodeV2Setup('pluto-guest-without-runtime', hyperionNetcodeFor(pubkey))
+
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1))
+    expect(checkPlutoRuntime).not.toHaveBeenCalled()
     process.resolveExit(0)
     await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
   })

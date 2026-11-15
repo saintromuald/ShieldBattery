@@ -282,6 +282,9 @@ function ConnectedLobby() {
           case SlotAction.AddComputer:
             dispatch(addComputer(slotId, actionSpec))
             break
+          case SlotAction.AddPlutoComputer:
+            dispatch(addComputer(slotId, actionSpec, { level: 'pluto' }))
+            break
           case SlotAction.Kick:
             dispatch(kickPlayer(slotId, actionSpec))
             break

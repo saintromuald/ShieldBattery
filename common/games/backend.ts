@@ -69,6 +69,7 @@ export const HYPERION_NATIVE_FEATURES = [
   'hyperionRules',
   'lockstep',
   'netcodeV2',
+  'plutoComputer',
   'verifiedScmScx',
 ] as const
 

@@ -784,6 +784,67 @@ describe('lobbies/lobby-service', () => {
       expect(countPublishes()).toEqual([{ count: 0 }, { count: 1 }])
     })
 
+    test('adds an explicit Pluto computer without a user and rejects a second computer', async () => {
+      const { id } = await createLobby(host, 'Pluto lobby')
+      const lobby = lobbyService.lobbies.get(id)!
+      const openSlot = lobby.teams[0].slots[1]
+      expect(lobby.lockedAlliances).toBe(false)
+
+      lobbyService.addComputer({
+        client: host.client,
+        slotId: openSlot.id,
+        ai: { level: 'pluto' },
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.teams[0].slots[1]).toMatchObject({
+        type: 'computer',
+        ai: { level: 'pluto' },
+      })
+      expect(updated.teams[0].slots[1]).not.toHaveProperty('userId')
+      expect(updated.lockedAlliances).toBe(true)
+      expect(lobbyPublishes(id)).toContainEqual(
+        expect.objectContaining({
+          type: 'settingsChange',
+          changedSettings: ['lockedAlliances'],
+          lobby: expect.objectContaining({ lockedAlliances: true }),
+        }),
+      )
+      expect(() =>
+        lobbyService.addComputer({
+          client: host.client,
+          slotId: updated.teams[0].slots[2].id,
+          ai: { level: 'pluto' },
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotOperation }))
+      expect(() =>
+        lobbyService.addComputer({
+          client: host.client,
+          slotId: updated.teams[0].slots[2].id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotOperation }))
+      await expect(
+        lobbyService.updateSettings({ client: host.client, lockedAlliances: false }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidSlotOperation })
+      expect(lobbyService.lobbies.get(id)!.lockedAlliances).toBe(true)
+    })
+
+    test('rejects Pluto for non-Melee game types while retaining Classic computers', async () => {
+      const { id } = await createLobby(host, '1v1', 'listed', false, GameType.OneVsOne)
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+
+      expect(() =>
+        lobbyService.addComputer({
+          client: host.client,
+          slotId: openSlot.id,
+          ai: { level: 'pluto' },
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidGameType }))
+
+      lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
+      expect(lobbyService.lobbies.get(id)!.teams[0].slots[1]).not.toHaveProperty('ai')
+    })
+
     test('an open observer seat keeps a lobby with every player seat taken in the count', async () => {
       const { id } = await createLobby(host, '1v1', 'listed', true, GameType.OneVsOne)
       const lobby = lobbyService.lobbies.get(id)!
