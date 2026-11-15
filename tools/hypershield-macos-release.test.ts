@@ -81,4 +81,29 @@ describe('HyperShield Mac release workflow', () => {
     expect(steps).not.toContain('notarize')
     expect(steps).not.toContain('CSC_LINK')
   })
+
+  it('supports acceptance-only artifacts without creating or updating a release', () => {
+    const workflow = load(read('.github/workflows/hypershield-release.yml')) as any
+    expect(workflow.on.workflow_dispatch.inputs.publish).toMatchObject({
+      default: true,
+      required: true,
+      type: 'boolean',
+    })
+    const linux = workflow.jobs['linux-x64'].steps
+    const mac = workflow.jobs['macos-arm64'].steps
+    expect(linux.find((step: any) => step.name === 'Publish the versioned release').if).toBe(
+      '${{ inputs.publish }}',
+    )
+    expect(
+      linux.find((step: any) => step.name === 'Upload the tested Linux workflow artifact').uses,
+    ).toBe('actions/upload-artifact@v4')
+    expect(
+      mac.find(
+        (step: any) => step.name === 'Attach the tested Mac assets to the same GitHub release',
+      ).if,
+    ).toBe('${{ inputs.publish }}')
+    expect(
+      mac.find((step: any) => step.name === 'Upload the tested Mac workflow artifacts').uses,
+    ).toBe('actions/upload-artifact@v4')
+  })
 })

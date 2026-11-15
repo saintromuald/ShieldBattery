@@ -22,6 +22,11 @@ on:
         options:
           - prerelease
           - stable
+      publish:
+        description: 'Publish GitHub release assets; false leaves tested workflow artifacts only'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -133,7 +138,18 @@ jobs:
           chmod +x "$artifact"
           (cd dist && sha256sum "$(basename "$artifact")" > "$(basename "$artifact").sha256")
 
+      - name: Upload the tested Linux workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hypershield-linux-x64
+          path: |
+            dist/HyperShield-*-x86_64.AppImage
+            dist/HyperShield-*-x86_64.AppImage.sha256
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish the versioned release
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           prerelease=()
@@ -177,7 +193,9 @@ jobs:
             exit 1
           fi
           node -e 'const fs = require("node:fs"); const expected = process.env.VERSION; for (const file of ["package.json", "app/package.json"]) { const actual = JSON.parse(fs.readFileSync(file, "utf8")).version; if (actual !== expected) { throw new Error(`${file} is ${actual}, but the release tag is ${expected}`); } }'
-          gh release view "$TAG" >/dev/null
+          if [ "${{ inputs.publish }}" = true ]; then
+            gh release view "$TAG" >/dev/null
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install dependencies
@@ -362,7 +380,19 @@ jobs:
           }
           NODE
 
+      - name: Upload the tested Mac workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hypershield-macos-arm64
+          path: |
+            dist/HyperShield-*-arm64-mac.dmg
+            dist/HyperShield-*-arm64-mac.zip
+            dist/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Attach the tested Mac assets to the same GitHub release
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           gh release upload "$TAG" \
