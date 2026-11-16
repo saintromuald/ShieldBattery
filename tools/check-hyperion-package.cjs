@@ -278,9 +278,18 @@ function checkHyperionPackage(appOutDir, platform = process.platform) {
   }
 }
 
-exports.default = async function afterPack(context) {
-  checkHyperionPackage(context.appOutDir, context.electronPlatformName ?? process.platform)
+async function afterPack(context) {
+  const platform = context.electronPlatformName ?? process.platform
+  // electron-builder's Mac appOutDir contains the product bundle rather than being the bundle itself.
+  const appOutDir =
+    (platform === 'darwin' || platform === 'mac') && path.extname(context.appOutDir) !== '.app'
+      ? path.join(context.appOutDir, `${context.packager.appInfo.productName}.app`)
+      : context.appOutDir
+  checkHyperionPackage(appOutDir, platform)
 }
+
+exports.default = afterPack
+exports.afterPack = afterPack
 exports.checkHyperionPackage = checkHyperionPackage
 exports.validatePe32PlusAmd64 = validatePe32PlusAmd64
 exports.validatePe = validatePe

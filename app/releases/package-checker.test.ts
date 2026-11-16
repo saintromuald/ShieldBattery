@@ -2,7 +2,11 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { checkHyperionPackage, validatePe32PlusAmd64 } from '../../tools/check-hyperion-package.cjs'
+import {
+  afterPack,
+  checkHyperionPackage,
+  validatePe32PlusAmd64,
+} from '../../tools/check-hyperion-package.cjs'
 import { makeElf64, makeMachOArm64, makePe32PlusAmd64, makePe32X86 } from './testing/fixtures'
 
 let temporaryDirectory: string
@@ -214,6 +218,17 @@ describe('Hyperion package native validation', () => {
     const libraryPath = path.join(path.dirname(executablePath), 'libSDL3.0.dylib')
     await fs.writeFile(libraryPath, makeMachOArm64())
     expect(() => checkHyperionPackage(appOutDir, 'darwin')).toThrow('not MH_DYLIB')
+  })
+
+  it("resolves electron-builder's Mac output directory to the product app bundle", async () => {
+    await writeMacPackage()
+    await expect(
+      afterPack({
+        appOutDir: path.dirname(appOutDir),
+        electronPlatformName: 'darwin',
+        packager: { appInfo: { productName: 'HyperShield' } },
+      }),
+    ).resolves.toBeUndefined()
   })
 
   it('rejects foreign libraries and official Pluto payloads in the Mac package', async () => {
