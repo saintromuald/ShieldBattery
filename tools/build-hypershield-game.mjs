@@ -5,10 +5,16 @@ if (process.platform === 'win32') {
   if (!pnpmPath) {
     throw new Error('The HyperShield release build must be started with pnpm.')
   }
-  const result = spawnSync(process.execPath, [pnpmPath, 'run', 'build-game'], {
-    stdio: 'inherit',
-    env: process.env,
-  })
+  // pnpm 12 can expose its native executable here rather than a JavaScript module path.
+  const nativeExecutable = pnpmPath.toLowerCase().endsWith('.exe')
+  const result = spawnSync(
+    nativeExecutable ? pnpmPath : process.execPath,
+    nativeExecutable ? ['run', 'build-game'] : [pnpmPath, 'run', 'build-game'],
+    {
+      stdio: 'inherit',
+      env: process.env,
+    },
+  )
   if (result.error) {
     throw result.error
   }
