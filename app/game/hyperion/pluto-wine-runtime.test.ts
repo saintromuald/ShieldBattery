@@ -65,6 +65,15 @@ beforeEach(async () => {
   await fs.writeFile(path.join(loader, 'Contents', 'Info.plist'), 'loader info')
   await fs.writeFile(path.join(contents, 'embedded.provisionprofile'), 'outer profile')
   await fs.writeFile(path.join(loader, 'Contents', 'embedded.provisionprofile'), 'loader profile')
+  if (process.platform === 'win32') {
+    // Windows reads relative symlink targets with backslashes; expose this Mac fixture's POSIX
+    // targets so verification still checks their exact archived values.
+    const readlink = fs.readlink.bind(fs)
+    vi.spyOn(fs, 'readlink').mockImplementation(async (linkPath, options) => {
+      const target = await readlink(linkPath, options)
+      return typeof target === 'string' ? target.replaceAll('\\', '/') : target
+    })
+  }
 })
 
 afterEach(async () => {
@@ -107,7 +116,7 @@ function successfulRunner(failures: RunnerFailures = {}) {
     }
     if (executablePath === '/usr/bin/security') return { stdout: PROFILE, stderr: '' }
     if (executablePath === '/usr/bin/plutil') {
-      const inner = args.at(-1)?.includes('wine.app/Contents/Info.plist')
+      const inner = args.at(-1)?.includes(path.join('wine.app', 'Contents', 'Info.plist'))
       return { stdout: JSON.stringify(inner ? LOADER_INFO : OUTER_INFO), stderr: '' }
     }
     if (executablePath === metalSharpWineExecutablePath(fixtureApp) || args[0] === '--version') {

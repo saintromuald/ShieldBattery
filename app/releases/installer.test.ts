@@ -40,7 +40,8 @@ const execFileAsync = promisify(execFile)
 let temporaryDirectory: string
 
 beforeEach(async () => {
-  temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'sb-release-installer-test-'))
+  const temporaryRoot = await fs.realpath(os.tmpdir())
+  temporaryDirectory = await fs.mkdtemp(path.join(temporaryRoot, 'sb-release-installer-test-'))
 })
 
 afterEach(async () => {

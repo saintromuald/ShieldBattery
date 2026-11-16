@@ -195,6 +195,10 @@ describe('Pluto runtime archive installation', () => {
     expect(await isPlutoRuntimeInstalled(staging, TEST_HASHES)).toBe(true)
 
     await fs.chmod(path.join(staging, 'pluto', 'pluto_infer.exe'), 0o600)
+    if (process.platform === 'win32') {
+      // Windows cannot represent the removed POSIX execute bit, so fail the equivalent access check.
+      vi.spyOn(fs, 'access').mockRejectedValue(new Error('simulated non-executable file'))
+    }
     expect(await isPlutoRuntimeInstalled(staging, TEST_HASHES, 'linux')).toBe(false)
     expect(await isPlutoRuntimeInstalled(staging, TEST_HASHES, 'win32')).toBe(true)
   })

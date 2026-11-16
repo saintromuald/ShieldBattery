@@ -159,6 +159,9 @@ describe('embeddedHyperionPaths', () => {
   })
 
   it('resolves the Apple Silicon app bundle with Data beside Hyperion.app', () => {
+    const workingDirectory = path.resolve(
+      '/Applications/HyperShield.app/Contents/Resources/hyperion',
+    )
     expect(
       embeddedHyperionPaths(
         '/Applications/HyperShield.app/Contents/Resources/app.asar',
@@ -168,10 +171,9 @@ describe('embeddedHyperionPaths', () => {
         'arm64',
       ),
     ).toEqual({
-      executablePath:
-        '/Applications/HyperShield.app/Contents/Resources/hyperion/Hyperion.app/Contents/MacOS/Hyperion',
-      dataPath: '/Users/player/Library/Application Support/HyperShield/hyperion',
-      workingDirectory: '/Applications/HyperShield.app/Contents/Resources/hyperion',
+      executablePath: path.join(workingDirectory, 'Hyperion.app', 'Contents', 'MacOS', 'Hyperion'),
+      dataPath: path.join('/Users/player/Library/Application Support/HyperShield', 'hyperion'),
+      workingDirectory,
     })
   })
 

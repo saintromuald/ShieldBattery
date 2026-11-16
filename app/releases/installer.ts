@@ -370,8 +370,8 @@ function validateArchiveEntryPath(entry: TarEntry, platform: NodeJS.Platform): v
 }
 
 function matchesPackagePath(name: string, expected: string, allowWrapper = false): boolean {
-  const actualParts = name.split('/').filter(segment => segment && segment !== '.')
-  const expectedParts = expected.split('/')
+  const actualParts = name.split(/[\\/]/).filter(segment => segment && segment !== '.')
+  const expectedParts = expected.split(/[\\/]/)
   const offset = actualParts.length === expectedParts.length ? 0 : 1
   return (
     (offset === 0 || (allowWrapper && actualParts.length === expectedParts.length + 1)) &&

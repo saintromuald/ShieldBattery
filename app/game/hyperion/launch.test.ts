@@ -319,7 +319,16 @@ describe('launchHyperionProcess', () => {
       metalSharpWineExecutablePath(expectedApp),
     )
     expect(spawn.mock.calls[0][2].env.HYPERION_PLUTO_WINE).toBe(
-      '/Users/pluto-test/Library/Application Support/Hyperion/MetalSharp-Wine-6.0.app/Contents/MacOS/wine',
+      path.join(
+        '/Users/pluto-test',
+        'Library',
+        'Application Support',
+        'Hyperion',
+        'MetalSharp-Wine-6.0.app',
+        'Contents',
+        'MacOS',
+        'wine',
+      ),
     )
     child.exit(0)
     await launched.proc.waitForExit()
