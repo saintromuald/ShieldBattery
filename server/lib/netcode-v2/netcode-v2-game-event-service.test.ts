@@ -12,8 +12,10 @@ import {
   NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import {
+  GameClientAllianceState,
   GameClientResult,
   GameResultErrorCode,
+  RawGameResultsReport,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -47,9 +49,8 @@ vi.mock('../models/games-users', () => ({
 vi.mock('../models/game-desync-events', () => ({
   recordDesyncEvent: vi.fn(),
 }))
-// Defaults to "game not found" so tests that don't care about the exemption check (i.e. don't pass
-// their own `getGameRecordFn`) behave exactly as they did before it existed — the real DB-backed
-// implementation would otherwise blow up in this unit test environment.
+// Defaults to "game not found" so tests that don't configure a game record never reach the real
+// DB-backed implementation in this unit test environment.
 vi.mock('../games/game-models', () => ({
   getGameRecord: vi.fn().mockResolvedValue(undefined),
   getNetcodeV2DebugInfo: vi.fn(),
@@ -113,6 +114,41 @@ function encodeResultPayload(overrides: Partial<SubmitGameResultsRequest> = {}):
     ...overrides,
   }
   return Buffer.from(JSON.stringify(body), 'utf8').toString('base64')
+}
+
+/** A valid raw-v2 report with one human and one computer player. */
+function makeRawResultReport(): RawGameResultsReport {
+  const alliances = () => Array.from({ length: 8 }, () => GameClientAllianceState.Unallied)
+  return {
+    version: 2,
+    userId: makeSbUserId(42),
+    resultCode: 'abc123',
+    time: 12345,
+    players: [
+      {
+        userId: makeSbUserId(42),
+        bwPlayerId: 0,
+        stormId: 0,
+        race: 'z',
+        victoryState: GameClientResult.Victory,
+        alliances: alliances(),
+      },
+      {
+        userId: null,
+        bwPlayerId: 1,
+        stormId: null,
+        race: 't',
+        victoryState: GameClientResult.Defeat,
+        alliances: alliances(),
+      },
+    ],
+    netPlayers: [{ stormId: 0, wasDropped: false, hasQuit: true }],
+    localPlayerLoseType: null,
+  }
+}
+
+function encodeRawResultPayload(report = makeRawResultReport()): string {
+  return Buffer.from(JSON.stringify(report), 'utf8').toString('base64')
 }
 
 function makeResultNotification(
@@ -514,26 +550,31 @@ describe('netcode-v2/recordDepartureNotification', () => {
       expect(recordUserDeparture).not.toHaveBeenCalled()
     })
 
-    test('drops an embedded result for a results-exempt (computer) game, but still records the departure', async () => {
+    test('stores an embedded raw-v2 result for a results-exempt game and still records the departure', async () => {
       asMockedFunction(recordUserDeparture).mockResolvedValue(true)
-      const submitGameResults = vi.fn()
+      const submitGameResults = vi.fn().mockResolvedValue(undefined)
       const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
-      const getGameRecordFn = vi.fn().mockResolvedValue({
-        config: { resultsExempt: true },
-      })
+      const report = makeRawResultReport()
       const notification = makeDepartureNotification({
-        result: { payload: encodeResultPayload(), arrivalMs: Date.now() },
+        result: { payload: encodeRawResultPayload(report), arrivalMs: 12345, sessionFrame: 200 },
       })
 
       await recordDepartureNotification(
         notification,
         submitGameResults,
         scheduleKnownCompleteReconcile,
-        getGameRecordFn,
       )
 
-      expect(submitGameResults).not.toHaveBeenCalled()
+      expect(submitGameResults).toHaveBeenCalledWith({
+        gameId: GAME_ID,
+        report,
+        relayReportTime: new Date(12345),
+        relayReportFrame: 200,
+        logger: expect.anything(),
+      })
       expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+      // The known-complete check still runs; GameResultService's resultsExempt guard makes it a
+      // no-op, so storing this evidence cannot reconcile or rate the game.
       expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
     })
   })
@@ -765,37 +806,23 @@ describe('netcode-v2/recordResultNotification', () => {
     expect(submitGameResults).not.toHaveBeenCalled()
   })
 
-  test('drops a result for a results-exempt (computer) game without submitting or scheduling reconcile', async () => {
-    const submitGameResults = vi.fn()
-    const scheduleKnownCompleteReconcile = vi.fn()
-    const getGameRecordFn = vi.fn().mockResolvedValue({
-      config: { resultsExempt: true },
-    })
-
-    await recordResultNotification(
-      makeResultNotification(),
-      submitGameResults,
-      scheduleKnownCompleteReconcile,
-      getGameRecordFn,
-    )
-
-    expect(submitGameResults).not.toHaveBeenCalled()
-    expect(scheduleKnownCompleteReconcile).not.toHaveBeenCalled()
-  })
-
-  test('submits normally when the game record has no exemption flag set (legacy record)', async () => {
+  test('stores a standalone raw-v2 result for a results-exempt game', async () => {
     const submitGameResults = vi.fn().mockResolvedValue(undefined)
     const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
-    const getGameRecordFn = vi.fn().mockResolvedValue({ config: {} })
+    const report = makeRawResultReport()
+    const notification = makeResultNotification({ payload: encodeRawResultPayload(report) })
 
-    await recordResultNotification(
-      makeResultNotification(),
-      submitGameResults,
-      scheduleKnownCompleteReconcile,
-      getGameRecordFn,
-    )
+    await recordResultNotification(notification, submitGameResults, scheduleKnownCompleteReconcile)
 
-    expect(submitGameResults).toHaveBeenCalledTimes(1)
+    expect(submitGameResults).toHaveBeenCalledWith({
+      gameId: GAME_ID,
+      report,
+      relayReportTime: new Date(notification.arrivalMs),
+      relayReportFrame: 100,
+      logger: expect.anything(),
+    })
+    // Storing a fresh report still triggers the known-complete check. Its resultsExempt guard
+    // prevents reconciliation and rating changes.
     expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
   })
 })

@@ -3,7 +3,6 @@ import { verify as verifyEd25519 } from 'node:crypto'
 import { Logger } from 'pino'
 import { container } from 'tsyringe'
 import { GameSource } from '../../../common/games/configuration'
-import { GameRecord } from '../../../common/games/games'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
@@ -29,7 +28,6 @@ import {
 } from '../games/game-models'
 import GameResultService, {
   GameResultServiceError,
-  isResultsExempt,
   SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
 } from '../games/game-result-service'
 import { LobbyViolationService } from '../games/lobby-violation-service'
@@ -210,26 +208,6 @@ type SubmitGameResults = (args: {
 const defaultSubmitGameResults: SubmitGameResults = args =>
   container.resolve(GameResultService).submitGameResults(args)
 
-/** The `getGameRecord` lookup the exempt-game check needs, factored out for injection in tests. */
-type GetGameRecord = (gameId: string) => Promise<GameRecord | undefined>
-
-/** Production `GetGameRecord`: reads directly from the games model. */
-const defaultGetGameRecord: GetGameRecord = gameId => getGameRecord(gameId)
-
-/**
- * Whether a game is exempt from result tracking (contains a computer player — see
- * `isResultsExempt`), used to drop a relay-borne result before it ever reaches
- * `submitGameResults`. Treats a game that can't be found as not exempt, leaving that case for
- * `submitGameResults` itself to report as `NotFound`.
- */
-async function isExemptResultGame(
-  gameId: string,
-  getGameRecordFn: GetGameRecord,
-): Promise<boolean> {
-  const gameRecord = await getGameRecordFn(gameId)
-  return gameRecord ? isResultsExempt(gameRecord.config) : false
-}
-
 /**
  * Decodes, validates, and submits a relay-forwarded result report through
  * `GameResultService.submitGameResults` — the shared pipeline behind both the standalone `result`
@@ -323,20 +301,16 @@ async function submitRelayResult(
  * `result` webhook, before the departure itself is recorded — a departure is atomic terminal truth
  * for its slot, so its result (if any) lands first. This is expected to duplicate an earlier
  * standalone report for the same slot (the fast path at the victory dialog); `submitRelayResult`
- * silently no-ops on that overlap. An embedded result for a results-exempt game (contains computer
- * players) is dropped before it reaches `submitGameResults` — there was never anything to
- * reconcile for it — but the departure itself is still recorded below regardless, which is
- * harmless.
+ * silently no-ops on that overlap. Results-exempt games use the same storage path; the
+ * reconciliation service's guards keep them unreconciled and unrated.
  *
  * @param submitGameResults injectable for testing; defaults to the real service.
  * @param scheduleKnownCompleteReconcile injectable for testing; defaults to the real service.
- * @param getGameRecordFn injectable for testing; defaults to the real games model.
  */
 export async function recordDepartureNotification(
   notification: NetcodeV2DepartureNotification,
   submitGameResults: SubmitGameResults = defaultSubmitGameResults,
   scheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = defaultScheduleKnownCompleteReconcile,
-  getGameRecordFn: GetGameRecord = defaultGetGameRecord,
 ): Promise<void> {
   const gameId = parseGameId(notification.externalId, 'departure')
   if (!gameId) {
@@ -349,23 +323,16 @@ export async function recordDepartureNotification(
   }
 
   if (notification.result) {
-    if (await isExemptResultGame(gameId, getGameRecordFn)) {
-      log.debug(
-        { gameId, userId },
-        'dropping departure-embedded result for a results-exempt (computer) game',
-      )
-    } else {
-      await submitRelayResult(
-        {
-          gameId,
-          userId,
-          payload: notification.result.payload,
-          arrivalMs: notification.result.arrivalMs,
-          sessionFrame: notification.result.sessionFrame,
-        },
-        submitGameResults,
-      )
-    }
+    await submitRelayResult(
+      {
+        gameId,
+        userId,
+        payload: notification.result.payload,
+        arrivalMs: notification.result.arrivalMs,
+        sessionFrame: notification.result.sessionFrame,
+      },
+      submitGameResults,
+    )
   }
 
   const { kind } = notification
@@ -451,19 +418,16 @@ export async function recordDesyncNotification(
  * undecodable/invalid payload, or a payload whose `userId` doesn't match `externalRef` (a
  * malicious or corrupt relay/coordinator) is logged and dropped rather than erroring back to the
  * coordinator. A duplicate delivery of an already-submitted result is expected (the webhook is
- * at-least-once) and is likewise silent. A result for a results-exempt game (contains computer
- * players) is dropped the same way, before it reaches `submitGameResults` — there was never
- * anything to reconcile for it.
+ * at-least-once) and is likewise silent. Results-exempt games are stored too; the reconciliation
+ * service's guards prevent them from being reconciled or rated.
  *
  * @param submitGameResults injectable for testing; defaults to the real service.
  * @param scheduleKnownCompleteReconcile injectable for testing; defaults to the real service.
- * @param getGameRecordFn injectable for testing; defaults to the real games model.
  */
 export async function recordResultNotification(
   notification: NetcodeV2ResultNotification,
   submitGameResults: SubmitGameResults = defaultSubmitGameResults,
   scheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = defaultScheduleKnownCompleteReconcile,
-  getGameRecordFn: GetGameRecord = defaultGetGameRecord,
 ): Promise<void> {
   const gameId = parseGameId(notification.externalId, 'result')
   if (!gameId) {
@@ -472,11 +436,6 @@ export async function recordResultNotification(
 
   const userId = parseUserId(notification.externalRef, { gameId })
   if (!userId) {
-    return
-  }
-
-  if (await isExemptResultGame(gameId, getGameRecordFn)) {
-    log.debug({ gameId, userId }, 'dropping result for a results-exempt (computer) game')
     return
   }
 
