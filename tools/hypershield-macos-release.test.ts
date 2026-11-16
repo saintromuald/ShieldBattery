@@ -76,6 +76,12 @@ describe('HyperShield Mac release workflow', () => {
     expect(steps).toContain('SB_PACKAGED_SMOKE_TEST=1')
     expect(steps).toContain('HYPERSHIELD_PACKAGED_SMOKE_OK')
     expect(steps).toContain("'--sb-identity'")
+    expect(steps).toContain('if [ -z "$ACCEPTANCE_GAME" ]')
+    expect(steps).toContain("'--install-folder', process.env.ACCEPTANCE_GAME")
+    expect(workflow.on.workflow_dispatch.inputs.acceptanceGamePath).toMatchObject({
+      required: false,
+      default: '',
+    })
     expect(steps).toContain('gh release upload "$TAG"')
     expect(steps).not.toContain('--clobber')
     expect(steps).not.toContain('notarize')

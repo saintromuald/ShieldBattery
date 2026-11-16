@@ -14,6 +14,11 @@ on:
       serverUrl:
         description: 'HyperShield server URL embedded in this client build'
         required: true
+      acceptanceGamePath:
+        description: 'Optional existing StarCraft installation for the data-backed packaged identity probe'
+        required: false
+        default: ''
+        type: string
       channel:
         description: 'Publish as a prerelease or a stable release'
         required: true
@@ -232,6 +237,7 @@ jobs:
       TAG: ${{ inputs.tag }}
       HYPERION_TAG: ${{ inputs.hyperionTag }}
       SB_SERVER: ${{ inputs.serverUrl }}
+      ACCEPTANCE_GAME: ${{ inputs.acceptanceGamePath }}
     steps:
       - uses: actions/checkout@v4
 
@@ -415,16 +421,21 @@ jobs:
           fi
           grep -F HYPERSHIELD_PACKAGED_SMOKE_OK "$log"
 
-      - name: Smoke-test the packaged Hyperion identity protocol
+      - name: Smoke-test the packaged Hyperion identity protocol when game data is supplied
         run: |
           set -euo pipefail
+          if [ -z "$ACCEPTANCE_GAME" ]; then
+            echo 'Skipping the data-backed identity probe: no existing StarCraft installation was supplied.'
+            exit 0
+          fi
           ENGINE="$RELEASE_APP/Contents/Resources/hyperion/Hyperion.app/Contents/MacOS/Hyperion" \
           IDENTITY_DATA="$RUNNER_TEMP/hyperion-identity-data" \
           node - <<'NODE'
           const { spawnSync } = require('node:child_process')
           const fs = require('node:fs')
           fs.mkdirSync(process.env.IDENTITY_DATA, { recursive: true, mode: 0o700 })
-          const result = spawnSync(process.env.ENGINE, ['--sb-identity', '--data', process.env.IDENTITY_DATA], {
+          const args = ['--sb-identity', '--data', process.env.IDENTITY_DATA, '--install-folder', process.env.ACCEPTANCE_GAME]
+          const result = spawnSync(process.env.ENGINE, args, {
             encoding: 'utf8',
             env: { ...process.env, HYPERION_WINDOW: 'hidden' },
             timeout: 30_000,
