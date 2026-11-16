@@ -334,16 +334,20 @@ describe('launchHyperionProcess', () => {
     await launched.proc.waitForExit()
   })
 
-  it('does not give Linux or Windows Hyperion an inherited Wine override', async () => {
-    vi.stubEnv('HYPERION_PLUTO_WINE', '/usr/local/bin/poisoned-system-wine')
-    const child = new FakeChild()
-    const spawn = fakeSpawn(child)
-    const launched = await launchHyperionProcess(makeOptions(), spawn)
+  it.each(['linux', 'win32'] as const)(
+    'does not give %s Hyperion an inherited Wine override',
+    async platform => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+      vi.stubEnv('HYPERION_PLUTO_WINE', '/usr/local/bin/poisoned-system-wine')
+      const child = new FakeChild()
+      const spawn = fakeSpawn(child)
+      const launched = await launchHyperionProcess(makeOptions(), spawn)
 
-    expect(spawn.mock.calls[0][2].env).not.toHaveProperty('HYPERION_PLUTO_WINE')
-    child.exit(0)
-    await launched.proc.waitForExit()
-  })
+      expect(spawn.mock.calls[0][2].env).not.toHaveProperty('HYPERION_PLUTO_WINE')
+      child.exit(0)
+      await launched.proc.waitForExit()
+    },
+  )
 
   it('omits the native result credential when the seat cannot report', async () => {
     const child = new FakeChild()
