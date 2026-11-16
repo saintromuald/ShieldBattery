@@ -55,7 +55,7 @@ describe('HyperShield Mac release workflow', () => {
     const workflow = load(read('.github/workflows/hypershield-release.yml')) as any
     const job = workflow.jobs['macos-arm64']
     expect(job.needs).toBe('linux-x64')
-    expect(job['runs-on']).toBe('macos-15-arm64')
+    expect(job['runs-on']).toBe('macos-26')
     const steps = job.steps.map((step: any) => step.run ?? '').join('\n')
 
     expect(steps).toContain('gh release download "$HYPERION_TAG"')
