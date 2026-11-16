@@ -4,8 +4,12 @@ import { MatchmakingType } from '../matchmaking'
 import { BwTurnRate } from '../network'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
-import type { GameplayBackendPolicy, GameplayRules, ResolvedGameplayRouting } from './backend'
 import { GameType } from './game-type'
+import type {
+  GameplayBackendPolicy,
+  GameplayRules,
+  ResolvedGameplayRouting,
+} from './gameplay-routing'
 
 export enum GameSource {
   Lobby = 'LOBBY',

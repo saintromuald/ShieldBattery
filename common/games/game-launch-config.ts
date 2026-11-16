@@ -5,8 +5,8 @@ import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import type { ReplayIdentity, ResolvedGameplayRouting } from './backend'
 import { GameType } from './game-type'
+import type { ReplayIdentity, ResolvedGameplayRouting } from './gameplay-routing'
 
 /** A matchmaking player's standing in the match's mode, as shown on the game's loading screen. */
 export interface GamePlayerRank {
